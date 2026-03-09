@@ -212,20 +212,23 @@ class MockEmbeddingModel(BaseEmbeddingModel):
 
 
 def get_embedding_model(
-    model_type: str = "huggingface",
+    model_type: str = "bge",
     **kwargs
 ) -> BaseEmbeddingModel:
     """
     Factory function to get an embedding model.
-    
+
     Args:
-        model_type: Type of embedding model ('huggingface', 'openai', 'mock')
+        model_type: Type of embedding model ('bge', 'huggingface', 'openai', 'mock')
         **kwargs: Additional arguments passed to the model constructor
-        
+
     Returns:
         BaseEmbeddingModel instance
     """
-    if model_type == "huggingface":
+    if model_type == "bge":
+        model_name = kwargs.get('model_name', 'BAAI/bge-small-en-v1.5')
+        return HuggingFaceEmbeddingModel(model_name=model_name, **kwargs)
+    elif model_type == "huggingface":
         return HuggingFaceEmbeddingModel(**kwargs)
     elif model_type == "openai":
         return OpenAIEmbeddingModel(**kwargs)
@@ -237,16 +240,16 @@ def get_embedding_model(
 
 # Convenience function for LangChain compatibility
 def get_langchain_embeddings(
-    model_type: str = "huggingface",
+    model_type: str = "bge",
     **kwargs
 ) -> Embeddings:
     """
     Get a LangChain-compatible embeddings instance.
-    
+
     Args:
-        model_type: Type of embedding model
+        model_type: Type of embedding model ('bge', 'huggingface', 'openai', 'mock')
         **kwargs: Additional arguments
-        
+
     Returns:
         LangChain Embeddings instance
     """

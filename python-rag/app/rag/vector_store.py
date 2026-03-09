@@ -301,11 +301,11 @@ class VectorStoreManager:
 if __name__ == "__main__":
     # Test the vector store
     from langchain_core.documents import Document
-    from embeddings import MockEmbeddingModel, get_langchain_embeddings
-    
-    # Create mock embeddings
-    embeddings = get_langchain_embeddings(model_type="mock")
-    
+    from embeddings import get_langchain_embeddings
+
+    # Create embeddings (use HuggingFace for real embeddings)
+    embeddings = get_langchain_embeddings(model_type="huggingface")
+
     # Create vector store
     store = MedicalVectorStore(embeddings)
     

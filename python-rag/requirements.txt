@@ -25,6 +25,7 @@ torch>=2.0.0
 # Datasets (NO LLM)
 # ============================================
 datasets>=2.16.0  # HuggingFace datasets
+biopython>=1.83  # For PubMed download
 
 # ============================================
 # Web Framework (NO LLM)

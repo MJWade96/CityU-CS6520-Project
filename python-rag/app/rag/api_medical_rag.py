@@ -31,6 +31,9 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 # LLM - API based
 from langchain_openai import ChatOpenAI
 
+# Document loader - Real data from external file
+from app.rag.document_loader import load_medical_knowledge_base
+
 
 @dataclass
 class MedicalRAGConfig:
@@ -525,9 +528,11 @@ class MedicalRAGSystem:
             "evaluation": eval_results,
         }
 
-    def initialize(self, sample_data: bool = True) -> None:
+    def initialize(self, use_real_data: bool = True) -> None:
         """Initialize the system"""
-        if sample_data:
+        if use_real_data:
+            self._load_real_knowledge()
+        else:
             self._load_sample_knowledge()
 
         if self.documents:
@@ -538,6 +543,19 @@ class MedicalRAGSystem:
         print(f"  - Embedding: {self.config.embedding_model} (Local, NO LLM)")
         print(f"  - LLM: {self.config.llm_provider}/{self.config.llm_model} (API)")
         print(f"  - Evaluation: Rule-based (NO LLM)")
+
+    def _load_real_knowledge(self) -> None:
+        """Load real medical knowledge from external JSON file"""
+        try:
+            kb = load_medical_knowledge_base()
+            docs = kb.get_documents()
+            for doc in docs:
+                self.add_documents([doc])
+            print(f"Loaded {len(docs)} real medical documents from external file")
+        except FileNotFoundError as e:
+            print(f"Warning: {e}")
+            print("Falling back to sample data...")
+            self._load_sample_knowledge()
 
     def _load_sample_knowledge(self) -> None:
         """Load sample medical knowledge"""
