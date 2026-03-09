@@ -4,6 +4,7 @@ Handles loading and preprocessing medical documents using LangChain
 """
 
 import os
+import json
 from typing import List, Optional, Dict, Any
 from pathlib import Path
 from dataclasses import dataclass
@@ -542,8 +543,45 @@ Patient Counseling:
 ]
 
 
+def get_default_knowledge_path() -> str:
+    """Get the default path for medical knowledge base"""
+    current_dir = Path(__file__).parent
+    project_root = current_dir.parent.parent
+    return str(project_root / "data" / "medical_knowledge" / "medical_knowledge.json")
+
+
+def load_knowledge_from_file(file_path: str = None) -> List[Dict[str, Any]]:
+    """Load medical knowledge from external JSON file"""
+    if file_path is None:
+        file_path = get_default_knowledge_path()
+
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"Medical knowledge file not found: {file_path}")
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    if not isinstance(data, list):
+        raise ValueError("Medical knowledge file must contain a JSON array")
+
+    return data
+
+
+def load_medical_knowledge_base(file_path: str = None) -> MedicalKnowledgeBase:
+    """Load medical knowledge base from external JSON file (Real Data)"""
+    kb = MedicalKnowledgeBase()
+
+    knowledge_data = load_knowledge_from_file(file_path)
+
+    for doc in knowledge_data:
+        kb.add_document(**doc)
+
+    print(f"Loaded {len(knowledge_data)} medical documents from external file")
+    return kb
+
+
 def load_sample_knowledge_base() -> MedicalKnowledgeBase:
-    """Load the sample medical knowledge base"""
+    """Load the sample medical knowledge base (backward compatibility)"""
     kb = MedicalKnowledgeBase()
 
     for doc in SAMPLE_MEDICAL_KNOWLEDGE:

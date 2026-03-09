@@ -13,6 +13,7 @@ class EmbeddingModelType(str, Enum):
     OPENAI = "openai"
     HUGGINGFACE = "huggingface"
     SENTENCE_TRANSFORMER = "sentence-transformer"
+    BGE = "bge"
 
 
 class VectorStoreType(str, Enum):
@@ -39,8 +40,8 @@ class RAGConfig:
     separators: List[str] = field(default_factory=lambda: ["\n\n", "\n", ". ", " ", ""])
     
     # Embedding Settings
-    embedding_model: EmbeddingModelType = EmbeddingModelType.HUGGINGFACE
-    embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
+    embedding_model: EmbeddingModelType = EmbeddingModelType.BGE
+    embedding_model_name: str = "BAAI/bge-small-en-v1.5"
     embedding_dimension: int = 384
     
     # Vector Store Settings
@@ -49,8 +50,6 @@ class RAGConfig:
     
     # Retrieval Settings
     top_k: int = 5
-    similarity_threshold: float = 0.7
-    reranking_enabled: bool = True
     
     # LLM Settings
     llm_type: LLMType = LLMType.ZHIPU

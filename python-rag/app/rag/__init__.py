@@ -12,6 +12,8 @@ from .document_loader import (
     MedicalDocumentLoader,
     MedicalKnowledgeBase,
     load_sample_knowledge_base,
+    load_medical_knowledge_base,
+    load_knowledge_from_file,
     SAMPLE_MEDICAL_KNOWLEDGE,
 )
 from .embeddings import (
@@ -30,6 +32,18 @@ from .api_medical_rag import (
     create_rag_system,
     create_rag_pipeline,
 )
+from .medqa_evaluation import MedQAEvaluator
+from .corpus_loader import MedicalCorpusLoader, StatPearlsLoader, PubMedLoader
+from .prompt_template import (
+    MedicalPromptManager,
+    create_rag_prompt_template,
+    create_chat_prompt_template,
+    format_context,
+    format_options,
+    create_rag_inputs,
+    MEDICAL_RAG_PROMPT,
+    SYSTEM_MESSAGE,
+)
 
 __all__ = [
     # Config
@@ -39,6 +53,8 @@ __all__ = [
     "MedicalDocumentLoader",
     "MedicalKnowledgeBase",
     "load_sample_knowledge_base",
+    "load_medical_knowledge_base",
+    "load_knowledge_from_file",
     "SAMPLE_MEDICAL_KNOWLEDGE",
     # Embeddings
     "BaseEmbeddingModel",
@@ -56,4 +72,19 @@ __all__ = [
     "RuleBasedEvaluator",
     "create_rag_system",
     "create_rag_pipeline",
+    # MedQA Evaluation
+    "MedQAEvaluator",
+    # Corpus Loader
+    "MedicalCorpusLoader",
+    "StatPearlsLoader",
+    "PubMedLoader",
+    # Prompt Templates
+    "MedicalPromptManager",
+    "create_rag_prompt_template",
+    "create_chat_prompt_template",
+    "format_context",
+    "format_options",
+    "create_rag_inputs",
+    "MEDICAL_RAG_PROMPT",
+    "SYSTEM_MESSAGE",
 ]
