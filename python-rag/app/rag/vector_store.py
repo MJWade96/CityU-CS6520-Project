@@ -300,7 +300,7 @@ class VectorStoreManager:
 
 if __name__ == "__main__":
     # Test the vector store
-    from langchain.docstore.document import Document
+    from langchain_core.documents import Document
     from embeddings import MockEmbeddingModel, get_langchain_embeddings
     
     # Create mock embeddings
