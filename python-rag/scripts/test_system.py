@@ -93,7 +93,7 @@ def test_vector_store():
     """Test vector store functionality"""
     print("\nTesting vector store...")
     
-    from langchain.docstore.document import Document
+    from langchain_core.documents import Document
     from app.rag.embeddings import get_langchain_embeddings
     from app.rag.vector_store import MedicalVectorStore
     
