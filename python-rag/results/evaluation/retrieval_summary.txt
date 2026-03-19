@@ -1,0 +1,16 @@
+Medical RAG System - Retrieval Evaluation Summary
+============================================================
+
+Date: 2026-03-10 20:28:59
+Questions evaluated: 100
+Vector store: ./data/vector_store/faiss_index
+
+Metrics:
+  Retrieval Accuracy: 0.1000
+  Time: 3.8s
+
+Recall@k:
+  R@1: 0.0400
+  R@3: 0.0700
+  R@5: 0.1000
+  R@10: 0.1500

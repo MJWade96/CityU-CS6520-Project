@@ -1,0 +1,1418 @@
+{
+  "metrics": {
+    "total_questions": 100,
+    "correct": 10,
+    "accuracy": 0.1,
+    "elapsed_time": 3.753678321838379,
+    "questions_per_second": 26.64053534321625,
+    "top_k": 5
+  },
+  "recall_at_k": {
+    "1": 0.04,
+    "3": 0.07,
+    "5": 0.1,
+    "10": 0.15
+  },
+  "detailed_results": [
+    {
+      "id": "q_1",
+      "question": "A 68-year-old man from California presents for a routine checkup. He does not have any complaints. H",
+      "correct_answer": "Actinic keratosis",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.9259786009788513,
+        0.9379326701164246,
+        0.9517676830291748,
+        0.9644113779067993,
+        0.9765118956565857
+      ]
+    },
+    {
+      "id": "q_2",
+      "question": "A 52-year-old man with a history of gastric cancer that was treated with subtotal gastrectomy dies i",
+      "correct_answer": "Decreased positional sense in the ipsilateral leg",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.9106646180152893,
+        0.9147998094558716,
+        0.9217182397842407,
+        0.9319489002227783,
+        0.9422531127929688
+      ]
+    },
+    {
+      "id": "q_3",
+      "question": "A 62-year-old man comes to the physician because of worsening involuntary movements of both arms for",
+      "correct_answer": "Propranolol therapy",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.8289240598678589,
+        0.833136260509491,
+        0.8385003805160522,
+        0.8471407890319824,
+        0.8701417446136475
+      ]
+    },
+    {
+      "id": "q_4",
+      "question": "A 42-year-old chronic alcoholic man was admitted to the hospital for inappropriate behavior and dist",
+      "correct_answer": "Alpha-Ketoglutarate + NAD+ + CoA <=> Succinyl-CoA + CO2 + NADH",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.6860608458518982,
+        0.72518390417099,
+        0.7373949289321899,
+        0.7385294437408447,
+        0.7412512302398682
+      ]
+    },
+    {
+      "id": "q_5",
+      "question": "A 48-year-old Caucasian female presents to her primary care physician for evaluation of progressive ",
+      "correct_answer": "Muscle biopsy",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.71583491563797,
+        0.8042088747024536,
+        0.8138728141784668,
+        0.8379839658737183,
+        0.8515288829803467
+      ]
+    },
+    {
+      "id": "q_6",
+      "question": "A 41-year-old man is brought to the emergency department after a suicide attempt. His wife found him",
+      "correct_answer": "Sodium bicarbonate",
+      "retrieval_success": true,
+      "retrieved_docs": 5,
+      "scores": [
+        0.6809935569763184,
+        0.7992182970046997,
+        0.8042329549789429,
+        0.8221662044525146,
+        0.8297955989837646
+      ]
+    },
+    {
+      "id": "q_7",
+      "question": "A 75-year-old with hypertension and atrial fibrillation comes to the emergency department because of",
+      "correct_answer": "Superior mesenteric artery",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.8371365070343018,
+        0.8454285264015198,
+        0.8706369400024414,
+        0.8793803453445435,
+        0.8854235410690308
+      ]
+    },
+    {
+      "id": "q_8",
+      "question": "A 10-year-old boy is brought to the physician because of a generalized, non-itchy rash for 2 days. H",
+      "correct_answer": "Mitral valve regurgitation",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.6623356342315674,
+        0.6757000684738159,
+        0.723091721534729,
+        0.7232122421264648,
+        0.7274284362792969
+      ]
+    },
+    {
+      "id": "q_9",
+      "question": "A 14-year-old obese boy presents with severe right hip and knee pain. The patient says that he has b",
+      "correct_answer": "Surgical pinning of the right hip",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.6431541442871094,
+        0.7199801206588745,
+        0.7565933465957642,
+        0.7814291715621948,
+        0.78843092918396
+      ]
+    },
+    {
+      "id": "q_10",
+      "question": "A 59-year-old woman presents to her primary care provider complaining of diffuse bodily aches. She r",
+      "correct_answer": "Well-defined cystic lesion with peritrabecular fibrosis",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.8367819786071777,
+        0.883108913898468,
+        0.896436333656311,
+        0.8989955186843872,
+        0.9003323912620544
+      ]
+    },
+    {
+      "id": "q_11",
+      "question": "A 13-month-old boy is brought to the physician for a well-child examination. Physical examination sh",
+      "correct_answer": "Acute pancreatitis",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.8202277421951294,
+        0.8483490943908691,
+        0.8514523506164551,
+        0.874530553817749,
+        0.8760934472084045
+      ]
+    },
+    {
+      "id": "q_12",
+      "question": "A 30-year-old woman comes to the physician because she has been unable to conceive for 3 years. Anal",
+      "correct_answer": "Endometrial tissue outside the uterine cavity",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.73854660987854,
+        0.7601619362831116,
+        0.7606397867202759,
+        0.7712782025337219,
+        0.7772509455680847
+      ]
+    },
+    {
+      "id": "q_13",
+      "question": "Five days after undergoing an emergency appendectomy under general inhalational anesthesia while on ",
+      "correct_answer": "Adverse effect of anesthetic",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7472803592681885,
+        0.7637119293212891,
+        0.776502251625061,
+        0.7968701124191284,
+        0.8042328357696533
+      ]
+    },
+    {
+      "id": "q_14",
+      "question": "A 33-year-old woman presents to her primary care physician with bilateral joint pain. She says that ",
+      "correct_answer": "Decreased complement levels",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.8547319769859314,
+        0.8726478815078735,
+        0.8755818605422974,
+        0.8764758706092834,
+        0.8967334032058716
+      ]
+    },
+    {
+      "id": "q_15",
+      "question": "A 56-year-old man presents to the emergency department for progressively worsening fatigue, malaise,",
+      "correct_answer": "Liver transplantation",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7579086422920227,
+        0.8086037635803223,
+        0.8242905139923096,
+        0.8336697816848755,
+        0.8378571271896362
+      ]
+    },
+    {
+      "id": "q_16",
+      "question": "A 32-year-old man presents to the emergency department with fever, nausea, and vomiting. The patient",
+      "correct_answer": "IV fluids and monitoring",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7391646504402161,
+        0.7675952315330505,
+        0.7740598917007446,
+        0.7757800817489624,
+        0.7816574573516846
+      ]
+    },
+    {
+      "id": "q_17",
+      "question": "A 50-year-old man presents to his physician with chronic cough, aching joints in his hips and lower ",
+      "correct_answer": "Valley fever",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.817425012588501,
+        0.8243844509124756,
+        0.8342140913009644,
+        0.8470896482467651,
+        0.8555505871772766
+      ]
+    },
+    {
+      "id": "q_18",
+      "question": "A 36-year-old woman comes to the physician because of a painless lump on her neck for 3 months that ",
+      "correct_answer": "Papillary carcinoma of the thyroid",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.6247650384902954,
+        0.6308026313781738,
+        0.6430215835571289,
+        0.7006105184555054,
+        0.7017725706100464
+      ]
+    },
+    {
+      "id": "q_19",
+      "question": "A 40-year-old woman presents with severe shortness of breath. The patient is unable to provide a his",
+      "correct_answer": "Alveolar hypoventilation",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7811392545700073,
+        0.7945835590362549,
+        0.8035304546356201,
+        0.8062779307365417,
+        0.8163684606552124
+      ]
+    },
+    {
+      "id": "q_20",
+      "question": "A 45-year-old man comes to the physician because of mild left-sided abdominal pain when lifting heav",
+      "correct_answer": "Rectus abdominis",
+      "retrieval_success": true,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7195085287094116,
+        0.7871271371841431,
+        0.8402671813964844,
+        0.8588249087333679,
+        0.8592497110366821
+      ]
+    },
+    {
+      "id": "q_21",
+      "question": "A 26-year-old woman developed rapidly progressive septic shock associated with nuchal rigidity, pete",
+      "correct_answer": "Tumor necrosis factor-α",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7388882637023926,
+        0.7545889019966125,
+        0.7638055086135864,
+        0.772102952003479,
+        0.7770054340362549
+      ]
+    },
+    {
+      "id": "q_22",
+      "question": "A 65-year old man presents with gradually worsening rigidity of his arms and legs and slowness in pe",
+      "correct_answer": "Amantadine",
+      "retrieval_success": true,
+      "retrieved_docs": 5,
+      "scores": [
+        0.8474271297454834,
+        0.8931903839111328,
+        0.8933475017547607,
+        0.901735782623291,
+        0.9311144948005676
+      ]
+    },
+    {
+      "id": "q_23",
+      "question": "A 24-year-old woman comes to the physician because she had unprotected intercourse with her boyfrien",
+      "correct_answer": "Administer ulipristal acetate",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.8633548021316528,
+        0.8818729519844055,
+        0.9671741127967834,
+        0.9729457497596741,
+        0.9748809337615967
+      ]
+    },
+    {
+      "id": "q_24",
+      "question": "A 23-year-old woman presents to her psychiatrist concerned about her mood. She has felt tired and un",
+      "correct_answer": "Continue current therapy",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.8342185020446777,
+        0.8843241930007935,
+        0.8982442617416382,
+        0.9024187326431274,
+        0.9043554067611694
+      ]
+    },
+    {
+      "id": "q_25",
+      "question": "A 19-year-old man in a 3-month relationship with a woman experiences frequent sexual fantasies about",
+      "correct_answer": "Reaction formation",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.9756240844726562,
+        1.0165444612503052,
+        1.0391054153442383,
+        1.0593419075012207,
+        1.0657484531402588
+      ]
+    },
+    {
+      "id": "q_26",
+      "question": "A 25-year-old zookeeper presents to the office complaining of a dry cough, fever, and chills for the",
+      "correct_answer": "Avoid exposure to birds",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.8408323526382446,
+        0.857630729675293,
+        0.8584579825401306,
+        0.88892662525177,
+        0.9030258059501648
+      ]
+    },
+    {
+      "id": "q_27",
+      "question": "A 41-year-old man presents to the clinic with the complaints of abdominal discomfort and cramping fo",
+      "correct_answer": "Ulcerative colitis",
+      "retrieval_success": true,
+      "retrieved_docs": 5,
+      "scores": [
+        0.6510443091392517,
+        0.6659337282180786,
+        0.6790097951889038,
+        0.6826905608177185,
+        0.6848719716072083
+      ]
+    },
+    {
+      "id": "q_28",
+      "question": "A 67-year-old man comes to the clinic complaining of fatigue and dizziness for the past 2 months. He",
+      "correct_answer": "Presence of smudge cells",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7540404796600342,
+        0.781116247177124,
+        0.7951808571815491,
+        0.8216891288757324,
+        0.8279841542243958
+      ]
+    },
+    {
+      "id": "q_29",
+      "question": "A 55-year-old man presents to the emergency department with a headache. He states that this is the w",
+      "correct_answer": "IV steroids",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7047652006149292,
+        0.7482242584228516,
+        0.7731682062149048,
+        0.8070275187492371,
+        0.8181338310241699
+      ]
+    },
+    {
+      "id": "q_30",
+      "question": "A 35-year-old woman comes to the physician because she has been feeling very stressed over the past ",
+      "correct_answer": "Cognitive behavioral therapy",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.8945549726486206,
+        0.914797306060791,
+        0.9343578219413757,
+        0.9357380867004395,
+        0.9407221078872681
+      ]
+    },
+    {
+      "id": "q_31",
+      "question": "A 23-year-old man presents to the office for a circular, itchy rash over the abdomen that has been s",
+      "correct_answer": "Itraconazole",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.9163376092910767,
+        0.9543370008468628,
+        0.9571439027786255,
+        0.9647265672683716,
+        0.9668748378753662
+      ]
+    },
+    {
+      "id": "q_32",
+      "question": "A 7-year-old boy is brought to his pediatrician’s office for a follow-up visit. He was diagnosed wit",
+      "correct_answer": "IL-4",
+      "retrieval_success": true,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7409824132919312,
+        0.7664822340011597,
+        0.7669328451156616,
+        0.8036717772483826,
+        0.8061097264289856
+      ]
+    },
+    {
+      "id": "q_33",
+      "question": "A 27-year-old woman with a history of bipolar disorder presents for a 3-month follow-up after starti",
+      "correct_answer": "Lamotrigine",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7043339014053345,
+        0.7779757976531982,
+        0.7946940660476685,
+        0.7948357462882996,
+        0.8016573190689087
+      ]
+    },
+    {
+      "id": "q_34",
+      "question": "A one-week-old boy presents with yellow sclerae, severe lethargy, and decreased muscle tone. His mot",
+      "correct_answer": "Absence of UDP-glucuronosyltransferase-1A1",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7508087158203125,
+        0.754716157913208,
+        0.7655751705169678,
+        0.7702512741088867,
+        0.7739543318748474
+      ]
+    },
+    {
+      "id": "q_35",
+      "question": "A 35-year-old man presents to the emergency room due to shortness of breath that started an hour ago",
+      "correct_answer": "Asthma attack",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.666301965713501,
+        0.6841750144958496,
+        0.6849303245544434,
+        0.7222051024436951,
+        0.7304103374481201
+      ]
+    },
+    {
+      "id": "q_36",
+      "question": "A 75-year-old man presents to the emergency department with a racing heart and lightheadedness for 3",
+      "correct_answer": "Inhibition of vitamin K-dependent clotting factors",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.6162177324295044,
+        0.69590163230896,
+        0.7010984420776367,
+        0.7132121324539185,
+        0.7290912866592407
+      ]
+    },
+    {
+      "id": "q_37",
+      "question": "Two hours after undergoing open cholecystectomy for complicated cholecystitis, a 48-year-old woman d",
+      "correct_answer": "Hyponatremia",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.753557562828064,
+        0.7612062692642212,
+        0.7936617732048035,
+        0.8158681392669678,
+        0.8250267505645752
+      ]
+    },
+    {
+      "id": "q_38",
+      "question": "A 25-year-old man presents to his primary care provider complaining of several weeks of intense itch",
+      "correct_answer": "Pyrantel pamoate",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7684459686279297,
+        0.7704065442085266,
+        0.8001288175582886,
+        0.8013438582420349,
+        0.8184107542037964
+      ]
+    },
+    {
+      "id": "q_39",
+      "question": "A 3-year-old refugee with increasing pitting edema and abdominal swelling over the past 2 months is ",
+      "correct_answer": "Kwashiorkor",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.8394670486450195,
+        0.908683180809021,
+        0.9118277430534363,
+        0.9341050982475281,
+        0.9455819725990295
+      ]
+    },
+    {
+      "id": "q_40",
+      "question": "A 53-year-old man with recurrent pancreatic adenocarcinoma is enrolled in a clinical trial for a nov",
+      "correct_answer": "2.67",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7111425995826721,
+        0.7284936308860779,
+        0.7369039058685303,
+        0.8007850050926208,
+        0.8011311292648315
+      ]
+    },
+    {
+      "id": "q_41",
+      "question": "A 16-year-old girl is brought to the physician by her father because of concerns about her behavior ",
+      "correct_answer": "Schizoid personality disorder",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7838415503501892,
+        0.8100239038467407,
+        0.8117627501487732,
+        0.8159725069999695,
+        0.8284353017807007
+      ]
+    },
+    {
+      "id": "q_42",
+      "question": "A 35-year-old woman presents to her primary care provider concerned that she may be pregnant. She ha",
+      "correct_answer": "Discontinue methimazole, start propylthiouracil",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.4584038555622101,
+        0.5263446569442749,
+        0.5920186042785645,
+        0.5973554849624634,
+        0.6087638139724731
+      ]
+    },
+    {
+      "id": "q_43",
+      "question": "A 52-year-old woman presents to her primary care physician for abdominal pain and diarrhea. The pati",
+      "correct_answer": "Impaired iron absorption",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.8105564713478088,
+        0.8722630143165588,
+        0.8861589431762695,
+        0.8894927501678467,
+        0.892027735710144
+      ]
+    },
+    {
+      "id": "q_44",
+      "question": "A post-mortem lung examination of a 68-year-old male overweight male with evidence of chronic lower ",
+      "correct_answer": "Reid Index > 50%",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.8133417963981628,
+        0.8650202751159668,
+        0.8991596698760986,
+        0.9044897556304932,
+        0.915640652179718
+      ]
+    },
+    {
+      "id": "q_45",
+      "question": "A 40-year-old woman presents to her family physician with a 3-week history of swollen neck. The smal",
+      "correct_answer": "Silent thyroiditis",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7549201846122742,
+        0.7580662965774536,
+        0.7651506066322327,
+        0.7735739350318909,
+        0.793714165687561
+      ]
+    },
+    {
+      "id": "q_46",
+      "question": "A 42-year-old man comes to the physician to establish care. He recently moved to the area and has no",
+      "correct_answer": "Insulin resistance",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.8228020071983337,
+        0.8511320352554321,
+        0.8571822643280029,
+        0.8680130839347839,
+        0.8824098110198975
+      ]
+    },
+    {
+      "id": "q_47",
+      "question": "The menses are 4 weeks overdue in a 23-year-old sexually active woman, thus she is scheduled for an ",
+      "correct_answer": "Embryonic hematopoiesis",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.9171843528747559,
+        0.9225763082504272,
+        0.9382714629173279,
+        0.9621089696884155,
+        0.9898054003715515
+      ]
+    },
+    {
+      "id": "q_48",
+      "question": "A 2050-g (4.5-lb) female newborn and a 2850-g (6.3-lb) female newborn are delivered at 37 weeks' ges",
+      "correct_answer": "Monochorionic-diamniotic monozygotic",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7324862480163574,
+        0.7923638820648193,
+        0.7980833649635315,
+        0.801316499710083,
+        0.8147796392440796
+      ]
+    },
+    {
+      "id": "q_49",
+      "question": "A 32-year-old woman comes to the emergency department because a 5-week history of abdominal pain and",
+      "correct_answer": "Abdominal x-ray",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.6959199905395508,
+        0.7780923843383789,
+        0.7993295788764954,
+        0.8031436204910278,
+        0.8062809109687805
+      ]
+    },
+    {
+      "id": "q_50",
+      "question": "A 65-year-old female patient comes to the physician’s office for her annual check-up. The patient’s ",
+      "correct_answer": "Sorbitol dehydrogenase",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.8023005723953247,
+        0.8307808637619019,
+        0.8436404466629028,
+        0.8439038991928101,
+        0.8616811037063599
+      ]
+    },
+    {
+      "id": "q_51",
+      "question": "A 65-year-old male is treated for anal carcinoma with therapy including external beam radiation. How",
+      "correct_answer": "Induces breaks in double-stranded DNA",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.672279953956604,
+        0.7258720397949219,
+        0.7543404698371887,
+        0.7562257647514343,
+        0.785995364189148
+      ]
+    },
+    {
+      "id": "q_52",
+      "question": "A 3-year-old boy is brought to the physician for a well-child examination. Over the past 8 months, h",
+      "correct_answer": "Tympanostomy tube insertion",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.5870205163955688,
+        0.6930575370788574,
+        0.7686618566513062,
+        0.7697495222091675,
+        0.7758853435516357
+      ]
+    },
+    {
+      "id": "q_53",
+      "question": "A 21-year-old man with a past medical history significant for Down syndrome presents to the outpatie",
+      "correct_answer": "Acute lymphocytic leukemia",
+      "retrieval_success": true,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7468975782394409,
+        0.7591105103492737,
+        0.7774654030799866,
+        0.8011971712112427,
+        0.8098948001861572
+      ]
+    },
+    {
+      "id": "q_54",
+      "question": "A previously healthy 16-year-old boy comes to the physician because of a 5-day history of pain at th",
+      "correct_answer": "Low-density lipoprotein",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.9579468965530396,
+        0.9606735706329346,
+        0.9726108312606812,
+        0.9734176397323608,
+        0.9890102744102478
+      ]
+    },
+    {
+      "id": "q_55",
+      "question": "A 27-year-old woman with no past medical history presents to the emergency department with recurrent",
+      "correct_answer": "Anti-cyclic citrullinated peptide (anti-CCP) antibody",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.682397186756134,
+        0.7065991163253784,
+        0.735549807548523,
+        0.739208459854126,
+        0.7510471343994141
+      ]
+    },
+    {
+      "id": "q_56",
+      "question": "A 57-year-old man presents to his primary care physician for follow-up of his diabetes. He was diagn",
+      "correct_answer": "Add a sulfonylurea",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.5547716617584229,
+        0.6207913160324097,
+        0.6425381898880005,
+        0.6465871930122375,
+        0.6556157469749451
+      ]
+    },
+    {
+      "id": "q_57",
+      "question": "A 41-year-old woman presents with shortness of breath that is worse when she lies on her left side. ",
+      "correct_answer": "Atrial myxoma",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.6411213874816895,
+        0.7040460109710693,
+        0.7113134860992432,
+        0.7144538760185242,
+        0.7218947410583496
+      ]
+    },
+    {
+      "id": "q_58",
+      "question": "A 48-year-old woman comes to the physician because of a 4-month history of lightheadedness, intermit",
+      "correct_answer": "Increase in circulating fetal hemoglobin",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.6683831214904785,
+        0.7014146447181702,
+        0.736377477645874,
+        0.7620425224304199,
+        0.7738745212554932
+      ]
+    },
+    {
+      "id": "q_59",
+      "question": "An 18-year-old male presents to the emergency department trauma bay with a gunshot wound to the abdo",
+      "correct_answer": "Left gastroepiploic artery",
+      "retrieval_success": true,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7697041034698486,
+        0.7835507988929749,
+        0.788953423500061,
+        0.8105634450912476,
+        0.8116774559020996
+      ]
+    },
+    {
+      "id": "q_60",
+      "question": "A 51-year-old man presents for a routine check-up. He has no complaints. At his last annual visit, h",
+      "correct_answer": "Fludarabinern",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.6740666627883911,
+        0.6924189329147339,
+        0.7104471921920776,
+        0.7238994836807251,
+        0.7394448518753052
+      ]
+    },
+    {
+      "id": "q_61",
+      "question": "A 29-year-old man diagnosed with schizophrenia 4 years ago presents for follow-up to discuss his med",
+      "correct_answer": "Complete blood count",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.8637100458145142,
+        0.8692592978477478,
+        0.8747090101242065,
+        0.8765205144882202,
+        0.8988125920295715
+      ]
+    },
+    {
+      "id": "q_62",
+      "question": "A 45-year-old woman comes into your office with complaints of \"lump\" she found on her neck while sho",
+      "correct_answer": "Surgical excision",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7063671946525574,
+        0.7589933276176453,
+        0.7619394659996033,
+        0.7707579731941223,
+        0.7803147435188293
+      ]
+    },
+    {
+      "id": "q_63",
+      "question": "A 75-year-old man comes to the physician for the evaluation of progressive shortness of breath and f",
+      "correct_answer": "Aortic valve stenosis",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.6950130462646484,
+        0.7006522417068481,
+        0.717103123664856,
+        0.7519089579582214,
+        0.7763882279396057
+      ]
+    },
+    {
+      "id": "q_64",
+      "question": "A scientist is studying the properties of myosin-actin interactions in a sample of human muscle tiss",
+      "correct_answer": "Power stroke",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.641527533531189,
+        0.6672024130821228,
+        0.6740196943283081,
+        0.6894385814666748,
+        0.7113140821456909
+      ]
+    },
+    {
+      "id": "q_65",
+      "question": "A 1-day-old infant is in the neonatal intensive care unit due to respiratory failure from pulmonary ",
+      "correct_answer": "Posterior urethral valves",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7502214908599854,
+        0.7544832229614258,
+        0.7676377892494202,
+        0.7790385484695435,
+        0.7861927151679993
+      ]
+    },
+    {
+      "id": "q_66",
+      "question": "A 78-year-old man is brought to the emergency department because of a 1-day history of painful enlar",
+      "correct_answer": "Protein C concentrate",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.646973729133606,
+        0.6892252564430237,
+        0.7573480606079102,
+        0.7573614120483398,
+        0.7652108669281006
+      ]
+    },
+    {
+      "id": "q_67",
+      "question": "A group of researchers wants to evaluate how often the human immunodeficiency virus (HIV) is related",
+      "correct_answer": "Prevalence",
+      "retrieval_success": true,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7349518537521362,
+        0.7499932050704956,
+        0.8146103620529175,
+        0.8188568353652954,
+        0.8207951188087463
+      ]
+    },
+    {
+      "id": "q_68",
+      "question": "A 67-year-old woman presents from home hospice with a change in her mental status. She has seemed mo",
+      "correct_answer": "Acalculous cholecystitis",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.8572295904159546,
+        0.8724946975708008,
+        0.8776708841323853,
+        0.8867095112800598,
+        0.8881807327270508
+      ]
+    },
+    {
+      "id": "q_69",
+      "question": "A 57-year-old woman comes to the physician because of a 3-month history of fatigue. She also reports",
+      "correct_answer": "Cutaneous xanthomas",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.5884848833084106,
+        0.6256639957427979,
+        0.6390058398246765,
+        0.6840344071388245,
+        0.7205144166946411
+      ]
+    },
+    {
+      "id": "q_70",
+      "question": "A 14-year-old girl is brought to the physician by her father because of fever, chills, abdominal pai",
+      "correct_answer": "Salmonella typhi",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7757494449615479,
+        0.8148896098136902,
+        0.839232861995697,
+        0.8396244645118713,
+        0.8492552638053894
+      ]
+    },
+    {
+      "id": "q_71",
+      "question": "A 31-year-old G1-P0 woman at 28-weeks gestation presents with shortness of breath and nonspecific ri",
+      "correct_answer": "V/Q scan",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7770717144012451,
+        0.7865104079246521,
+        0.7905305027961731,
+        0.8384296298027039,
+        0.8465949296951294
+      ]
+    },
+    {
+      "id": "q_72",
+      "question": "A 63-year-old patient presents to the emergency department because of severe left leg pain and tingl",
+      "correct_answer": "Arterial emboli",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.8419029712677002,
+        0.8622528314590454,
+        0.8661386370658875,
+        0.8718911409378052,
+        0.8772403001785278
+      ]
+    },
+    {
+      "id": "q_73",
+      "question": "A 19-year-old man is brought to the emergency department by ambulance because of unusual behavior th",
+      "correct_answer": "Synthetic cathinone intoxication",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7222399115562439,
+        0.7605769634246826,
+        0.7791353464126587,
+        0.8064365386962891,
+        0.8309062719345093
+      ]
+    },
+    {
+      "id": "q_74",
+      "question": "A 52-year-old woman presents with a complaint of headache for the past 10 days. Her headache is diff",
+      "correct_answer": "Melanoma",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.5053181648254395,
+        0.5117043852806091,
+        0.566238522529602,
+        0.5728392601013184,
+        0.5819854736328125
+      ]
+    },
+    {
+      "id": "q_75",
+      "question": "A 62-year old female comes to the physician because of vaginal spotting and urinary urgency for the ",
+      "correct_answer": "Biopsy of the mass",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7866395711898804,
+        0.7929500341415405,
+        0.7933868765830994,
+        0.7971142530441284,
+        0.804672122001648
+      ]
+    },
+    {
+      "id": "q_76",
+      "question": "A 23-year-old man comes to the clinic for yellowing of his eyes. The patient has been relatively hea",
+      "correct_answer": "Decreased activity of UDP-glucuronosyltransferase",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.928774356842041,
+        0.9314020872116089,
+        0.95137619972229,
+        0.9540489912033081,
+        0.9577736854553223
+      ]
+    },
+    {
+      "id": "q_77",
+      "question": "A healthy, full-term 1-day-old female is being evaluated after birth and is noted to have a cleft pa",
+      "correct_answer": "Seizures due to hypocalcemia",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.632211446762085,
+        0.6551141142845154,
+        0.6734293699264526,
+        0.6821984648704529,
+        0.6966972947120667
+      ]
+    },
+    {
+      "id": "q_78",
+      "question": "A 45-year-old woman comes to the emergency department because of intermittent chest pain and palpita",
+      "correct_answer": "Nests of atypical melanocytes",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.610365092754364,
+        0.6831839084625244,
+        0.6844161748886108,
+        0.6967502236366272,
+        0.7162344455718994
+      ]
+    },
+    {
+      "id": "q_79",
+      "question": "A 62-year-old man is brought to his primary care physician by his wife who is concerned about the pa",
+      "correct_answer": "Intracellular inclusions of alpha-synuclein",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7692587375640869,
+        0.7928593158721924,
+        0.8030431866645813,
+        0.8149071335792542,
+        0.8173007369041443
+      ]
+    },
+    {
+      "id": "q_80",
+      "question": "A 32-year-old female complains to her gynecologist that she has had irregular periods for several ye",
+      "correct_answer": "Endometrial carcinoma",
+      "retrieval_success": true,
+      "retrieved_docs": 5,
+      "scores": [
+        0.9155711531639099,
+        0.9197872281074524,
+        0.9298515319824219,
+        0.9404870867729187,
+        0.9424412250518799
+      ]
+    },
+    {
+      "id": "q_81",
+      "question": "A 3-month-old boy presents to his pediatrician with persistent diarrhea, oral candidiasis, and signs",
+      "correct_answer": "Defective T cell function",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7120575904846191,
+        0.7339781522750854,
+        0.7572795152664185,
+        0.7725876569747925,
+        0.7992628812789917
+      ]
+    },
+    {
+      "id": "q_82",
+      "question": "An otherwise healthy 15-year-old boy presents to the emergency department with extreme fatigue and s",
+      "correct_answer": "Autosomal dominant",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7758257389068604,
+        0.865628719329834,
+        0.8862510919570923,
+        0.8921211957931519,
+        0.8966673612594604
+      ]
+    },
+    {
+      "id": "q_83",
+      "question": "A 34-year-old woman is assaulted and suffers a number of stab wounds to her abdomen. Bystanders call",
+      "correct_answer": "I, III, IV",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.4961779713630676,
+        0.5593925714492798,
+        0.5670043230056763,
+        0.572421669960022,
+        0.5824161171913147
+      ]
+    },
+    {
+      "id": "q_84",
+      "question": "An otherwise healthy 50-year-old man comes to the physician because of a 6-month history of increasi",
+      "correct_answer": "Proliferation of gastric mucus-producing cells",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7477413415908813,
+        0.7634358406066895,
+        0.7639142274856567,
+        0.7790098190307617,
+        0.7961770296096802
+      ]
+    },
+    {
+      "id": "q_85",
+      "question": "A previously healthy 28-year-old man comes to the emergency department because of dizziness and palp",
+      "correct_answer": "Paroxysmal atrial fibrillation",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.8976346254348755,
+        0.9015005230903625,
+        0.9065503478050232,
+        0.9160846471786499,
+        0.926485538482666
+      ]
+    },
+    {
+      "id": "q_86",
+      "question": "A 52-year-old man comes to the physician for the evaluation of a painless right-sided scrotal swelli",
+      "correct_answer": "Imbalance of fluid secretion and resorption by tunica vaginalis",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.5874756574630737,
+        0.6893873810768127,
+        0.6943538784980774,
+        0.7632122039794922,
+        0.7744917869567871
+      ]
+    },
+    {
+      "id": "q_87",
+      "question": "A 72-year-old woman with a 40 pack-year history of smoking presents to your office with jaundice. Af",
+      "correct_answer": "\"I have bad news I need to share with you. Please sit down so we can discuss.\"",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.8802852630615234,
+        0.9861221313476562,
+        1.0059535503387451,
+        1.0072182416915894,
+        1.0125972032546997
+      ]
+    },
+    {
+      "id": "q_88",
+      "question": "A 19-year-old female college soccer player presents to a sports medicine clinic with right knee pain",
+      "correct_answer": "Prevent excess anterior translation of the tibia relative to the femur",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.8196508288383484,
+        0.8586992025375366,
+        0.8753656148910522,
+        0.8800987005233765,
+        0.8802004456520081
+      ]
+    },
+    {
+      "id": "q_89",
+      "question": "A 23-year-old man comes to the physician because of a 1-week history of anorexia, nausea, upper abdo",
+      "correct_answer": "Increased breakdown of intracellular RNA",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.8208390474319458,
+        0.8587731122970581,
+        0.8695265054702759,
+        0.8781673908233643,
+        0.8810536861419678
+      ]
+    },
+    {
+      "id": "q_90",
+      "question": "A 24-year-old woman comes to the physician’s office with concerns about a recent pregnancy. She and ",
+      "correct_answer": "Mifepristone",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7634400725364685,
+        0.8706554174423218,
+        0.8747357726097107,
+        0.8792334794998169,
+        0.8820664286613464
+      ]
+    },
+    {
+      "id": "q_91",
+      "question": "A 42-year-old man presents to establish care with a family physician after having progressively wors",
+      "correct_answer": "Testing for serum ESR and autoantibodies",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.6808778047561646,
+        0.72247713804245,
+        0.7721292972564697,
+        0.7787553071975708,
+        0.7873450517654419
+      ]
+    },
+    {
+      "id": "q_92",
+      "question": "A 70-year-old woman is brought to the emergency department for the evaluation of abdominal pain, nau",
+      "correct_answer": "Increase PEEP",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.536877453327179,
+        0.5747145414352417,
+        0.632366418838501,
+        0.6617368459701538,
+        0.673721432685852
+      ]
+    },
+    {
+      "id": "q_93",
+      "question": "A 74-year-old woman is brought to her primary care doctor by her adult son. The son says she has bee",
+      "correct_answer": "Ask the son to step out so you can speak with the patient alone",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.9463174343109131,
+        0.9500150680541992,
+        0.954265832901001,
+        0.9989423751831055,
+        1.0048326253890991
+      ]
+    },
+    {
+      "id": "q_94",
+      "question": "A 62-year-old woman comes to the physician because of a 6-month history of progressive pain and stif",
+      "correct_answer": "Degenerative disease of the joints",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.6338127255439758,
+        0.6368345618247986,
+        0.6720317602157593,
+        0.7045060992240906,
+        0.7092151045799255
+      ]
+    },
+    {
+      "id": "q_95",
+      "question": "A 6-week-old male infant is brought to the physician by his mother because of a 2-day history of rec",
+      "correct_answer": "Elongated and thickened pylorus on abdominal ultrasound",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7891977429389954,
+        0.7950848340988159,
+        0.8218805193901062,
+        0.8387119174003601,
+        0.8460791110992432
+      ]
+    },
+    {
+      "id": "q_96",
+      "question": "A 31-year-old man, who was hospitalized for substance-induced psychosis two days prior, has had epis",
+      "correct_answer": "Benztropine",
+      "retrieval_success": true,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7540982365608215,
+        0.7927918434143066,
+        0.8102047443389893,
+        0.8809479475021362,
+        0.8829686045646667
+      ]
+    },
+    {
+      "id": "q_97",
+      "question": "A 23-year-old man is brought to the emergency department by his mother because of a change in his pe",
+      "correct_answer": "Schizophrenia",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.6890820264816284,
+        0.721190869808197,
+        0.7324943542480469,
+        0.7537828087806702,
+        0.7702462673187256
+      ]
+    },
+    {
+      "id": "q_98",
+      "question": "A 48-year-old man with type II diabetes mellitus complicated by peripheral neuropathy presents to th",
+      "correct_answer": "CT angiography of the chest and give oxygen",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7773761749267578,
+        0.8622274398803711,
+        0.8673763275146484,
+        0.8749278783798218,
+        0.8818634152412415
+      ]
+    },
+    {
+      "id": "q_99",
+      "question": "A 55-year-old man with chronic hepatitis B virus infection comes to the physician because of general",
+      "correct_answer": "Integration of foreign DNA into host genome\n\"",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.6474586725234985,
+        0.6479905247688293,
+        0.6737608909606934,
+        0.6978245973587036,
+        0.7026200294494629
+      ]
+    },
+    {
+      "id": "q_100",
+      "question": "The parents of a 16-year-old boy with type 1 diabetes mellitus present requesting information about ",
+      "correct_answer": "Insulin production by the pancreas is insufficient for exenatide to be effective.",
+      "retrieval_success": false,
+      "retrieved_docs": 5,
+      "scores": [
+        0.7028480172157288,
+        0.7433681488037109,
+        0.8176711797714233,
+        0.8224874138832092,
+        0.8244051337242126
+      ]
+    }
+  ]
+}

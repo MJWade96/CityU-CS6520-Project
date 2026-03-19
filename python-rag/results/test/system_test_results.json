@@ -1,0 +1,101 @@
+{
+  "test_questions": [
+    "What is the first-line treatment for hypertension?",
+    "How do you diagnose type 2 diabetes mellitus?",
+    "What are the symptoms of pneumonia?",
+    "What is the mechanism of action of aspirin?",
+    "How do you manage acute myocardial infarction?"
+  ],
+  "results": [
+    {
+      "question": "What is the first-line treatment for hypertension?",
+      "num_results": 5,
+      "sources": [
+        "medrag_textbooks",
+        "medrag_textbooks",
+        "medrag_textbooks",
+        "medrag_textbooks",
+        "medrag_textbooks"
+      ],
+      "scores": [
+        0.5048748850822449,
+        0.5957481861114502,
+        0.623643159866333,
+        0.6332005262374878,
+        0.6352776288986206
+      ]
+    },
+    {
+      "question": "How do you diagnose type 2 diabetes mellitus?",
+      "num_results": 5,
+      "sources": [
+        "medrag_textbooks",
+        "medrag_textbooks",
+        "medrag_textbooks",
+        "medrag_textbooks",
+        "medrag_textbooks"
+      ],
+      "scores": [
+        0.5416046380996704,
+        0.5461997389793396,
+        0.5578079223632812,
+        0.5977598428726196,
+        0.6128243803977966
+      ]
+    },
+    {
+      "question": "What are the symptoms of pneumonia?",
+      "num_results": 5,
+      "sources": [
+        "medrag_textbooks",
+        "medrag_textbooks",
+        "medrag_textbooks",
+        "medrag_textbooks",
+        "medrag_textbooks"
+      ],
+      "scores": [
+        0.72278892993927,
+        0.7508746981620789,
+        0.7556714415550232,
+        0.7581003904342651,
+        0.7933679819107056
+      ]
+    },
+    {
+      "question": "What is the mechanism of action of aspirin?",
+      "num_results": 5,
+      "sources": [
+        "medrag_textbooks",
+        "medrag_textbooks",
+        "medrag_textbooks",
+        "medrag_textbooks",
+        "medrag_textbooks"
+      ],
+      "scores": [
+        0.7400543689727783,
+        0.8003624677658081,
+        0.8488385677337646,
+        0.8620766401290894,
+        0.8640365600585938
+      ]
+    },
+    {
+      "question": "How do you manage acute myocardial infarction?",
+      "num_results": 5,
+      "sources": [
+        "medrag_textbooks",
+        "medrag_textbooks",
+        "medrag_textbooks",
+        "medrag_textbooks",
+        "medrag_textbooks"
+      ],
+      "scores": [
+        0.7884207963943481,
+        0.7918329238891602,
+        0.799701988697052,
+        0.8070561289787292,
+        0.8210411071777344
+      ]
+    }
+  ]
+}

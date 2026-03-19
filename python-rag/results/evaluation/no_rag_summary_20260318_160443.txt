@@ -1,0 +1,14 @@
+Medical RAG System - Baseline Evaluation (WITHOUT RAG)
+============================================================
+
+Date: 2026-03-18 16:04:43
+LLM: deepseek/2656053fa69c4c2d89c5a691d9d737c3
+Evaluation Type: Direct LLM Inference (No Retrieval)
+
+Results:
+  Total Questions: 1273
+  Correct Answers: 492
+  Accuracy: 0.3865
+  Time: 12938.6s
+  Speed: 0.10 q/s
+

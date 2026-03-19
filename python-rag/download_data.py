@@ -24,7 +24,9 @@ def download_medqa(output_dir: str = "./data/evaluation") -> None:
     os.makedirs(output_dir, exist_ok=True)
 
     # Path to existing benchmark MedQA files
-    benchmark_dir = os.path.join("..", "benchmark", "MedQA", "data_clean", "questions", "US")
+    benchmark_dir = os.path.join(
+        "..", "benchmark", "MedQA", "data_clean", "questions", "US"
+    )
     test_file = os.path.join(benchmark_dir, "test.jsonl")
     dev_file = os.path.join(benchmark_dir, "dev.jsonl")
     train_file = os.path.join(benchmark_dir, "train.jsonl")
@@ -42,10 +44,10 @@ def download_medqa(output_dir: str = "./data/evaluation") -> None:
     # Read and process the test file (main dataset)
     try:
         print("\nProcessing MedQA dataset...")
-        
+
         # Read JSONL file
         data = []
-        with open(test_file, 'r', encoding='utf-8') as f:
+        with open(test_file, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if line:
@@ -53,7 +55,7 @@ def download_medqa(output_dir: str = "./data/evaluation") -> None:
                     # Process the item to match expected format
                     question = item.get("question", "")
                     options = item.get("options", {})
-                    
+
                     if isinstance(options, dict):
                         # Convert dict options to list
                         sorted_keys = sorted(options.keys())
@@ -66,14 +68,20 @@ def download_medqa(output_dir: str = "./data/evaluation") -> None:
                     else:
                         option_list = options if isinstance(options, list) else []
                         answer = item.get("answer", "")
-                    
-                    data.append({
-                        "question": question,
-                        "options": option_list,
-                        "answer": answer,
-                        "answer_index": option_list.index(answer) if answer in option_list else 0,
-                        "source": "medqa",
-                    })
+
+                    data.append(
+                        {
+                            "question": question,
+                            "options": option_list,
+                            "answer": answer,
+                            "answer_index": (
+                                option_list.index(answer)
+                                if answer in option_list
+                                else 0
+                            ),
+                            "source": "medqa",
+                        }
+                    )
 
         print(f"Processed {len(data)} MedQA questions from test file")
 
@@ -91,7 +99,11 @@ def download_medqa(output_dir: str = "./data/evaluation") -> None:
             random.shuffle(data)
 
             dev_data = data[:dev_size]
-            test_data = data[dev_size:dev_size + 500] if len(data) > dev_size + 500 else data[dev_size:]
+            test_data = (
+                data[dev_size : dev_size + 500]
+                if len(data) > dev_size + 500
+                else data[dev_size:]
+            )
 
             # Save dev set
             dev_output = os.path.join(output_dir, "medqa_dev.json")
@@ -109,13 +121,25 @@ def download_medqa(output_dir: str = "./data/evaluation") -> None:
     except Exception as e:
         print(f"Error processing MedQA dataset: {e}")
         import traceback
+
         traceback.print_exc()
 
 
 def download_pubmed(
-    output_dir: str = "./data/corpus/pubmed", max_results: int = 1000
+    output_dir: str = "./data/corpus/pubmed",
+    max_results: int = 1000,
+    skip: bool = False,
 ) -> None:
     """Download PubMed abstracts"""
+    if skip:
+        print("=" * 60)
+        print("Skipping PubMed Download")
+        print("=" * 60)
+        print("Note: PubMed abstracts download skipped.")
+        print("You can download them later by running:")
+        print("  python download_data.py --with-pubmed")
+        return
+
     print("=" * 60)
     print("Downloading PubMed Abstracts")
     print("=" * 60)
@@ -153,6 +177,7 @@ def download_pubmed(
             id_list = search_results["IdList"]
 
             if not id_list:
+                print(f"  No results found for: {query}")
                 continue
 
             from Bio import Medline
@@ -179,10 +204,12 @@ def download_pubmed(
                             }
                         )
                     handle.close()
-                except:
+                except Exception:
                     continue
 
-            print(f"  Found {len(id_list)} results, processing...")
+            print(
+                f"  Found {len(id_list)} results, processed {len(all_records)} so far..."
+            )
 
         except Exception as e:
             print(f"  Error: {e}")
@@ -252,6 +279,9 @@ def create_data_directories(base_dir: str = "./data") -> None:
 
 def main():
     """Main function - runs all downloads by default"""
+    import sys
+
+    skip_pubmed = "--skip-pubmed" in sys.argv or "--skip" in sys.argv
     output_dir = "./data"
 
     print("=" * 60)
@@ -259,7 +289,7 @@ def main():
     print("=" * 60)
     print("\nThis will use:")
     print("  1. Existing MedQA (USMLE questions) from benchmark directory")
-    print("  2. Download PubMed abstracts")
+    print("  2. Download PubMed abstracts" + (" [SKIPPED]" if skip_pubmed else ""))
     print("  3. Create StatPearls directory")
     print()
 
@@ -273,7 +303,7 @@ def main():
     print("\n" + "=" * 60)
     print("Step 2: Downloading PubMed Abstracts")
     print("=" * 60)
-    download_pubmed(os.path.join(output_dir, "corpus", "pubmed"))
+    download_pubmed(os.path.join(output_dir, "corpus", "pubmed"), skip=skip_pubmed)
 
     print("\n" + "=" * 60)
     print("Step 3: Creating StatPearls Directory")
@@ -285,8 +315,15 @@ def main():
     print("=" * 60)
     print(f"\nData saved to: {output_dir}/")
     print("  - evaluation/medqa.json")
-    print("  - corpus/pubmed/pubmed_abstracts.json")
+    print(
+        "  - corpus/pubmed/pubmed_abstracts.json"
+        + (" [SKIPPED]" if skip_pubmed else "")
+    )
     print("  - corpus/statpearls/ (requires manual download)")
+
+    if skip_pubmed:
+        print("\nTo download PubMed data later, run:")
+        print("  python download_data.py")
 
 
 if __name__ == "__main__":
