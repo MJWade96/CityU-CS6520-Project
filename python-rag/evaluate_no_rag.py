@@ -27,6 +27,8 @@ class EvalConfig:
 
     SCRIPT_DIR = Path(__file__).parent
 
+    DEV_SET_SIZE = 300
+
     LLM_PROVIDER = "deepseek"
     LLM_MODEL = "2656053fa69c4c2d89c5a691d9d737c3"
     LLM_TEMPERATURE = 0.1
@@ -249,6 +251,13 @@ async def main():
         print("\nNo questions loaded. Exiting...")
         return
 
+    dev_set = questions[: config.DEV_SET_SIZE]
+    test_set = questions[config.DEV_SET_SIZE :]
+
+    print(f"\nDataset Split:")
+    print(f"  Development set: {len(dev_set)} questions")
+    print(f"  Test set: {len(test_set)} questions")
+
     print(f"\nInitializing Async LLM Client (No RAG)...")
     print(f"  Provider: {config.LLM_PROVIDER}")
     print(f"  Model: {config.LLM_MODEL}")
@@ -262,9 +271,13 @@ async def main():
     )
     print("[OK] Async LLM Client initialized")
 
+    print(f"\n{'=' * 60}")
+    print("Evaluating on Test Set (No RAG)")
+    print(f"{'=' * 60}")
+
     no_rag_results = await evaluate_without_rag(
         client,
-        questions,
+        test_set,
         config,
     )
 
@@ -275,6 +288,7 @@ async def main():
         json.dump(
             {
                 "config": {
+                    "dev_set_size": config.DEV_SET_SIZE,
                     "llm_provider": config.LLM_PROVIDER,
                     "llm_model": config.LLM_MODEL,
                     "evaluation_type": "NO_RAG (Direct LLM Inference - Async)",
@@ -296,9 +310,10 @@ async def main():
         f.write(f"Date: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write(f"LLM: {config.LLM_PROVIDER}/{config.LLM_MODEL}\n")
         f.write("Evaluation Type: Direct LLM Inference (No Retrieval - Async)\n")
+        f.write(f"Dev Set Size: {config.DEV_SET_SIZE}\n")
         f.write(f"Max Concurrent: {config.MAX_CONCURRENT}\n\n")
 
-        f.write("Results:\n")
+        f.write("Test Set Results:\n")
         f.write(f"  Total Questions: {no_rag_results['total_questions']}\n")
         f.write(f"  Correct Answers: {no_rag_results['correct']}\n")
         f.write(f"  Accuracy: {no_rag_results['accuracy']:.4f}\n")
@@ -310,7 +325,7 @@ async def main():
     print(f"\n{'=' * 60}")
     print("EVALUATION COMPLETE")
     print(f"{'=' * 60}")
-    print(f"\n📊 Baseline Results (No RAG):")
+    print(f"\n📊 Test Set Baseline Results (No RAG):")
     print(f"  Total Questions: {no_rag_results['total_questions']}")
     print(f"  Correct Answers: {no_rag_results['correct']}")
     print(
