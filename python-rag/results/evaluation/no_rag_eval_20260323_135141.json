@@ -1,0 +1,732 @@
+{
+  "config": {
+    "dev_set_size": 300,
+    "llm_provider": "deepseek",
+    "llm_model": "2656053fa69c4c2d89c5a691d9d737c3",
+    "evaluation_type": "NO_RAG (Direct LLM Inference - Async)",
+    "max_concurrent": 20,
+    "rpm_limit": 1000,
+    "requests_per_second": 15.00
+  },
+  "evaluation_results": {
+    "detailed_results": [
+      {
+            "question": "A 27-year-old male presents for emergency surgery to reattach his left arm, severed during a high-speed car accident, and has lost significant amounts of blood. His wife arrives within minutes to the hospital exclaiming that under no circumstance should he receive any blood transfusions during surgery. After reviewing his medical chart, you see also see an annotation indicating no blood transfusions for religious reasons. Knowing that he needs a blood transfusion to save his life, what do you do?",
+            "options": [
+                  "Administer a blood transfusion to save the patient's life",
+                  "Call the ethics board of the hospital to discuss the issue",
+                  "Respect the patient's written instructions and do not adminster a blood transfusion",
+                  "Convince the wife to administer a blood transfusion to her husband",
+                  "Refuse to treat the patient as he will die without a blood transfusion"
+            ],
+            "correct_answer": "C",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 31-year-old man presents to his primary care physician with fevers, chills, and night sweats. After a physical exam and a series of laboratory tests, the patient undergoes a lymph node biopsy (Image A). Three days later, while awaiting treatment, he presents to his physician complaining of generalized swelling and is found to have 4+ protein in his urine. Which of the following pathological findings is most likely to be found on renal biopsy in this patient?",
+            "options": [
+                  "Rapidly progresive glomerulonephritis",
+                  "Amyloidosis",
+                  "Membranoproliferative glomerulonephritis",
+                  "Focal segmental glomerulosclerosis",
+                  "Minimal change disease"
+            ],
+            "correct_answer": "E",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 31-year-old man, who was hospitalized for substance-induced psychosis two days prior, has had episodic neck stiffness and pain for the past 8 hours. These episodes last for approximately 25 minutes and are accompanied by his neck rotating to the right. During the last episode, he was able to relieve the stiffness by lightly touching his jaw. He has received six doses of haloperidol for auditory hallucinations since his admission. He appears anxious. His temperature is 37.3°C (99.1°F), pulse is 108/min, and blood pressure is 128/86 mm Hg. Examination shows a flexed neck rotated to the right. The neck is rigid with limited range of motion. Which of the following is the most appropriate therapy for this patient's symptoms?",
+            "options": [
+                  "Benztropine",
+                  "Physical therapy",
+                  "Dantrolene",
+                  "Baclofen",
+                  "Propranolol"
+            ],
+            "correct_answer": "A",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 21-year-old man comes to the emergency room with swelling and severe pain in his left lower leg that started 2 hours ago. He has no history of serious illness or trauma. His father has a history of pulmonary embolism. He has smoked one pack of cigarettes daily since he started college 3 years ago. He appears very distressed. He is 173 cm (5 ft 8 in) tall and weighs 92 kg (203 lb); BMI is 30.7 kg/m2. His temperature is 37°C (98.6°F), pulse is 94/min, respirations are 17/min, and blood pressure is 130/78 mm Hg. Physical examination shows a tender and mildly swollen left lower leg; dorsiflexion of the left foot causes severe pain in the calf. Laboratory studies show a platelet count of 184,000/mm3, a prothrombin time of 11 seconds, an activated partial thromboplastin time of 26 seconds, and positive fibrin split products. Ultrasonography of the left leg shows incompressibility of the popliteal vein with a hyperechoic mass and absent blood flow. The patient is administered a 5000 IU intravenous bolus of unfractionated heparin followed by a constant infusion. Six hours later, the activated partial thromboplastin time is 30 seconds. Which of the following is the most likely cause of this patient's symptoms?",
+            "options": [
+                  "Hyperhomocysteinemia",
+                  "Antithrombin III deficiency",
+                  "Factor V Leiden",
+                  "Protein C deficiency",
+                  "Antiphospholipid syndrome"
+            ],
+            "correct_answer": "B",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 24-year-old woman is brought to the emergency room (ER) by her co-workers after they found her unconscious in her cubicle when they returned from lunch. They tell you that she has diabetes but do not know anything more about her condition. The woman’s vital signs include: pulse 110/min, respiratory rate 24/min, temperature 36.7°C (98.0°F), and blood pressure 90/60 mm Hg. On physical examination, the patient is breathing heavily and gives irrelevant responses to questions. The skin and mucous membranes appear dry. Examination of the abdomen reveals mild diffuse tenderness to palpation. Deep tendon reflexes in the extremities are 1+ bilaterally. Laboratory studies show:\nFinger stick glucose 630 mg/dL\nArterial blood gas analysis:\npH 7.1\nPO2 90 mm Hg\nPCO2 33 mm Hg\nHCO3 8 mEq/L\nSerum:\nSodium 135 mEq/L\nPotassium 3.1 mEq/L\nChloride 136 mEq/L\nBlood urea nitrogen 20 mg/dL\nSerum creatinine 1.2 mg/dL\nUrine examination shows:\nGlucose Positive\nKetones Positive\nLeukocytes Negative\nNitrite Negative\nRBCs Negative\nCasts Negative\nThe patient is immediately started on a bolus of intravenous (IV) 0.9% sodium chloride (NaCl). Which of the following is the next best step in the management of this patient?",
+            "options": [
+                  "Infuse NaHCO3 slowly",
+                  "Switch fluids to 0.45% NaCl",
+                  "Start IV insulin infusion",
+                  "Replace potassium intravenously",
+                  "Start IV 5% dextrose"
+            ],
+            "correct_answer": "D",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 69-year-old male with a longstanding history of hypertension and high cholesterol presents with abdominal pain and ‘bruising on his feet’. The patient states that his symptoms started about a week ago and have steadily worsened. He describes the abdominal pain as mild to moderate, dull, and deeply localized to the umbilical region. Past medical history is significant for 2 transient ischemic attacks 6 months prior, characterized by a sudden right-sided weakness and trouble speaking but recovered fully within 30 minutes. Current medications are sildenafil 100 mg orally as needed. Patient reports a 30-pack-year smoking history and heavy alcohol use on the weekends. Review of systems is significant for decreased appetite and feeling easily full. Vitals are temperature 37°C (98.6°F), blood pressure 155/89 mm Hg, pulse 89/min, respirations 16/min, and oxygen saturation 98% on room air. On physical examination, the patient is alert and cooperative. The cardiac exam is normal. Lungs are clear to auscultation. Carotid bruit present on the right. The abdomen is soft and nontender. Bowel sounds present. A pulsatile abdominal mass is felt in the lower umbilical region. Patient’s feet have the following appearance seen in the picture. Abdominal ultrasound reveals the presence of an abdominal aortic aneurysm (AAA). Contrast CT reveals a small, unruptured AAA (diameter 4.1 cm). High flow supplemental oxygen and fluid resuscitation are initiated. Morphine sulfate and metoprolol are administered. Which of the following is the best course of treatment for this patient?\n ",
+            "options": [
+                  "Discharge with clinical surveillance and annual ultrasound",
+                  "Discharge with clinical surveillance and ultrasound every 6 months",
+                  "Elective endovascular repair",
+                  "Elective open surgical repair",
+                  "Emergency open surgical repair"
+            ],
+            "correct_answer": "E",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 3-year-old male is brought by his mother to the pediatrician's office. The mother and child are refugees from Somalia and arrived in the United States one week ago. They were recently placed in temporary housing. The mother reports that the child has been chronically tired and subdued since before their arrival in the United States. The child was born at 38 weeks gestation with the help of a local midwife. The child’s temperature is 98.2°F (36.8°C), blood pressure is 105/60 mmHg, pulse is 90/min, and respirations are 18/min. Physical examination reveals a listless child with a rotund abdomen and positive fluid wave. Notable lower extremity edema is present. This patient's condition is most likely caused by a deficiency in which of the following?",
+            "options": [
+                  "Total caloric intake",
+                  "Relative protein intake",
+                  "Relative carbohydrate intake",
+                  "Relative fat intake",
+                  "Vitamin intake"
+            ],
+            "correct_answer": "B",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 34-year-old man currently staying at an addiction center presents to the staff psychiatrist with diarrhea and painful muscle cramps. He has been discontinuing heroin over the last month as part of his treatment plan. He is HIV positive, hepatitis B (HBV) positive, and was recently treated for an infection with Streptococcus pneumoniae. He reports pain over his abdomen, knees, and shoulder. To comprehensively treat these symptoms, which of the following would be the best therapy?",
+            "options": [
+                  "Methadone",
+                  "Naloxone",
+                  "Alvimopan",
+                  "Morphine",
+                  "Loperamide"
+            ],
+            "correct_answer": "A",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 38-year-old man is brought to the emergency room by his father because of altered mental status. According to the father, the patient was unable to get out of bed that morning and has become increasingly confused over the past several hours. The father also noticed it was “pretty cold” in his son's apartment because all of the windows were left open overnight. He has a history of hypothyroidism, schizoaffective disorder, type 2 diabetes mellitus, dyslipidemia, and hypertension for which he takes medication. Ten days ago, he was started on a new drug. He appears lethargic. His rectal temperature is 32°C (89.6°F), pulse is 54/min, respirations are 8/min, and blood pressure is 122/80 mm Hg. Examination shows weakness in the lower extremities with absent deep tendon reflexes. Deep tendon reflexes are 1+ in the upper extremities. The pupils are dilated and poorly reactive to light. Throughout the examination, the patient attempts to remove his clothing. Which of the following drugs is the most likely cause of these findings?",
+            "options": [
+                  "Lisinopril",
+                  "Fluphenazine",
+                  "Tolbutamide",
+                  "Levothyroxine",
+                  "Atorvastatin\n\""
+            ],
+            "correct_answer": "B",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 52-year-old man is brought to the emergency department for recurrent vomiting that began 5 hours ago. He describes the vomitus as bloody and containing black specks. He drinks 10–12 beers daily and has not seen a physician in 15 years. He appears pale. His temperature is 36.7°C (98.1°F), pulse is 122/min, and blood pressure is 85/59 mm Hg. Physical examination shows decreased radial pulses, delayed capillary refill, multiple spider angiomata, and a distended abdomen. He is oriented to person but not to place or time. Which of the following is most likely decreased in this patient in response to his current condition compared to a healthy adult?",
+            "options": [
+                  "Systemic vascular resistance",
+                  "Fractional tissue oxygen extraction",
+                  "Carotid baroreceptor firing activity",
+                  "Pulmonary vascular resistance",
+                  "Cardiac inotropy"
+            ],
+            "correct_answer": "C",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 25-year-old female presents to her primary care physician complaining of double vision. She first started seeing double after a long day at her work as a radiation technologist. Since then, her vision has appeared to worsen in the evenings. She has also felt worsening fatigue despite no change in her work hours or sleep habits. She has a history of type I diabetes mellitus and her most recent hemoglobin A1c was 7.4%. Her family history is notable for Sjogren’s syndrome in her mother and hypertension, hyperlipidemia, and carotid dissection in her father. Her temperature is 98.9°F (37.2°C), blood pressure is 105/70 mmHg, pulse is 75/min, and respirations are 16/min. On examination, her pupils are equally round and reactive to light. Extraocular movements are intact. Mild ptosis is noted bilaterally but worse on the left. A visual acuity test reveals no abnormalities. Which of the following medications is most appropriate in the management of this patient?",
+            "options": [
+                  "Pyridostigmine",
+                  "Physostigmine",
+                  "Edrophonium",
+                  "Hydrocortisone",
+                  "Azathioprine"
+            ],
+            "correct_answer": "A",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 43-year-old woman comes to the physician because of a 1-day history of rash on the trunk and lower extremities. Three days ago, she visited a spa resort with multiple swimming pools and whirlpools. A friend of hers who also visited the spa has developed a similar rash. She does not smoke or drink alcohol and takes no medications. She appears well. Her vital signs are within normal limits. Examination shows multiple erythematous, excoriated papules and pustules over the trunk and upper thighs. The inflammation seen in this patient's condition most likely originated in which of the following parts of the skin?",
+            "options": [
+                  "Superfical epidermis",
+                  "Hair follicles",
+                  "Sebaceous glands",
+                  "Papillary dermis",
+                  "Eccrine sweat glands"
+            ],
+            "correct_answer": "B",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 26-year-old man presents to his physician with a history of diarrhea and vomiting for the past 24 hours. On physical examination, his temperature is 36.9ºC (98.4ºF), pulse rate is 110/min, blood pressure is 102/74 mm Hg, and respiratory rate is 16/min. A resident working under the physician plots a Darrow-Yannet diagram for the patient. The diagram is shown in the picture where the green dotted line represents the new fluid status. Which of the following is most likely to show increased secretion in this patient?",
+            "options": [
+                  "B-type natriuretic peptide",
+                  "Bradykinin",
+                  "Erythropoietin",
+                  "Renin",
+                  "Vasoactive intestinal peptide"
+            ],
+            "correct_answer": "D",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 25-year-old woman comes to the physician because of irregular menstrual bleeding. Menses have occurred at 30- to 90-day intervals since menarche at the age of 12 years. Her last menstrual period was 6 weeks ago. She is sexually active with her husband and they do not use condoms. There is no personal or family history of serious illness. She is 170 cm (5 ft 7 in) tall and weighs 73 kg (161 lb); BMI is 25.3 kg/m2. Her vital signs are within normal limits. Examination shows oily skin and severe acne on the face. There is dark hair on the upper lip and around both nipples. Laboratory studies show:\nDehydroepiandrosterone sulfate 6.2 μg/mL (N=0.5–5.4)\nFollicle-stimulating hormone 20 mIU/mL\nLuteinizing hormone 160 mIU/mL\nTestosterone 4.1 nmol/L (N < 3.5)\nA urine pregnancy test is negative. Which of the following tests is the most appropriate next step in screening for comorbidities in this patient?\"",
+            "options": [
+                  "17-hydroxyprogesterone and cortisol level measurements",
+                  "CA-125 level measurement",
+                  "Blood glucose and cholesterol level measurements",
+                  "TSH and T4 level measurements",
+                  "Transvaginal ultrasonography\n\""
+            ],
+            "correct_answer": "C",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 4-year-old boy is brought to his primary care physician for a physical prior to beginning a preschool program. He is found to be delayed in reaching normal childhood cognitive and social milestones, which is consistent with observations at previous check-ups. Physically, he is also found to be significantly overweight with hypogonadism. Notably, the boy was limp when he was born and did not have a normal motor response to stimuli. Elevated levels of a gastrointestinal hormone are associated with the cause of this patient's weight gain. The hormone that is most responsible for causing the weight gain is produced in which of the following cell types?",
+            "options": [
+                  "D cells",
+                  "G cells",
+                  "I cells",
+                  "P/D1 cells",
+                  "L cells"
+            ],
+            "correct_answer": "D",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 38-year-old woman undergoes a partial thyroidectomy for an enlarged thyroid gland compressing the trachea. During surgery, a young surgeon ligates the inferior thyroid arteries as close to the poles as possible to prevent intraoperative hemorrhage. 2 weeks later, the patient presents to the outpatient clinic with hoarseness. What could be the most likely cause of her hoarseness?",
+            "options": [
+                  "Internal laryngeal nerve injury",
+                  "Recurrent laryngeal nerve injury",
+                  "Phrenic nerve damage",
+                  "External laryngeal nerve injury",
+                  "Laryngeal edema"
+            ],
+            "correct_answer": "B",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "In a small town with a population of 10,000 people, the prevalence of alcohol use is estimated to be 30%. A study is done with a null hypothesis that there is no association between alcohol use and gastro-oesophageal reflux disease (GERD). The data obtained shows, of the 200 alcoholics who were followed-up, 30 developed GERD; and out of the 400 non-alcoholics, 30 developed GERD. What fraction of GERD can be prevented in the general population if alcohol is no longer consumed in this town?",
+            "options": [
+                  "45/195",
+                  "39/400",
+                  "30/400",
+                  "(30/200) / (30/400)",
+                  "30/200"
+            ],
+            "correct_answer": "A",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 62-year-old man is brought to the physician by his wife because of difficulties walking for the past year. He has had multiple falls over the past 4 months. Over the past 6 months, he has had progressive urinary urgency and now wears an adult diaper as is not always able to control the urge to void. His appetite has also decreased in this time period. He used to drive, but his wife convinced him to stop after she noticed that he was becoming increasingly inattentive while driving. He has type 2 diabetes mellitus and hypertension. Current medications include ramipril and metformin. His temperature is 37.1C (98.8F), pulse is 90/min and blood pressure is 132/88 mm Hg. Examination shows a broad-based gait with slow and short steps. Neurologic examination shows no focal findings. On mental status examination, he is oriented to person and place but not to time. Attention and concentration are impaired. He recalls only one of three objects after 5 minutes. Which of the following is the most appropriate therapy for this patient's symptoms?",
+            "options": [
+                  "Ventricular shunting",
+                  "Acetazolamide therapy",
+                  "Temporal lobectomy",
+                  "Donepezil therapy",
+                  "Sertraline therapy"
+            ],
+            "correct_answer": "A",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 36-year-old woman presents with increased tiredness and lethargy for the past 4 weeks. Investigations show her hemoglobin level to be 8.6 gm/dL and serum creatinine of 4.6 mg/dL. The serum is negative for antinuclear antibodies (ANA) and positive for C3 nephritic factor. Urinalysis shows a 3+ proteinuria. The renal biopsy demonstrates hypercellular glomerulus with electron dense deposits along the glomerular basement membrane. What is the most likely cause?",
+            "options": [
+                  "Poststreptococcal glomerulonephritis (PSGN)",
+                  "Membrano proliferative glomerulonephritis (MPGN)",
+                  "Rapidly progressive glomerulonephritis (RPGN)",
+                  "Minimal change disease",
+                  "Membranous glomerulonephritis (MGN)"
+            ],
+            "correct_answer": "B",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 6-year-old boy is brought to the physician because of abdominal distention, fatigue, and night sweats over the past 4 months. He also has a 2-month history of post-prandial fullness and recurrent nonbilious vomiting. He appears pale. Abdominal examination shows hepatosplenomegaly and shifting dullness; there is mild tenderness to palpation. Examination of the skin shows multiple nonblanching maculae. A CT scan of the abdomen shows mesenteric and retroperitoneal lymph node enlargement and nodular thickening of the omentum. A photomicrograph of a biopsy specimen from an enlarged mesenteric lymph node is shown. Immunohistochemical staining of the Ki-67 nuclear antigen shows that the proliferation index of the specimen is > 99%. The structure indicated by the arrows is most likely which of the following?",
+            "options": [
+                  "Neutrophil",
+                  "Human immunodeficiency virus",
+                  "B lymphocytes",
+                  "Macrophage",
+                  "Epstein-Barr virus"
+            ],
+            "correct_answer": "D",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A microbiologist has isolated several colonies of Escherichia coli on an agar plate. The microbiologist exposes the agar plate to ciprofloxacin, which destroys all of the bacteria except for one surviving colony. Which of the following is the most likely mechanism of antibiotic resistance in the surviving colony?",
+            "options": [
+                  "Replacement of D-alanine",
+                  "Mutation of DNA gyrase",
+                  "Inactivation by bacterial transferase",
+                  "Production of β-lactamase",
+                  "Modification of surface binding proteins"
+            ],
+            "correct_answer": "B",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 24-year-old woman comes to the physician’s office with concerns about a recent pregnancy. She and her boyfriend had intercourse for the first time a few weeks ago. Two weeks ago she missed her menstrual period. She took several over the counter pregnancy tests that confirmed her pregnancy. She is tearful about the pregnancy and is very concerned. After extensive conversations with her physician and counseling, she decides she wants to medically abort her 6-week pregnancy. Which of the following drugs should be administered to this patient for this purpose?",
+            "options": [
+                  "Megestrol",
+                  "Tamoxifen",
+                  "Terbutaline",
+                  "Mifepristone",
+                  "Copper intrauterine device"
+            ],
+            "correct_answer": "D",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 25-year-old girl is brought to the emergency room after a suicide attempt. Her mother states that she found a large empty pill bottle next to her. The patient is conscious and tearful. She is currently complaining of severe abdominal pain but refuses to give any other history. She has a blood pressure of 135/86, respiratory rate of 18/min, and heart rate of 86/min. On examination, her abdomen is exquisitely tender with evidence of crepitus in the epigastric region. Abdominal CT reveals a gastric perforation. Which of the following is the most likely cause?",
+            "options": [
+                  "Decreased production of PGE2",
+                  "Buildup of a toxic metabolite due to kidney disease",
+                  "Increased stimulation of the vagus nerve",
+                  "Direct irritation of the stomach lining causing inflammation",
+                  "Hypovolemia"
+            ],
+            "correct_answer": "A",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 70-year-old man presents to the Emergency Department after 3 days of shortness of breath, orthopnea, and lower limb edema. His personal history is significant for a myocardial infarction 6 years ago that required revascularization and hypertension. His medication consists of simvastatin and lisinopril.  In the ED, he has a blood pressure of 100/80 mm Hg, a pulse of 88/min, a respiratory rate of 28/min, and a temperature of 36.5°C (97.7°F). On physical examination, he has jugular vein distention, displaced point of maximal impulse (PMI), an S4-gallop, a holosystolic murmur, and 2+ pitting edema up to the mid calf.  He is started on furosemide, carvedilol, and oxygen therapy. After 6-hours of continued therapy, his blood pressure remains low, and his serum creatinine is found to be 1.9 mg/dL. Which of the following test would be more useful to differentiate between prerenal and intrinsic kidney disease?",
+            "options": [
+                  "Sulfosalicylic acid test",
+                  "Urine sodium content",
+                  "Fractional excretion of sodium Na+ (FENa+)",
+                  "Fractional excretion of urea (FEUrea)",
+                  "Nitrates in urine"
+            ],
+            "correct_answer": "D",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 25-year-old woman comes to the physician because of periodic painful double vision for 3 days. Her symptoms occur only when looking sideways. She has myopia and has been wearing corrective lenses for 10 years. Ten days ago, she lost her balance and fell off her bike, for which she went to a hospital. A CT scan of the head at that time showed no abnormalities and she was released without further treatment. Her only medication is an oral contraceptive. Her vital signs are within normal limits. The pupils are equal and reactive to light. Her best corrected visual acuity is 20/40 in each eye. She has an adduction deficit in the right eye and nystagmus in the left eye when looking left; she has an adduction deficit in the left eye and nystagmus in the right eye when looking right. Fundoscopy reveals bilateral disc hyperemia. Which of the following is the most likely cause of this patient's findings?",
+            "options": [
+                  "Demyelination of the medial longitudinal fasciculus",
+                  "Compressive tumor of the pons",
+                  "Oxidative damage due to thiamine deficiency",
+                  "Subdural hematoma extending into the orbit",
+                  "Infarction of the brainstem"
+            ],
+            "correct_answer": "A",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 28-year-old female comes to the physician’s office with a complaint of episodic chest pain. She describes the pain as squeezing and tightness in her chest. This pain has been happening every few days for 3 months. She says there is no association of the pain with food or exercise. She is able to climb up to her fourth floor apartment daily without issue. Her only past medical history is migraines for which she takes appropriate medication. Here temperature is 98.6°F (37°C), blood pressure is 120/68 mmHg, pulse is 60/min, respirations are 16/min, and oxygen saturation is 98% on room air. She has no known family history. The patient is not in pain on presentation and EKG in the office is normal. 24-hour ECG monitoring shows transient ST elevations during the episodes of pain that resolve completely. The mechanism of this patient’s chest pain is most similar to the mechanism behind which of the following?",
+            "options": [
+                  "Raynaud's phenomenon",
+                  "Myocardial infarction",
+                  "Aortic dissection",
+                  "Costochondritis",
+                  "Dysphagia"
+            ],
+            "correct_answer": "A",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 48-year-old man is brought to the emergency department for sudden onset of difficulty breathing 6 hours ago. For the past several months, he has had shortness of breath on exertion and while lying down on the bed, frequent headaches, and swelling of his feet. He does not take any medications despite being diagnosed with hypertension 10 years ago. His pulse is 90/min, respirations are 20/min, blood pressure is 150/110 mm Hg, and temperature is 37.0°C (98.6°F). Physical examination shows an overweight male in acute distress with audible wheezes. Crackles are heard bilaterally and are loudest at the lung bases. Which of the following findings on cardiac auscultation will most likely be present in this patient?",
+            "options": [
+                  "Fixed split S2",
+                  "Loud P2",
+                  "S3 gallop",
+                  "Absent S4",
+                  "A loud S1"
+            ],
+            "correct_answer": "C",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 41-year-old man presents to the clinic with the complaints of abdominal discomfort and cramping for the past 4 months. He also mentions that he has grossly bloody stool and most of the time an urge to defecate. He has a history of bulimia with laxative abuse several years ago. He admits having lost about 5 lb in the past month. His temperature is 37° C (98.6° F), respiratory rate is 15/min, pulse is 77/min, and blood pressure is 105/86 mm Hg. On physical examination, a mild conjunctival pallor is evident, and the rectum is erythematous, indurated, and tender. Colonoscopy demonstrates continuous mucosal lesions throughout the rectum to the hepatic flexure of the colon. What is the most likely diagnosis?",
+            "options": [
+                  "Ulcerative colitis",
+                  "Celiac disease",
+                  "Irritable bowel syndrome",
+                  "Crohn’s disease",
+                  "Laxative abuse"
+            ],
+            "correct_answer": "A",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 17-year-old man presents to his family physician for an evaluation about the size of his penis. He feels increasingly anxious during physical education (PE) class as he has noticed that the size of his penis is significantly smaller when compared to his peers. Based on the physical examination, he is Tanner stage 1. The weight and height are 60 kg (132 lb) and 175 cm (5 ft 9 in), respectively. The cardiopulmonary examination is normal; however, the patient has difficulty identifying coffee grounds by smell. Which of the following explains the pathophysiology underlying this patient’s disorder?",
+            "options": [
+                  "Expansion of a CTG trinucleotide repeat",
+                  "Isolated gonadotropin-releasing hormone (GnRH) deficiency",
+                  "Sex-specific epigenetic imprinting",
+                  "Leptin receptor mutation",
+                  "Non-disjunction of sex chromosomes"
+            ],
+            "correct_answer": "B",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 48-year-old man is brought to the emergency department by his son with a fever over the past day. The patient’s son adds that his father has been having some behavioral problems, as well, and that he was complaining about bugs crawling over his skin this morning even though there were no insects. Past medical history is unremarkable. No current medications. The patient was an alcoholic for several years but abruptly quit drinking 5 days ago. The patient’s temperature is 40.0°C (104.0°F), pulse is 130/min, blood pressure is 146/88 mm Hg, and respiratory rate is 24/min. On physical examination, he is confused, restless, agitated, and lacks orientation to time, place or person. Which of the following the most appropriate initial course of treatment of this patient?",
+            "options": [
+                  "Chlorpromazine",
+                  "Clonidine",
+                  "Diazepam",
+                  "Haloperidol",
+                  "Phenytoin"
+            ],
+            "correct_answer": "C",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 63-year-old man comes to the emergency department because of a 4-day history of lower abdominal pain, fever, and nausea. He has a history of constipation. His temperature is 39.1°C (102.4°C). Abdominal examination shows left lower quadrant tenderness with no guarding or rebound. Laboratory studies show a leukocyte count of 19,000/mm3. A CT scan of the abdomen shows segmental wall thickening of the descending colon with multiple diverticula and a 5.0-cm, low-attenuation pelvic lesion with air-fluid levels. CT-guided drainage of the fluid collection yields 250 mL of yellow-greenish fluid. Release of which of the following substances is most likely responsible for the formation of the drained lesion?",
+            "options": [
+                  "Staphylococcal coagulase",
+                  "Interferon-gamma",
+                  "Lipoteichoic acid",
+                  "Interleukin-3",
+                  "Lysosomal enzymes"
+            ],
+            "correct_answer": "E",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 26-year-old Caucasian woman is admitted to the emergency department after 4 days of fever, malaise, vomiting, and nausea for which she has been taking ibuprofen and diclofenac. She has also noticed a decrease in urination. Her family and past medical history are unremarkable. Her temperature is 38.2°C (100.7°F), blood pressure is 118/76 mm Hg, heart rate is 74/min, and respiratory rate is 15/min. Upon physical examination, her mucous membranes are moist and she has no abdominal tenderness. Four hours after admission, she has a urinary output < 0.3 mL/kg/h and laboratory tests significant for the following:\nDifferential blood count\nWhite blood cells 8.1 x 109/L\nNeutrophils 4.8 x 109/L\nLymphocytes 2.1 x 109/L\nEosinophils 0.9 x 109/L\nMonocytes 0.3 x 109/L\nBasophils 0.04 x 109/L\n  Serum creatinine (SCr) 1.9 mg/dL\nBlood urea nitrogen (BUN) 25 mg/dL\nNa+ 135 mEq/L\nK+ 5.4 mEq/L\nCl- 106 mEq/L\nUrine dipstick\nUrine density 1.010\npH 6.2\nRed blood cells per field of high power 2\nWBC casts Present\nWhich of the following skin manifestations would you also expect to find in this patient?",
+            "options": [
+                  "Livedo reticularis",
+                  "Janeway lesions",
+                  "Diffuse maculopapular rash",
+                  "Malar rash",
+                  "Erythema nodosum"
+            ],
+            "correct_answer": "C",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "Accurate and rapid identification of individuals with tuberculosis (TB) is crucial to accomplishing the goal of the World Health Organization (WHO) to eliminate this disease. One of the key strategies for the detection of TB is the use of tuberculin skin testing as a globally pertinent screening method, due to its low cost and technical simplicity. A study from Brazil demonstrated 76.7% accuracy, 67.9% sensitivity, 84.4% specificity, 79.1% positive predictive value, and 75% negative predictive value when using 5-mm skin elevation as a threshold, or cut-off, point for the screening test (following intradermal injection). Lowering the cut-off point to 4 mm would also result in an increase in which test property?",
+            "options": [
+                  "Convergent validity",
+                  "Discriminant validity",
+                  "Positive predictive value",
+                  "Negative predictive value",
+                  "Test specificity"
+            ],
+            "correct_answer": "D",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 32-year-old male presents to the ED with acute-onset chest pain. His blood pressure is 157/90 mmHg and his his pulse is 116/min. He appears anxious and agitated and a careful exam reveals dilated pupils and a perforated nasal septum. An EKG reveals ST segment elevation so he is urgently taken for cardiac intervention. Upon review, this patient reveals that he has not had care from a physician since he graduated from college. In the interim he has been largely unemployed and admits that he has recently been homeless. When asked directly, the patient admits to alcohol and marijuana use but denies illicit drug use. Which of the following best describes the mechanism of action of the agent most likely responsible for this patient's presentation?",
+            "options": [
+                  "Blocking reuptake of dopamine and norepinephrine",
+                  "Inhibiting breakdown of biogenic amines",
+                  "Antagonizing the NMDA receptor",
+                  "Activating the acetylcholine receptor",
+                  "Inhibiting the GABA receptor"
+            ],
+            "correct_answer": "A",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 63-year-old man presents to the clinic for left calf pain when walking a distance of more than 200 m. He has had this pain for more than 8 months now, and he rates it as 7 out of 10. The pain subsides with rest. The patient has had a history of diabetes mellitus for the past 2 years which is well controlled. A percutaneous coronary intervention was performed in 2014. His current medications are insulin and aspirin. Family history is significant for coronary artery disease. He has an 80 pack-year history of smoking and currently smokes. He consumes 4 drinks per day of alcohol. On physical examination, his blood pressure is 144/89 mm Hg, the heart rate is 80/min and regular, the breathing rate is 25/min, and the pulse oximetry is 96%. Normal cardiac and lung sounds were heard on auscultation. Which of the following is the appropriate treatment to improve the patient’s symptoms?",
+            "options": [
+                  "Cilostazol",
+                  "Pentoxifylline",
+                  "Femoral embolectomy",
+                  "Femoral-to-popliteal bypass graft",
+                  "Interventional endovascular treatment"
+            ],
+            "correct_answer": "A",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 14-year-old boy is brought to the emergency department by his mother after falling from the jungle gym and developing severe left knee pain and swelling. On presentation, he is found to be in pain with a hot, swollen, erythematous left knee. His past medical history is significant for abnormal coagulation lab tests before an appendectomy, but his mother cannot recall the exact details. Coagulation tests are conducted with the following results:\n\nBleeding time: 3 minutes\nProthrombin time: 11 seconds\nPartial thromboplastin time: 53 seconds\nBradykinin formation: decreased\n\nWhich of the following factors is most likely defective in this patient?",
+            "options": [
+                  "Factor VII",
+                  "Factor VIII",
+                  "Factor IX",
+                  "Factor X",
+                  "Factor XII"
+            ],
+            "correct_answer": "E",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 22-year-old gravida 1 presents to her physician at 15 weeks gestation for a prenatal appointment. She complains of a rash involving her chest, face, and arms, a watery nasal discharge, and mild bilateral knee pain. She has had these symptoms for about 5 days. The symptoms do not seem to bother her too much, but she is concerned for the baby. She had contact with her younger sister, who also had a rash and was diagnosed with rubella infection about 10 days ago at a family gathering. She cannot confirm her vaccination history. Her vital signs are as follows: blood pressure, 110/70 mmHg; heart rate, 89/min; respiratory rate, 12/min; and temperature, 37.6℃ (99.7℉). Examination shows a moderately dense maculopapular lacy rash spread over the patient’s trunk, extremities, and face. No lymph node, liver, or spleen enlargement is noted. The knee joints appear normal.\nSerology performed 1 year ago Current serology\nRubella IgM - negative Rubella IgM - negative\nRubella IgG - 1:128 Rubella IgG - 1:64\nRubella IgG avidity - high Rubella IgG avidity - high\nWhat is the proper next step in the management of this woman?",
+            "options": [
+                  "Reassure and recommend vaccination against rubella postpartum",
+                  "Recommend pregnancy termination",
+                  "Arrange a chorionic villus sampling",
+                  "Recommend additional serologic testing for parvovirus B19",
+                  "Test for rubella virus PCR"
+            ],
+            "correct_answer": "D",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 63-year-old man is aiming to improve his health by eating a well balanced diet, walking daily, and quitting smoking following a 45-year smoking history. While on his daily walks he notices a strong cramping pain in his calves that consistently appears after a mile of walking. He sees his physician and a diagnosis of peripheral artery disease with intermittent claudication is made. To improve his symptoms, cilostazol is prescribed. What is the mechanism of action of this medication?",
+            "options": [
+                  "Irreversible cyclooxygenase inhibitor",
+                  "Glycoprotein IIB/IIIA inhibitor",
+                  "Thromboxane synthase inhibitor",
+                  "Adenosine diphosphate receptor inhibitor",
+                  "Phosphodiesterase inhibitor"
+            ],
+            "correct_answer": "E",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 55-year-old caucasian male is transferred to a tertiary care hospital from a small county hospital where he presented with jaundice and severe abdominal pain that radiates to the back. While in the county hospital, he did not develop fever, and his vital signs were stable for the 48 hours he spent at there. Initial laboratory tests are given below:\nTotal bilirubin 7 mg/dL\nDirect bilirubin 6.4 mg/dL\nAST 100\nALT 40\nAlkaline phosphatase 480 IU/L\nGlucose 160 mg/dL\nThe patient’s medical history is relevant for hypertension and diabetes mellitus. He admits to smoking cigarettes since his early teenage years. Moderate icterus is evident during physical examination, the abdomen is distended and dull to percussion, and there is periumbilical tenderness. Which of the following markers would you expect to be elevated in this patient?",
+            "options": [
+                  "CA 125",
+                  "Alpha-fetoprotein",
+                  "Desmin",
+                  "CA 27-29",
+                  "CA 19-9"
+            ],
+            "correct_answer": "E",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 45-year-old man presents to your office with a 2-year history of moderate-to-severe pelvic pain, irritative voiding urinary symptoms (frequency and dysuria), and occasional frank blood in his semen with painful ejaculation. He has been evaluated by several practitioners, who have all prescribed antimicrobial therapy, including ciprofloxacin, with no improvement and leading to emotional distress and sleep disturbances. The physical examination is unremarkable, except for a mildly tender prostate, without masses or nodules. There are no testicular masses, hernias, or hemorrhoids. Additionally to this health issue, you have also been following him for recurrent abdominal pain, periods of constipation and diarrhea, and fatigability, with all test results within the normal range thus far. A summary of recent tests is shown in the following table:\nUrine test\nSample White cells Culture\nMid-stream urine Negative Negative\nExpressed prostatic secretion Positive Negative\nWhat is the most likely diagnosis in this patient?",
+            "options": [
+                  "Benign prostatic hyperplasia",
+                  "Chronic, non-bacterial prostatitis",
+                  "Acute prostatitis by Chlamydia trachomatis",
+                  "Chronic prostatitis by resistant Escherichia coli",
+                  "Interstitial cystitis"
+            ],
+            "correct_answer": "B",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 49-year-old man comes to the physician because of a 1-week history of diarrhea and abdominal bloating. His stools are bulky, foul-smelling, and difficult to flush. Over the past 6 months, he has had recurrent dull epigastric pain that is triggered by meals and lasts for a few days. He drinks 6 to 8 beers daily. Abdominal examination shows mild epigastric tenderness with no rebound or guarding. A CT scan of the abdomen is shown. The structure indicated by the arrows is most likely lined by which of the following?",
+            "options": [
+                  "Simple ductal epithelium",
+                  "Calcified ductal cells",
+                  "Granulation tissue",
+                  "Pyogenic membrane",
+                  "Columnar mucinous epithelium"
+            ],
+            "correct_answer": "C",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 52-year-old man with Crohn disease comes to the physician because of a 1-week history of dysuria and urinary urgency. He had been treated for urinary tract infections twice in the past 6 months. He is currently taking infliximab. Cystoscopy shows pearl-like plaques on the bladder wall. Biopsy of these lesions shows a focal layer of stratified squamous epithelium with hyperkeratosis. If the patient's bladder finding is caused by a vitamin deficiency, which of the following features is also most likely to be seen?",
+            "options": [
+                  "Carpopedal spasm",
+                  "Perifollicular hemorrhage",
+                  "Photodermatitis",
+                  "Night blindness",
+                  "Intracranial hypertension"
+            ],
+            "correct_answer": "D",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 38-year-old woman comes to the physician because of difficulty falling asleep for the past 2 months. She wakes up frequently during the night and gets up earlier than desired. She experiences discomfort in her legs when lying down at night and feels the urge to move her legs. The discomfort resolves when she gets up and walks around or moves her legs. She has tried an over-the-counter sleep aid that contains diphenhydramine, which worsened her symptoms. She exercises regularly and eats a well-balanced diet. She admits that she has been under a lot of stress lately. Her brother has similar symptoms. The patient appears anxious. Physical examination shows no abnormalities. A complete blood count and iron studies are within the reference range. Which of the following is the most appropriate pharmacotherapy for this patient's symptoms?",
+            "options": [
+                  "Amitryptiline",
+                  "Pramipexole",
+                  "Codeine",
+                  "Propranolol",
+                  "Escitalopram"
+            ],
+            "correct_answer": "B",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "Eight weeks after starting a new weight-loss medication, a 43-year-old woman with obesity comes to the physician because of greasy diarrhea, excessive belching, and flatulence. She also complains of progressively worsening night-time vision. She has had no fever, chills, or vomiting. Physical examination shows dry, scaly skin on her extremities and face. Which of the following is the most likely mechanism of action of the drug she is taking?",
+            "options": [
+                  "Stimulation of monoamine neurotransmitter release",
+                  "Inhibition of serotonin reuptake",
+                  "Stimulation of norepinephrine release",
+                  "Inhibition of lipase",
+                  "Secretion of glucose-dependent insulin"
+            ],
+            "correct_answer": "D",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 62-year-old woman with a history of hypertension and type 2 diabetes mellitus comes to the physician for a routine health maintenance examination. She has smoked 1 pack of cigarettes daily for the last 15 years. Current medications include glyburide and amlodipine. The physician prescribes a medication that decreases the production of mevalonate. Which of the following changes to the serum is most likely to develop as an adverse effect of the prescribed drug?",
+            "options": [
+                  "Increased creatine kinase concentration",
+                  "Decreased glucose concentration",
+                  "Increased lactate concentration",
+                  "Increased triglyceride concentration",
+                  "Increased bradykinin concentration"
+            ],
+            "correct_answer": "A",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "Please refer to the summary above to answer this question\nA medical student is examining the table in the abstract. She notices that the standard error surrounding measurements in the pulmharkimab 150 mg/day group is generally greater than the standard errors for the placebo and pulmharkimab 75 mg/day groups. Which of the following statements is the best explanation for the increased standard error in the pulmharkimab 150 mg/day group?\"\n\"Impact of pulmharkimab on asthma control and cardiovascular disease progression in patients with coronary artery disease and comorbid asthma\nIntroduction:\nActive asthma has been found to be associated with a more than two-fold increase in the risk of myocardial infarction, even after adjusting for cardiovascular risk factors. It has been suggested that the inflammatory mediators and accelerated atherosclerosis characterizing systemic inflammation may increase the risk of both asthma and cardiovascular disease. This study evaluated the efficacy of the novel IL-1 inhibitor pulmharkimab in improving asthma and cardiovascular disease progression.\nMethods:\nIn this double-blind, randomized controlled trial, patients (N=1200) with a history of coronary artery disease, myocardial infarction in the past 2 years, and a diagnosis of comorbid adult-onset asthma were recruited from cardiology clinics at a large academic medical center in Philadelphia, PA. Patients who were immunocompromised or had a history of recurrent infections were excluded.\nPatients were subsequently randomly assigned a 12-month course of pulmharkimab 75 mg/day, pulmharkimab 150 mg/day, or a placebo, with each group containing 400 participants. All participants were included in analysis and analyzed in the groups to which they were randomized regardless of medication adherence. Variables measured included plaque volume, serum LDL-C levels, FEV1/FVC ratio, and Asthma Control Questionnaire (ACQ) scores, which quantified the severity of asthma symptoms. Plaque volume was determined by ultrasound.\nAnalyses were performed from baseline to month 12.\nResults:\nAt baseline, participants in the two groups did not differ by age, gender, race, plaque volume, serum LDL-C levels, FEV1/FVC ratio, and ACQ scores (p > 0.05 for all). A total of 215 participants (18%) were lost to follow-up. At 12-month follow-up, the groups contained the following numbers of participants:\nPulmharkimab 75 mg/d: 388 participants\nPulmharkimab 150 mg/d: 202 participants\nPlacebo: 395 participants\nTable 1: Association between pulmharkimab and both pulmonary and cardiovascular outcomes. Models were adjusted for sociodemographic variables and medical comorbidities. All outcome variables were approximately normally distributed.\nPulmharkimab 75 mg/d, (Mean +/- 2 SE) Pulmharkimab 150 mg/d, (Mean +/- 2 SE) Placebo, (Mean +/- 2 SE) P-value\nPlaque volume (mm3), change from baseline 6.6 ± 2.8 1.2 ± 4.7 15.8 ± 2.9 < 0.01\nLDL-C levels, change from baseline -9.4 ± 3.6 -11.2 ± 14.3 -8.4 ± 3.9 0.28\nFEV1/FVC ratio, change from baseline 0.29 ± 2.21 0.34 ± 5.54 -0.22 ± 3.21 0.27\nACQ scores, change from baseline 0.31 ± 1.22 0.46 ± 3.25 0.12 ± 1.33 0.43\nConclusion:\nPulmharkimab may be effective in reducing plaque volume but does not lead to improved asthma control in patients with a history of myocardial infarction and comorbid asthma.\nSource of funding: Southeast Institute for Advanced Lung and Cardiovascular Studies, American Center for Advancement of Cardiovascular Health\"",
+            "options": [
+                  "It indicates an increased likelihood of bias",
+                  "It indicates decreased external validity",
+                  "It indicates a lack of statistical significance",
+                  "It reflects a smaller sample size",
+                  "It indicates more narrow confidence intervals"
+            ],
+            "correct_answer": "D",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 59-year-old woman presents to the outpatient clinic for worsening symptoms of congestive heart failure. She states that while she used to be able to go for short walks, she is no longer able to do so. Now, even simple tasks like getting ready in the morning have become burdensome for her. When she gets tired, sitting down helps to alleviate her symptoms. Her blood pressure is 136/92 mm Hg and heart rate is 76/min. On physical examination, she has regular heart sounds but does have 1+ pitting edema to her bilateral lower extremities. What is her New York Heart Association Functional Classification for congestive heart failure?",
+            "options": [
+                  "New York Heart Association Class I",
+                  " New York Heart Association Class IIa",
+                  "New York Heart Association Class IIb",
+                  "New York Heart Association Class III",
+                  "New York Heart Association Class IV"
+            ],
+            "correct_answer": "D",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      },
+      {
+            "question": "A 72-year-old woman comes to the physician because of a 1-month history of frequent headaches, double vision, fatigue, and myalgias. Physical examination shows pallor, tenderness to palpation over the temples, and inward deviation of the left eye. Laboratory studies show an erythrocyte sedimentation rate of 65 mm/h. Temporal artery biopsy shows transmural granulomatous inflammation and fragmentation of the internal elastic lamina. Treatment with high-dose intravenous corticosteroids is begun. The patient's condition puts her at greatest risk of developing which of the following complications?",
+            "options": [
+                  "Pulmonary hypertension",
+                  "Lower extremity gangrene",
+                  "Palpable purpura",
+                  "Posterior uveitis",
+                  "Thoracic aortic aneurysm"
+            ],
+            "correct_answer": "E",
+            "predicted_answer": null,
+            "is_correct": false,
+            "response": null,
+            "error": "Error code: 429 - {'code': 700001, 'detail': '用户请求RPM超限，请稍后重试', 'message': 'USER_RPM_RATELIMITING', 'error': {'code': '700001', 'message': '用户请求RPM超限，请稍后重试', 'type': 'USER_RPM_RATELIMITING'}}"
+      }

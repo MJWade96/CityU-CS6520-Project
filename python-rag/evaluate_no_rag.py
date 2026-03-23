@@ -27,14 +27,14 @@ class EvalConfig:
 
     SCRIPT_DIR = Path(__file__).parent
 
-    DEV_SET_SIZE = 300
+    DEV_SET_SIZE = 100
 
     LLM_PROVIDER = "deepseek"
-    LLM_MODEL = "2656053fa69c4c2d89c5a691d9d737c3"
+    LLM_MODEL = "8606056bfe0c49448d92587452d1f2fc"
     LLM_TEMPERATURE = 0.1
-    LLM_MAX_TOKENS = 512
+    LLM_MAX_TOKENS = 1024
     LLM_BASE_URL = "https://wishub-x6.ctyun.cn/v1"
-    LLM_API_KEY = "6fcecb364d0647d2883e7f1d3f19d5b9"
+    LLM_API_KEY = "4dbe3bec3ee548d28b649b324e741939"
 
     QUESTION_FILE = str(SCRIPT_DIR / "data" / "evaluation" / "medqa.json")
     OUTPUT_DIR = str(SCRIPT_DIR / "results" / "evaluation")
@@ -95,17 +95,42 @@ class RateLimiter:
 
 
 def extract_answer(response: str) -> Optional[str]:
-    """Extract answer choice from LLM response"""
-    patterns = [
-        r"Answer:\s*([A-E])",
-        r"answer:\s*([A-E])",
-        r"\b([A-E])\b",
+    """
+    改进后的答案提取逻辑：
+    1. 优先寻找显式的 'Answer: X' 标记
+    2. 如果没有，寻找加粗的 **X** 或括号 (X)
+    3. 依然找不到时，取全文最后一个出现的孤立字母（通常是总结）
+    """
+    if not response:
+        return None
+
+    # 1. 强匹配模式：寻找明确的结论前缀
+    # 匹配 'Answer: A' 或 'The correct answer is B' 等，忽略大小写和空格
+    strong_patterns = [
+        r"(?i)answer\s*[:：]\s*([A-E])",
+        r"(?i)correct\s*option\s*is\s*([A-E])",
+        r"(?i)final\s*answer\s*[:：]\s*([A-E])",
     ]
 
-    for pattern in patterns:
-        match = re.search(pattern, response, re.IGNORECASE)
+    for pattern in strong_patterns:
+        match = re.search(pattern, response)
         if match:
             return match.group(1).upper()
+
+    # 2. 格式匹配：寻找被包裹的选项，如 **A**, (A), [A]
+    format_patterns = [r"\*\*([A-E])\*\*", r"\(([A-E])\)", r"\[([A-E])\]"]
+
+    for pattern in format_patterns:
+        # 找最后一个，因为模型通常在结尾给出最终结论
+        matches = re.findall(pattern, response)
+        if matches:
+            return matches[-1].upper()
+
+    # 3. 兜底匹配：找全文最后一个出现的孤立字母
+    # \b 确保不会匹配到单词内部的字母（如 Apple 的 A）
+    fallback_matches = re.findall(r"\b([A-E])\b", response)
+    if fallback_matches:
+        return fallback_matches[-1].upper()
 
     return None
 
@@ -134,9 +159,11 @@ async def get_response(
     temperature: float,
     max_tokens: int,
 ) -> tuple:
-    """Get response from LLM with semaphore-controlled concurrency and rate limiting"""
+    """带有重试机制的 LLM 响应获取函数"""
+    max_retries = 3  # 最大重试次数
+    retry_delay = 2  # 重试等待时间（秒）
+
     async with semaphore:
-        await rate_limiter.acquire()
         question_text = item.get("question", "")
         options = item.get("options", [])
 
@@ -153,32 +180,50 @@ async def get_response(
             question=question_text,
             options=options_text,
         )
-
         messages = [{"role": "user", "content": prompt}]
 
-        try:
-            completion = await client.chat.completions.create(
-                model=model,
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-            )
-            response_content = completion.choices[0].message.content
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                await rate_limiter.acquire()
+                completion = await client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+                response_content = completion.choices[0].message.content
 
-            # Return original item along with result so we can process them as they complete
-            return item, {
-                "question": question_text,
-                "options": options,
-                "response": response_content,
-                "error": None,
-            }
-        except Exception as e:
-            return item, {
-                "question": question_text,
-                "options": options,
-                "response": None,
-                "error": str(e),
-            }
+                if response_content is None:
+                    last_error = "Response content is None"
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(retry_delay * (attempt + 1))
+                        continue
+                    return item, {
+                        "question": question_text,
+                        "options": options,
+                        "response": None,
+                        "error": f"Failed after {max_retries} retries: {last_error}",
+                    }
+
+                return item, {
+                    "question": question_text,
+                    "options": options,
+                    "response": response_content,
+                    "error": None,
+                }
+            except Exception as e:
+                last_error = str(e)
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(retry_delay * (attempt + 1))
+                    continue
+
+                return item, {
+                    "question": question_text,
+                    "options": options,
+                    "response": None,
+                    "error": f"Failed after {max_retries} retries: {last_error}",
+                }
 
 
 async def evaluate_without_rag(
@@ -329,7 +374,7 @@ async def main():
         return
 
     dev_set = questions[: config.DEV_SET_SIZE]
-    test_set = questions[config.DEV_SET_SIZE :]
+    test_set = questions[config.DEV_SET_SIZE : config.DEV_SET_SIZE + 100]
 
     print(f"\nDataset Split:")
     print(f"  Development set: {len(dev_set)} questions")

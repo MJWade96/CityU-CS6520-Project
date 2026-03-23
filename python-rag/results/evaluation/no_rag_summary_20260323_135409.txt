@@ -1,0 +1,18 @@
+Medical RAG System - Baseline Evaluation (WITHOUT RAG)
+============================================================
+
+Date: 2026-03-23 14:26:06
+LLM: deepseek/2656053fa69c4c2d89c5a691d9d737c3
+Evaluation Type: Direct LLM Inference (No Retrieval - Async)
+Dev Set Size: 300
+Max Concurrent: 10
+RPM Limit: 1000
+Requests/Second: 15.00
+
+Test Set Results:
+  Total Questions: 973
+  Correct Answers: 870
+  Accuracy: 0.8941
+  Time: 1917.6s
+  Speed: 0.51 q/s
+

@@ -51,15 +51,15 @@ class EnhancedEvaluationConfig:
     SCRIPT_DIR = Path(__file__).parent
 
     # Dataset split
-    DEV_SET_SIZE = 300
+    DEV_SET_SIZE = 100
 
     # LLM Configuration (联通云 DeepSeek V3.2)
     LLM_PROVIDER = "deepseek"
-    LLM_MODEL = "2656053fa69c4c2d89c5a691d9d737c3"
+    LLM_MODEL = "8606056bfe0c49448d92587452d1f2fc"
     LLM_TEMPERATURE = 0.1
     LLM_MAX_TOKENS = 512
     LLM_BASE_URL = "https://wishub-x6.ctyun.cn/v1"
-    LLM_API_KEY = "6fcecb364d0647d2883e7f1d3f19d5b9"
+    LLM_API_KEY = "4dbe3bec3ee548d28b649b324e741939"
 
     # Retrieval configuration
     TOP_K_VALUES = [1, 3, 5, 10]
