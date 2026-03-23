@@ -12,212 +12,61 @@ import os
 import sys
 import json
 import time
+import asyncio
+import re
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
-# Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from langchain_openai import ChatOpenAI
-
-
-# ============================================================
-# Configuration
-# ============================================================
+from openai import AsyncOpenAI
 
 
 class EvalConfig:
     """Evaluation configuration"""
 
-    # Get script directory
     SCRIPT_DIR = Path(__file__).parent
 
-    # Dataset split (与 enhanced_eval.py 保持一致)
-    DEV_SET_SIZE = 300
-
-    # LLM Configuration (联通云 DeepSeek V3.2)
     LLM_PROVIDER = "deepseek"
-    LLM_MODEL = "2656053fa69c4c2d89c5a691d9d737c3"  # DeepSeek V3.2
+    LLM_MODEL = "2656053fa69c4c2d89c5a691d9d737c3"
     LLM_TEMPERATURE = 0.1
     LLM_MAX_TOKENS = 512
-    LLM_BASE_URL = "https://wishub-x6.ctyun.cn/v1"  # 联通云 API 端点
-    LLM_API_KEY = "6fcecb364d0647d2883e7f1d3f19d5b9"  # 联通云 API Key
+    LLM_BASE_URL = "https://wishub-x6.ctyun.cn/v1"
+    LLM_API_KEY = "6fcecb364d0647d2883e7f1d3f19d5b9"
 
-    # File paths
     QUESTION_FILE = str(SCRIPT_DIR / "data" / "evaluation" / "medqa.json")
     OUTPUT_DIR = str(SCRIPT_DIR / "results" / "evaluation")
 
+    MAX_CONCURRENT = 20
 
-# ============================================================
-# Prompt Template (No Context)
-# ============================================================
 
-NO_RAG_PROMPT = """You are a medical expert assistant. Answer the following medical question based on your knowledge.
+NO_RAG_PROMPT = """You are a medical expert assistant. Answer the following question based on your medical knowledge.
 
 Question: {question}
 
 Options:
 {options}
 
-Please analyze this question step by step:
-1. Identify the key medical concepts in the question
-2. Consider what knowledge is needed to answer correctly
-3. Evaluate each option systematically
-4. Select the best answer
-
-Provide your answer in the following format:
+Please think step by step and then provide your answer in the following format:
 Answer: [A/B/C/D/E]
 
 Your response:"""
 
 
-# ============================================================
-# LLM Generator (No RAG)
-# ============================================================
+def extract_answer(response: str) -> Optional[str]:
+    """Extract answer choice from LLM response"""
+    patterns = [
+        r"Answer:\s*([A-E])",
+        r"answer:\s*([A-E])",
+        r"\b([A-E])\b",
+    ]
 
+    for pattern in patterns:
+        match = re.search(pattern, response, re.IGNORECASE)
+        if match:
+            return match.group(1).upper()
 
-class DirectLLMGenerator:
-    """Direct LLM generator without RAG"""
-
-    def __init__(
-        self,
-        provider: str = "deepseek",
-        model: str = "2656053fa69c4c2d89c5a691d9d737c3",
-        temperature: float = 0.1,
-        max_tokens: int = 512,
-        api_key: Optional[str] = None,
-        base_url: Optional[str] = None,
-    ):
-        """Initialize LLM generator"""
-        self.provider = provider
-        self.model = model
-        self.temperature = temperature
-        self.max_tokens = max_tokens
-
-        # Get API key
-        self.api_key = api_key or self._get_api_key(provider)
-        if not self.api_key:
-            raise ValueError(
-                f"API key not found for {provider}. "
-                f"Please set {provider.upper()}_API_KEY environment variable."
-            )
-
-        # Get base URL
-        self.base_url = base_url or self._get_base_url(provider)
-
-        # Initialize LLM
-        self.llm = ChatOpenAI(
-            model=self.model,
-            temperature=self.temperature,
-            max_tokens=self.max_tokens,
-            api_key=self.api_key,
-            base_url=self.base_url,
-        )
-
-    def _get_api_key(self, provider: str) -> Optional[str]:
-        """Get API key from environment"""
-        provider_keys = {
-            "openai": "OPENAI_API_KEY",
-            "zhipu": "ZHIPU_API_KEY",
-            "deepseek": "DEEPSEEK_API_KEY",
-            "moonshot": "MOONSHOT_API_KEY",
-        }
-        env_var = provider_keys.get(provider.lower(), "OPENAI_API_KEY")
-        return os.getenv(env_var)
-
-    def _get_base_url(self, provider: str) -> str:
-        """Get base URL for provider"""
-        base_urls = {
-            "openai": "https://api.openai.com/v1",
-            "zhipu": "https://open.bigmodel.cn/api/paas/v4",
-            "deepseek": "https://api.deepseek.com/v1",
-            "moonshot": "https://api.moonshot.cn/v1",
-        }
-        return base_urls.get(provider.lower(), "https://api.deepseek.com/v1")
-
-    def generate(
-        self,
-        question: str,
-        options: Optional[List[str]] = None,
-    ) -> str:
-        """
-        Generate answer using LLM without any context.
-
-        Args:
-            question: The question to answer
-            options: Optional list of answer options
-
-        Returns:
-            Generated answer string
-        """
-        # Format options
-        if options:
-            options_text = "\n".join(
-                [f"{chr(65+i)}. {opt}" for i, opt in enumerate(options)]
-            )
-        else:
-            options_text = (
-                "A. Not provided\nB. Not provided\nC. Not provided\nD. Not provided"
-            )
-
-        # Build prompt
-        prompt = NO_RAG_PROMPT.format(
-            question=question,
-            options=options_text,
-        )
-
-        # Generate response
-        try:
-            response = self.llm.invoke(prompt)
-            return response.content
-        except Exception as e:
-            return f"Error generating answer: {str(e)}"
-
-    def extract_answer(self, response: str) -> Optional[str]:
-        """Extract answer choice from LLM response"""
-        import re
-
-        if not response or not isinstance(response, str):
-            return None
-
-        # Strategy 1: Look for "Answer: X" pattern at the end of response (most reliable)
-        lines = response.strip().split("\n")
-        for line in reversed(lines[-5:]):  # Check last 5 lines only
-            answer_match = re.search(r"^\s*Answer:\s*([A-E])\s*$", line, re.IGNORECASE)
-            if answer_match:
-                return answer_match.group(1).upper()
-
-        # Strategy 2: Look for "Answer: X" anywhere (with word boundaries)
-        answer_match = re.search(r"Answer:\s*([A-E])\b", response, re.IGNORECASE)
-        if answer_match:
-            return answer_match.group(1).upper()
-
-        # Strategy 3: Look for standalone letter in brackets like [A] or (A)
-        bracket_match = re.search(r"[\[\(]([A-E])[\]\)]", response)
-        if bracket_match:
-            return bracket_match.group(1).upper()
-
-        # Strategy 4: Look for conclusion patterns in the last line
-        last_line = lines[-1] if lines else response
-        conclusion_patterns = [
-            r"(?:answer|choice|option|is)\s*[is:]?\s*([A-E])\b",
-        ]
-        for pattern in conclusion_patterns:
-            match = re.search(pattern, last_line, re.IGNORECASE)
-            if match:
-                return match.group(1).upper()
-
-        # Strategy 5: If the entire last line is just a single letter
-        last_line_clean = last_line.strip().strip(".").strip(":")
-        if len(last_line_clean) == 1 and last_line_clean.upper() in "ABCDE":
-            return last_line_clean.upper()
-
-        return None
-
-
-# ============================================================
-# Evaluation Functions
-# ============================================================
+    return None
 
 
 def load_questions(question_file: str) -> List[Dict]:
@@ -235,160 +84,192 @@ def load_questions(question_file: str) -> List[Dict]:
     return questions
 
 
-def evaluate_without_rag(
-    llm_generator: DirectLLMGenerator,
+async def get_response(
+    semaphore: asyncio.Semaphore,
+    client: AsyncOpenAI,
+    item: Dict,
+    model: str,
+    temperature: float,
+    max_tokens: int,
+) -> Dict:
+    """Get response from LLM with semaphore-controlled concurrency"""
+    async with semaphore:
+        question_text = item.get("question", "")
+        options = item.get("options", [])
+
+        if options:
+            options_text = "\n".join(
+                [f"{chr(65+i)}. {opt}" for i, opt in enumerate(options)]
+            )
+        else:
+            options_text = (
+                "A. Not provided\nB. Not provided\nC. Not provided\nD. Not provided"
+            )
+
+        prompt = NO_RAG_PROMPT.format(
+            question=question_text,
+            options=options_text,
+        )
+
+        messages = [{"role": "user", "content": prompt}]
+
+        try:
+            completion = await client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+            response_content = completion.choices[0].message.content
+            return {
+                "question": question_text,
+                "options": options,
+                "response": response_content,
+                "error": None,
+            }
+        except Exception as e:
+            return {
+                "question": question_text,
+                "options": options,
+                "response": None,
+                "error": str(e),
+            }
+
+
+async def evaluate_without_rag(
+    client: AsyncOpenAI,
     questions: List[Dict],
-    dataset_name: str = "Dataset",
+    config: EvalConfig,
 ) -> Dict[str, Any]:
     """
-    Evaluate LLM without RAG (direct inference).
+    Evaluate LLM without RAG (direct inference) using async parallel calls.
 
     Flow:
-    1. Send question directly to LLM (no retrieval)
-    2. Extract answer from response
-    3. Compare with correct answer
+    1. Send questions in parallel to LLM (no retrieval)
+    2. Extract answer from responses
+    3. Compare with correct answers
 
     Returns:
         Evaluation results dictionary
     """
     print(f"\n{'=' * 60}")
-    print(f"Evaluating WITHOUT RAG - {dataset_name}")
+    print(f"Evaluating WITHOUT RAG - Full Dataset (Async)")
     print(f"{'=' * 60}")
 
+    semaphore = asyncio.Semaphore(config.MAX_CONCURRENT)
+
     start_time = time.time()
-    results = []
+
+    tasks = [
+        get_response(
+            semaphore,
+            client,
+            q,
+            config.LLM_MODEL,
+            config.LLM_TEMPERATURE,
+            config.LLM_MAX_TOKENS,
+        )
+        for q in questions
+    ]
+
+    results = await asyncio.gather(*tasks)
+
+    elapsed = time.time() - start_time
+
     correct = 0
     total = 0
+    detailed_results = []
 
-    for i, q in enumerate(questions, 1):
-        question_text = q.get("question", "")
-        options = q.get("options", [])
-        correct_answer = q.get("answer", "")
+    for i, (q, result) in enumerate(zip(questions, results)):
         answer_index = q.get("answer_index", -1)
+        correct_answer = q.get("answer", "")
 
-        # Convert answer_index to letter (A=0, B=1, C=2, ...)
         if answer_index >= 0:
             correct_answer_letter = chr(65 + answer_index)
         else:
             correct_answer_letter = correct_answer
 
-        try:
-            # Generate answer WITHOUT any retrieved context
-            response = llm_generator.generate(question_text, options)
-            predicted_answer = llm_generator.extract_answer(response)
-
-            # Compare
+        if result["error"]:
+            predicted_answer = None
+            is_correct = False
+        else:
+            predicted_answer = extract_answer(result["response"])
             is_correct = predicted_answer == correct_answer_letter.upper()
 
-            result = {
-                "question": question_text,
-                "options": options,
+        detailed_results.append(
+            {
+                "question": result["question"],
+                "options": result["options"],
                 "correct_answer": correct_answer_letter,
                 "predicted_answer": predicted_answer,
                 "is_correct": is_correct,
-                "response": response,
+                "response": result["response"],
+                "error": result["error"],
             }
-            results.append(result)
+        )
 
-            if is_correct:
-                correct += 1
-            total += 1
+        if is_correct:
+            correct += 1
+        total += 1
 
-            # Progress reporting
-            if i % 10 == 0 or i == len(questions):
-                elapsed = time.time() - start_time
-                qps = i / elapsed if elapsed > 0 else 0
-                current_acc = correct / total if total > 0 else 0
-                print(
-                    f"  Question {i}/{len(questions)} | "
-                    f"Accuracy: {current_acc:.4f} | "
-                    f"Speed: {qps:.2f} q/s"
-                )
+        if (i + 1) % 10 == 0 or (i + 1) == len(questions):
+            qps = (i + 1) / elapsed if elapsed > 0 else 0
+            current_acc = correct / total if total > 0 else 0
+            print(
+                f"  Question {i+1}/{len(questions)} | "
+                f"Accuracy: {current_acc:.4f} | "
+                f"Speed: {qps:.2f} q/s"
+            )
 
-        except Exception as e:
-            print(f"  ERROR on question {i}: {e}")
-            continue
-
-    elapsed = time.time() - start_time
     accuracy = correct / total if total > 0 else 0
 
     return {
-        "dataset_name": dataset_name,
         "total_questions": total,
         "correct": correct,
         "accuracy": accuracy,
         "elapsed_time": elapsed,
         "questions_per_second": total / elapsed if elapsed > 0 else 0,
-        "detailed_results": results,
+        "detailed_results": detailed_results,
     }
 
 
-def main():
+async def main():
     """Main evaluation function"""
     print("=" * 60)
     print("Medical RAG System - Baseline Evaluation (WITHOUT RAG)")
     print("=" * 60)
 
-    # Load configuration
     config = EvalConfig()
 
-    # Create output directory
     os.makedirs(config.OUTPUT_DIR, exist_ok=True)
 
-    # Load questions
     questions = load_questions(config.QUESTION_FILE)
 
     if not questions:
         print("\nNo questions loaded. Exiting...")
         return
 
-    # Split dataset (与 enhanced_eval.py 保持一致)
-    dev_set = questions[: config.DEV_SET_SIZE]
-    test_set = questions[config.DEV_SET_SIZE :]
-
-    print(f"\nDataset Split:")
-    print(f"  Development set: {len(dev_set)} questions")
-    print(f"  Test set: {len(test_set)} questions")
-
-    # Initialize LLM generator
-    print(f"\nInitializing LLM Generator (No RAG)...")
+    print(f"\nInitializing Async LLM Client (No RAG)...")
     print(f"  Provider: {config.LLM_PROVIDER}")
     print(f"  Model: {config.LLM_MODEL}")
     print(f"  Temperature: {config.LLM_TEMPERATURE}")
     print(f"  Base URL: {config.LLM_BASE_URL}")
+    print(f"  Max Concurrent: {config.MAX_CONCURRENT}")
 
-    try:
-        llm_generator = DirectLLMGenerator(
-            provider=config.LLM_PROVIDER,
-            model=config.LLM_MODEL,
-            temperature=config.LLM_TEMPERATURE,
-            max_tokens=config.LLM_MAX_TOKENS,
-            api_key=config.LLM_API_KEY,
-            base_url=config.LLM_BASE_URL,
-        )
-        print("[OK] LLM Generator initialized")
-    except ValueError as e:
-        print(f"\nERROR: {e}")
-        print("\nPlease check your API configuration")
-        return
-
-    # ============================================================
-    # Evaluate Without RAG (只测试测试集，与 enhanced_eval.py 保持一致)
-    # ============================================================
-
-    no_rag_results = evaluate_without_rag(
-        llm_generator,
-        test_set,
-        dataset_name="Test Set (No RAG)",
+    client = AsyncOpenAI(
+        api_key=config.LLM_API_KEY,
+        base_url=config.LLM_BASE_URL,
     )
+    print("[OK] Async LLM Client initialized")
 
-    # ============================================================
-    # Save Results
-    # ============================================================
+    no_rag_results = await evaluate_without_rag(
+        client,
+        questions,
+        config,
+    )
 
     timestamp = time.strftime("%Y%m%d_%H%M%S")
 
-    # Save complete results
     results_file = os.path.join(config.OUTPUT_DIR, f"no_rag_eval_{timestamp}.json")
     with open(results_file, "w", encoding="utf-8") as f:
         json.dump(
@@ -396,7 +277,8 @@ def main():
                 "config": {
                     "llm_provider": config.LLM_PROVIDER,
                     "llm_model": config.LLM_MODEL,
-                    "evaluation_type": "NO_RAG (Direct LLM Inference)",
+                    "evaluation_type": "NO_RAG (Direct LLM Inference - Async)",
+                    "max_concurrent": config.MAX_CONCURRENT,
                 },
                 "evaluation_results": no_rag_results,
             },
@@ -407,14 +289,14 @@ def main():
 
     print(f"\n[OK] Results saved to {results_file}")
 
-    # Save summary
     summary_file = os.path.join(config.OUTPUT_DIR, f"no_rag_summary_{timestamp}.txt")
     with open(summary_file, "w", encoding="utf-8") as f:
         f.write("Medical RAG System - Baseline Evaluation (WITHOUT RAG)\n")
         f.write("=" * 60 + "\n\n")
         f.write(f"Date: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write(f"LLM: {config.LLM_PROVIDER}/{config.LLM_MODEL}\n")
-        f.write("Evaluation Type: Direct LLM Inference (No Retrieval)\n\n")
+        f.write("Evaluation Type: Direct LLM Inference (No Retrieval - Async)\n")
+        f.write(f"Max Concurrent: {config.MAX_CONCURRENT}\n\n")
 
         f.write("Results:\n")
         f.write(f"  Total Questions: {no_rag_results['total_questions']}\n")
@@ -424,10 +306,6 @@ def main():
         f.write(f"  Speed: {no_rag_results['questions_per_second']:.2f} q/s\n\n")
 
     print(f"[OK] Summary saved to {summary_file}")
-
-    # ============================================================
-    # Print Final Summary
-    # ============================================================
 
     print(f"\n{'=' * 60}")
     print("EVALUATION COMPLETE")
@@ -451,4 +329,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
