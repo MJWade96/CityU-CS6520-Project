@@ -142,6 +142,7 @@ async def evaluate_without_rag(
     client: AsyncOpenAI,
     questions: List[Dict],
     config: EvalConfig,
+    output_file: str,
 ) -> Dict[str, Any]:
     """
     Evaluate LLM without RAG (direct inference) using async parallel calls.
@@ -182,6 +183,18 @@ async def evaluate_without_rag(
     total = 0
     detailed_results = []
 
+    with open(output_file, "w", encoding="utf-8") as f:
+        f.write("{\n")
+        f.write('  "config": {\n')
+        f.write(f'    "dev_set_size": {config.DEV_SET_SIZE},\n')
+        f.write(f'    "llm_provider": "{config.LLM_PROVIDER}",\n')
+        f.write(f'    "llm_model": "{config.LLM_MODEL}",\n')
+        f.write('    "evaluation_type": "NO_RAG (Direct LLM Inference - Async)",\n')
+        f.write(f'    "max_concurrent": {config.MAX_CONCURRENT}\n')
+        f.write("  },\n")
+        f.write('  "evaluation_results": {\n')
+        f.write('    "detailed_results": [\n')
+
     for i, (q, result) in enumerate(zip(questions, results)):
         answer_index = q.get("answer_index", -1)
         correct_answer = q.get("answer", "")
@@ -198,32 +211,48 @@ async def evaluate_without_rag(
             predicted_answer = extract_answer(result["response"])
             is_correct = predicted_answer == correct_answer_letter.upper()
 
-        detailed_results.append(
-            {
-                "question": result["question"],
-                "options": result["options"],
-                "correct_answer": correct_answer_letter,
-                "predicted_answer": predicted_answer,
-                "is_correct": is_correct,
-                "response": result["response"],
-                "error": result["error"],
-            }
-        )
+        detail = {
+            "question": result["question"],
+            "options": result["options"],
+            "correct_answer": correct_answer_letter,
+            "predicted_answer": predicted_answer,
+            "is_correct": is_correct,
+            "response": result["response"],
+            "error": result["error"],
+        }
+        detailed_results.append(detail)
 
         if is_correct:
             correct += 1
         total += 1
 
-        if (i + 1) % 10 == 0 or (i + 1) == len(questions):
-            qps = (i + 1) / elapsed if elapsed > 0 else 0
-            current_acc = correct / total if total > 0 else 0
-            print(
-                f"  Question {i+1}/{len(questions)} | "
-                f"Accuracy: {current_acc:.4f} | "
-                f"Speed: {qps:.2f} q/s"
-            )
+        with open(output_file, "a", encoding="utf-8") as f:
+            json_str = json.dumps(detail, ensure_ascii=False, indent=6)
+            if i > 0:
+                f.write(",\n")
+            f.write("      " + json_str.replace("\n", "\n      "))
+
+        qps = (i + 1) / elapsed if elapsed > 0 else 0
+        current_acc = correct / total if total > 0 else 0
+        print(
+            f"  Question {i+1}/{len(questions)} | "
+            f"Accuracy: {current_acc:.4f} | "
+            f"Speed: {qps:.2f} q/s"
+        )
 
     accuracy = correct / total if total > 0 else 0
+
+    with open(output_file, "a", encoding="utf-8") as f:
+        f.write("\n    ],\n")
+        f.write(f'    "total_questions": {total},\n')
+        f.write(f'    "correct": {correct},\n')
+        f.write(f'    "accuracy": {accuracy},\n')
+        f.write(f'    "elapsed_time": {elapsed},\n')
+        f.write(
+            f'    "questions_per_second": {total / elapsed if elapsed > 0 else 0}\n'
+        )
+        f.write("  }\n")
+        f.write("}\n")
 
     return {
         "total_questions": total,
@@ -275,31 +304,15 @@ async def main():
     print("Evaluating on Test Set (No RAG)")
     print(f"{'=' * 60}")
 
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    results_file = os.path.join(config.OUTPUT_DIR, f"no_rag_eval_{timestamp}.json")
+
     no_rag_results = await evaluate_without_rag(
         client,
         test_set,
         config,
+        results_file,
     )
-
-    timestamp = time.strftime("%Y%m%d_%H%M%S")
-
-    results_file = os.path.join(config.OUTPUT_DIR, f"no_rag_eval_{timestamp}.json")
-    with open(results_file, "w", encoding="utf-8") as f:
-        json.dump(
-            {
-                "config": {
-                    "dev_set_size": config.DEV_SET_SIZE,
-                    "llm_provider": config.LLM_PROVIDER,
-                    "llm_model": config.LLM_MODEL,
-                    "evaluation_type": "NO_RAG (Direct LLM Inference - Async)",
-                    "max_concurrent": config.MAX_CONCURRENT,
-                },
-                "evaluation_results": no_rag_results,
-            },
-            f,
-            indent=2,
-            ensure_ascii=False,
-        )
 
     print(f"\n[OK] Results saved to {results_file}")
 
