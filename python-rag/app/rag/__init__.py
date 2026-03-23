@@ -44,6 +44,11 @@ from .prompt_template import (
     MEDICAL_RAG_PROMPT,
     SYSTEM_MESSAGE,
 )
+from .progress_manager import (
+    EvaluationProgressManager,
+    create_progress_manager,
+    CheckpointData,
+)
 
 __all__ = [
     # Config
@@ -87,4 +92,8 @@ __all__ = [
     "create_rag_inputs",
     "MEDICAL_RAG_PROMPT",
     "SYSTEM_MESSAGE",
+    # Progress Manager
+    "EvaluationProgressManager",
+    "create_progress_manager",
+    "CheckpointData",
 ]

@@ -238,13 +238,7 @@
       },
       {
         "question": "A 7-year-old boy is brought to his pediatrician’s office for a follow-up visit. He was diagnosed with asthma when he was 3 years old and has since been on treatment for the condition. He is currently on a β-agonist inhaler because of exacerbation of his symptoms. He has observed that his symptoms are more prominent in springtime, especially when the new flowers are blooming. His mother has a backyard garden and whenever he goes out to play there, he experiences chest tightness with associated shortness of breath. He has been advised to take more precaution during this seasonal change and to stay away from pollen. He is also being considered for an experimental therapy, which attenuates the activity of certain mediators which cause his asthmatic attack. The targeted mediator favors the class switching of antibodies. A reduction in this mechanism will eventually reduce the exaggerated response observed during his asthmatic attacks, even when exposed to an allergen. Which of the following mediators is described in this experimental study?",
-        "options": [
-          "IL-5",
-          "IL-2",
-          "IL-10",
-          "IL-13",
-          "IL-4"
-        ],
+        "options": ["IL-5", "IL-2", "IL-10", "IL-13", "IL-4"],
         "correct_answer": "E",
         "predicted_answer": "E",
         "is_correct": true,
@@ -546,13 +540,7 @@
       },
       {
         "question": "A 53-year-old man with recurrent pancreatic adenocarcinoma is enrolled in a clinical trial for a novel chemotherapeutic agent that his physician believes may be beneficial to his condition. The novel drug was previously tested in a small population and is now undergoing a larger phase 3 trial in preparation for FDA approval. A dose-response trial had the following results:\n\n10 mg dose - 6/59 patients demonstrated improvement\n20 mg dose - 19/49 patients demonstrated improvement\n30 mg dose - 26/53 patients demonstrated improvement\n40 mg dose - 46/51 patients demonstrated improvement\n\nThe same trial also had the following safety profile:\n\n20 mg dose - 5/49 patients had a treatment related adverse event\n40 mg dose - 11/51 patients had a treatment related adverse event\n60 mg dose - 15/42 patients had a treatment related adverse event\n80 mg dose - 23/47 patients had a treatment related adverse event\n100 mg dose - 47/52 patients had a treatment related adverse event\n\nBased on this study, which of the following represents the most likely therapeutic index for this novel chemotherapeutic agent?",
-        "options": [
-          "0.375",
-          "0.5",
-          "2",
-          "2.5",
-          "2.67"
-        ],
+        "options": ["0.375", "0.5", "2", "2.5", "2.67"],
         "correct_answer": "E",
         "predicted_answer": "E",
         "is_correct": true,
@@ -658,13 +646,7 @@
       },
       {
         "question": "A medical research study is evaluating an investigational novel drug (medication 1) compared with standard therapy (medication 2) in patients presenting to the emergency department with myocardial infarction (MI). The study enrolled a total of 3,000 subjects, 1,500 in each study arm. Follow-up was conducted at 45 days post-MI. The following are the results of the trial:\nEndpoints Medication 1 Medication 2 P-Value\nPrimary: death from cardiac causes 134 210 0.03\nSecondary: hyperkalemia 57 70 0.4\nWhat is the number needed to treat (NNT) for the primary endpoint of death from cardiac causes? (Round to the nearest whole number.)",
-        "options": [
-          "5",
-          "16",
-          "20",
-          "30",
-          "50"
-        ],
+        "options": ["5", "16", "20", "30", "50"],
         "correct_answer": "C",
         "predicted_answer": "C",
         "is_correct": true,
@@ -1064,13 +1046,7 @@
       },
       {
         "question": "A 5-year-old female is brought to a speech therapist for continuing work on improving her communication skills. She is only able to verbalize two word sentences and has generalized developmental delay. When she was born it was noticed that she had a high pitched mewing cry and subsequent physical exam revealed microcephaly, prominent epicanthal folds, and a holosystolic murmur best heard in the left 5th intercostal space near the sternum. An abnormality of which of the following chromosomes is most likely responsible for this patient's disorder?",
-        "options": [
-          "5",
-          "7",
-          "13",
-          "18",
-          "21"
-        ],
+        "options": ["5", "7", "13", "18", "21"],
         "correct_answer": "A",
         "predicted_answer": "A",
         "is_correct": true,
@@ -1596,13 +1572,7 @@
       },
       {
         "question": "A 67-year-old man with chronic kidney disease comes to the physician because of worsening fatigue and shortness of breath on exertion for 6 months. He has a 20-year history of poorly-controlled type 2 diabetes mellitus. Current medications include metformin and insulin. His pulse is 105/min. Examination shows conjunctival pallor and bounding pulses. Laboratory studies show:\nHemoglobin 8.6 g/dL\nMean corpuscular volume 90 μm3\nReticulocyte count 0.5%\nSerum\nFerritin 325 ng/mL\nUrea nitrogen 45 mg/dL\nCreatinine 2.2 mg/dL\nThe patient is prescribed a drug to treat the cause of his current symptoms. The drug's mechanism of action directly involves which of the following signaling pathways?\"",
-        "options": [
-          "PI3K/Akt/mTOR",
-          "cAMP",
-          "MAP kinase",
-          "JAK/STAT",
-          "IP3"
-        ],
+        "options": ["PI3K/Akt/mTOR", "cAMP", "MAP kinase", "JAK/STAT", "IP3"],
         "correct_answer": "D",
         "predicted_answer": "D",
         "is_correct": true,
@@ -2254,13 +2224,7 @@
       },
       {
         "question": "A 5-year-old boy of African descent is presented to the emergency department by his parents. The child is clutching his abdomen and crying about pain in his belly. His mother reports intermittent episodes of jaundice with joint and bone pain since he was 5 months old. At presentation, the patient’s vital signs are within normal limits. Physical examination reveals slight jaundice and pale conjunctiva. The spleen is tender and easily palpable. After a complete blood count with differential and an abdominal ultrasound, the patient is found to have sickle-cell disease with splenic infarct. A partial splenectomy is performed. After the operation, the physician provides vaccines against Neisseria meningitidis, Haemophilus influenzae, and Streptococcus pneumoniae. The picture shows a slide obtained from the resected portion of the patient’s spleen. Dysfunction of the zone marked with which number predisposes the patient to the aforementioned infections?",
-        "options": [
-          "2 only",
-          "1 only",
-          "3 only",
-          "1 and 2",
-          "1, 2, and 3"
-        ],
+        "options": ["2 only", "1 only", "3 only", "1 and 2", "1, 2, and 3"],
         "correct_answer": "D",
         "predicted_answer": "A",
         "is_correct": false,
@@ -2716,13 +2680,7 @@
       },
       {
         "question": "During a Mycobacterium tuberculosis infection, Th1 cells secrete a factor capable of stimulating phagosome-lysosome fusion within macrophages. In addition, the secreted factors help activate macrophages to produce mediators such as NO, which are capable of destroying the invading pathogen. Furthermore, activation of the macrophages by the secreted factor eventually leads to the formation of a tubercle. Which of the following factors is secreted by Th1 cells and responsible for these actions?",
-        "options": [
-          "IL-4",
-          "TNF-alpha",
-          "IFN-gamma",
-          "Histamine",
-          "IL-17"
-        ],
+        "options": ["IL-4", "TNF-alpha", "IFN-gamma", "Histamine", "IL-17"],
         "correct_answer": "C",
         "predicted_answer": "C",
         "is_correct": true,
@@ -2884,13 +2842,7 @@
       },
       {
         "question": "A 34-year-old woman is assaulted and suffers a number of stab wounds to her abdomen. Bystanders call paramedics and she is subsequently taken to the nearest hospital. On arrival to the emergency department, her vitals are T: 36 deg C, HR: 110 bpm, BP: 100/60, RR: 12, SaO2: 99%. A FAST and abdominal CT are promptly obtained which are demonstrated in Figures A and B, respectively. Her chart demonstrates no other medical problems and vaccinations/boosters up to date. The patient is diagnosed with a Grade V splenic laceration and is immediately brought to the OR for emergent splenectomy. The splenectomy is successfully performed with removal of the damaged spleen (Figure C). Following the operation, the patient should receive which of the following vaccines: (I) H. influenzae (II) Tetanus (III) N. meningitidis (IV) S. pneumoniae (V) Hepatitis B",
-        "options": [
-          "I, II",
-          "I, III, IV",
-          "I, V",
-          "II only",
-          "III, IV"
-        ],
+        "options": ["I, II", "I, III, IV", "I, V", "II only", "III, IV"],
         "correct_answer": "B",
         "predicted_answer": "B",
         "is_correct": true,
@@ -3682,13 +3634,7 @@
       },
       {
         "question": "A 70-year-old man is brought to the emergency department by staff of the group home where he resides because of worsening confusion for the past week. He has a history of major depressive disorder and had an ischemic stroke 4 months ago. Current medications are aspirin and sertraline. He is lethargic and disoriented. His pulse is 78/min, and blood pressure is 135/88 mm Hg. Physical examination shows moist oral mucosa, normal skin turgor, and no peripheral edema. While in the waiting room, he has a generalized, tonic-clonic seizure. Laboratory studies show a serum sodium of 119 mEq/L and an elevated serum antidiuretic hormone concentration. Which of the following sets of additional laboratory findings is most likely in this patient?\n $$$ Serum osmolality %%% Urine sodium %%% Serum aldosterone $$$",
-        "options": [
-          "↑ normal normal",
-          "↓ ↓ ↓",
-          "↑ ↓ normal",
-          "↓ ↑ ↑",
-          "↓ ↑ ↓"
-        ],
+        "options": ["↑ normal normal", "↓ ↓ ↓", "↑ ↓ normal", "↓ ↑ ↑", "↓ ↑ ↓"],
         "correct_answer": "E",
         "predicted_answer": "E",
         "is_correct": true,
@@ -3752,13 +3698,7 @@
       },
       {
         "question": "A 34-year-old male suffers from inherited hemophilia A. He and his wife have three unaffected daughters. What is the probability that the second daughter is a carrier of the disease?",
-        "options": [
-          "0%",
-          "25%",
-          "50%",
-          "75%",
-          "100%"
-        ],
+        "options": ["0%", "25%", "50%", "75%", "100%"],
         "correct_answer": "E",
         "predicted_answer": "E",
         "is_correct": true,
@@ -4200,13 +4140,7 @@
       },
       {
         "question": "A 72-year-old woman is admitted to the hospital for treatment of unstable angina. Cardiac catheterization shows occlusion that has caused a 50% reduction in the diameter of the left circumflex artery. Resistance to blood flow in this vessel has increased by what factor relative to a vessel with no occlusion?",
-        "options": [
-          "64",
-          "16",
-          "8",
-          "4",
-          "32"
-        ],
+        "options": ["64", "16", "8", "4", "32"],
         "correct_answer": "B",
         "predicted_answer": "B",
         "is_correct": true,
@@ -5698,13 +5632,7 @@
       },
       {
         "question": "A 54-year-old man presents with the acute onset of seizures and hallucinations. The patient’s wife says that he had been on a camping trip a few months earlier to study bats but otherwise has not traveled recently. Past medical history is significant for hypertension, managed medically with hydralazine and enalapril. The patient’s condition rapidly deteriorates, and he passes away. An autopsy is performed and a histologic stained section of the brain is shown in the image. Which of the following receptors are targeted by the pathogen most likely responsible for this patient’s condition?",
-        "options": [
-          "CCR5",
-          "CD21",
-          "Acetylcholine receptor",
-          "ICAM-1",
-          "GABA"
-        ],
+        "options": ["CCR5", "CD21", "Acetylcholine receptor", "ICAM-1", "GABA"],
         "correct_answer": "C",
         "predicted_answer": "C",
         "is_correct": true,
@@ -6132,13 +6060,7 @@
       },
       {
         "question": "A 59-year-old woman comes to the physician 2 weeks after noticing a lump in her left breast. Examination of the left breast shows a firm, nontender mass close to the nipple. Mammography shows an irregular calcified mass. A core needle biopsy shows invasive ductal carcinoma. Genetic analysis of this patient's cancer cells is most likely to show overexpression of which of the following genes?",
-        "options": [
-          "HER2",
-          "TP53",
-          "BCR-ABL",
-          "BRCA-2",
-          "BCL-2"
-        ],
+        "options": ["HER2", "TP53", "BCR-ABL", "BRCA-2", "BCL-2"],
         "correct_answer": "A",
         "predicted_answer": "C",
         "is_correct": false,
@@ -6370,13 +6292,7 @@
       },
       {
         "question": "A 42-year-old man presents to a neurologist for evaluation of severe headache. He started experiencing episodic headaches and palpitations 3 months ago; however, he thought that these symptoms were simply related to the stress of moving and starting a new job. He has continued to experience these intermittent headaches and has also noticed that he sweats profusely during these episodes. On presentation his temperature is 99.1°F (37.3°C), blood pressure is 163/112 mmHg, pulse is 112/min, and respirations are 15/min. Physical exam reveals pallor and perspiration but is otherwise unremarkable. The most likely cause of this patient's symptoms is produced by cells located in which region of the histology slide shown in figure A?",
-        "options": [
-          "A",
-          "B",
-          "C",
-          "D",
-          "E"
-        ],
+        "options": ["A", "B", "C", "D", "E"],
         "correct_answer": "E",
         "predicted_answer": "C",
         "is_correct": false,
@@ -6594,13 +6510,7 @@
       },
       {
         "question": "A 75-year-old man presents to his physician with a 1-year history of dysphagia for solids. His more recent complaints include dysphagia for liquids as well. The patient states that he has no difficulty initiating swallowing but occasionally food is stuck in his throat. He does not complain of pain while swallowing but has noticed minor unintentional weight loss. The patient has no history of speech-related pain or nasal regurgitation. His family history is unremarkable. During the examination, the patient appears ill, malnourished, and slightly pale. He is not jaundiced nor cyanotic. Physical examination is unremarkable. A swallowing study reveals a small outpouching in the posterior neck (see image). Which nerve is most likely involved in this patient’s symptoms?",
-        "options": [
-          "CN X",
-          "CN VII",
-          "CN IX",
-          "CN V",
-          "CN XII"
-        ],
+        "options": ["CN X", "CN VII", "CN IX", "CN V", "CN XII"],
         "correct_answer": "A",
         "predicted_answer": "C",
         "is_correct": false,
@@ -6636,13 +6546,7 @@
       },
       {
         "question": "A 5-year-old male is brought to the pediatrician with complaints of a painful mouth/gums, and vesicular lesions on the lips and buccal mucosa for the past 4 days. The patient has not been able to eat or drink due to the pain and has been irritable. The patient also reports muscle aches. His vital signs are as follows: T 39.1, HR 110, BP 90/62, RR 18, SpO2 99%. Physical examination is significant for vesicular lesions noted on the tongue, gingiva, and lips, with some vesicles having ruptured and ulcerated, as well as palpable cervical and submandibular lymphadenopathy. Which of the following is the most likely causative organism in this patient's presentation?",
-        "options": [
-          "CMV",
-          "EBV",
-          "HIV",
-          "HSV-1",
-          "HSV-2"
-        ],
+        "options": ["CMV", "EBV", "HIV", "HSV-1", "HSV-2"],
         "correct_answer": "D",
         "predicted_answer": "C",
         "is_correct": false,
@@ -7084,13 +6988,7 @@
       },
       {
         "question": "A 42-year-old man is admitted to the intensive care unit with decreased consciousness and convulsions. His wife reports that 30 min following the onset of her husband’s condition, which started approximately 6 hours ago, he treated his garden bed with pesticides against mice. He developed nausea, vomiting, and abdominal cramps. The patient noted facial muscle twitching and developed a tonic-clonic seizure that lasted 3 minutes, 4 hours following the onset of his condition. His past medical history is insignificant for any seizure disorders, and he does not take any medications. His blood pressure is 95/60 mm Hg, heart rate is 104/min, respiratory rate is 10/min, and the temperature is 37.0°C (98.6°F). On physical examination, the patient’s consciousness is decreased with a Glasgow Coma Scale score of 13. He is pale and sweaty. His lung sounds are normal, cardiac sounds are decreased, and no murmurs are present. Abdominal palpation reveals epigastric tenderness. Neurological examination shows rapid downbeating nystagmus, facial muscle twitching, and symmetrically decreased sensation to all the sensory modalities on both the upper and lower extremities. Further discussion reveals that the patient was using sodium fluoroacetate as a pesticide, which is known to form fluorocitrate in the cells of aerobic organisms. Which of the following substances will accumulate in the patient’s cells?",
-        "options": [
-          "Fumarate",
-          "Citrate",
-          "Isocitrate",
-          "Malate",
-          "Succinate"
-        ],
+        "options": ["Fumarate", "Citrate", "Isocitrate", "Malate", "Succinate"],
         "correct_answer": "B",
         "predicted_answer": "C",
         "is_correct": false,
@@ -8540,13 +8438,7 @@
       },
       {
         "question": "A 34-year-old woman with poorly controlled Crohn disease comes to the physician because of a 2-week history of hair loss and a rash on her face. She has also noticed that food has recently tasted bland to her. She had to undergo segmental small bowel resection several times because of intestinal obstruction and fistula formation. Examination shows several bullous, erythematous perioral plaques. There are two well-circumscribed circular patches of hair loss on the scalp. A deficiency of which of the following is the most likely cause of this patient's condition?",
-        "options": [
-          "Retinoic acid",
-          "Niacin",
-          "Cobalamin",
-          "Iron",
-          "Zinc"
-        ],
+        "options": ["Retinoic acid", "Niacin", "Cobalamin", "Iron", "Zinc"],
         "correct_answer": "E",
         "predicted_answer": "C",
         "is_correct": false,
@@ -9086,13 +8978,7 @@
       },
       {
         "question": "A 1-year-old boy is brought to the clinic by his parents for a regular check-up. His weight, height, and head size were found to be in the lower percentile ranges on standard growth curves. His hair is tangled and has a dry, brittle texture. Genetic testing reveals that the patient has a connective tissue disorder caused by impaired copper absorption and transport. The patient’s disorder is caused by a mutation in which of the following genes?",
-        "options": [
-          "ATP7A",
-          "COL1A2",
-          "COL5A1",
-          "FBN1",
-          "ATP7B"
-        ],
+        "options": ["ATP7A", "COL1A2", "COL5A1", "FBN1", "ATP7B"],
         "correct_answer": "A",
         "predicted_answer": "C",
         "is_correct": false,
@@ -9828,13 +9714,7 @@
       },
       {
         "question": "A 4-year-old boy is brought to his primary care physician for a physical prior to beginning a preschool program. He is found to be delayed in reaching normal childhood cognitive and social milestones, which is consistent with observations at previous check-ups. Physically, he is also found to be significantly overweight with hypogonadism. Notably, the boy was limp when he was born and did not have a normal motor response to stimuli. Elevated levels of a gastrointestinal hormone are associated with the cause of this patient's weight gain. The hormone that is most responsible for causing the weight gain is produced in which of the following cell types?",
-        "options": [
-          "D cells",
-          "G cells",
-          "I cells",
-          "P/D1 cells",
-          "L cells"
-        ],
+        "options": ["D cells", "G cells", "I cells", "P/D1 cells", "L cells"],
         "correct_answer": "D",
         "predicted_answer": "C",
         "is_correct": false,
@@ -9940,13 +9820,7 @@
       },
       {
         "question": "A researcher is conducting an experiment on the mouse kidney to study the relative concentrations between the tubular fluid and plasma of a number of substances along the proximal convoluted tubule. Based on the graph shown in figure A, which of the following best describes the tubular fluid-to-plasma concentration ratio of urea?",
-        "options": [
-          "A",
-          "B",
-          "C",
-          "D",
-          "E"
-        ],
+        "options": ["A", "B", "C", "D", "E"],
         "correct_answer": "B",
         "predicted_answer": "C",
         "is_correct": false,
@@ -10346,13 +10220,7 @@
       },
       {
         "question": "Public health researchers are reviewing data from an outbreak of hepatitis A that was traced to contaminated produce from a popular restaurant. A case series investigation with prospective and retrospective follow-up found that 500 individuals dined at the restaurant during the week of study. The incidence of hepatitis A infection was found to be 25%, and the total number of deaths recorded among the incident cases was 5 individuals. What was the case-fatality rate for the hepatitis A outbreak?",
-        "options": [
-          "4%",
-          "5%",
-          "10%",
-          "20%",
-          "25%"
-        ],
+        "options": ["4%", "5%", "10%", "20%", "25%"],
         "correct_answer": "A",
         "predicted_answer": "C",
         "is_correct": false,
@@ -10878,13 +10746,7 @@
       },
       {
         "question": "A clinical trial is conducted to test the efficacy of a new drug, A, to treat tinea versicolor. A total of 500 participants are recruited for the study and are randomized into 2 groups in equal numbers. Group 1, the study treatment group, is given drug A, while group 2, the control group, is given the current standard antifungal therapy. After the completion of therapy, 190 participants from the study treatment group and 165 participants from the control group are cured. Which calculation below represents the number needed to treat for the new drug?",
-        "options": [
-          "25/250",
-          "250/25",
-          "190/250",
-          "165/250",
-          "355/500"
-        ],
+        "options": ["25/250", "250/25", "190/250", "165/250", "355/500"],
         "correct_answer": "B",
         "predicted_answer": "C",
         "is_correct": false,
@@ -11074,13 +10936,7 @@
       },
       {
         "question": "A 56-year-old patient is being treated with oral amoxicillin for community-acquired pneumonia. The plasma clearance of the drug is calculated as 15.0 L/h. Oral bioavailability of the drug is 75%. Sensitivity analysis of a sputum culture shows a minimal inhibitory concentration of 1 μg/mL for the causative pathogen. The target plasma concentration is 2 mg/L. If the drug is administered twice per day, which of the following dosages should be administered at each dosing interval to maintain a steady state?",
-        "options": [
-          "270 mg",
-          "480 mg",
-          "135 mg",
-          "240 mg",
-          "540 mg\n\""
-        ],
+        "options": ["270 mg", "480 mg", "135 mg", "240 mg", "540 mg\n\""],
         "correct_answer": "B",
         "predicted_answer": "C",
         "is_correct": false,
@@ -11172,13 +11028,7 @@
       },
       {
         "question": "A 48-year-old woman comes to the physician because of a 7-day history of progressively worsening shortness of breath. She has a history of asthma and has frequent exacerbations despite receiving maximal medical therapy. Physical examination shows scattered expiratory wheezing. Laboratory studies show a leukocyte count of 9,800/mm3 (13% eosinophils) and elevated serum concentration of immunoglobulin E. An x-ray of the chest shows thickened bronchial walls and perihilar opacities. Sputum culture shows scattered septate hyphae that branch at 45 degrees. Which of the following is most likely to be increased in this patient?",
-        "options": [
-          "IL-28",
-          "C5a",
-          "TGF-β",
-          "IFN-α",
-          "IL-4"
-        ],
+        "options": ["IL-28", "C5a", "TGF-β", "IFN-α", "IL-4"],
         "correct_answer": "E",
         "predicted_answer": "C",
         "is_correct": false,
@@ -11536,13 +11386,7 @@
       },
       {
         "question": "A 40-year-old woman presents to the emergency department with severe left upper quadrant pain (duration 3 hours, stabbing quality, 10/10 on the pain scale). Past medical history is significant for sickle cell anemia. Physical examination is significant for severe tenderness to palpation in the left upper quadrant. Significant splenomegaly is also noted. The patient is admitted to the hospital for close observation and placed on deep vein thrombosis (DVT) prophylaxis as part of a routine protocol. Laboratory findings drawn sometime after admission demonstrate a normal prothrombin time (PT) and elevated partial thromboplastin time (PTT). Which of the following factors is most directly affected by the DVT prophylaxis?",
-        "options": [
-          "VII",
-          "XIIa",
-          "VIIa",
-          "X",
-          "XII"
-        ],
+        "options": ["VII", "XIIa", "VIIa", "X", "XII"],
         "correct_answer": "D",
         "predicted_answer": "C",
         "is_correct": false,
@@ -11550,13 +11394,7 @@
       },
       {
         "question": "A 47-year-old man with a history of HIV1 infection presents to his HIV clinic to discuss his antiretroviral medications. He is interested in including maraviroc in his maintenance regimen after seeing advertisements about the medication. On exam, his temperature is 98.8°F (37.1°C), blood pressure is 116/74 mmHg, pulse is 64/min, and respirations are 12/min. His viral load is undetectable on his current regimen, and his blood count, electrolytes, and liver function tests have all been within normal limits. In order to consider maraviroc for therapy, a tropism assay needs to be performed. Which of the following receptors is affected by the use of maraviroc?",
-        "options": [
-          "gp41",
-          "gp120",
-          "gp160",
-          "p24",
-          "Reverse transcriptase"
-        ],
+        "options": ["gp41", "gp120", "gp160", "p24", "Reverse transcriptase"],
         "correct_answer": "B",
         "predicted_answer": "C",
         "is_correct": false,
@@ -12530,13 +12368,7 @@
       },
       {
         "question": "A 3-year-old refugee with increasing pitting edema and abdominal swelling over the past 2 months is brought to the physician. Her family has been displaced several times over the last few years. Nutrition and housing were frequently inadequate. At the physician’s clinic, the boy appears irritated and drowsy. He is difficult to arouse. Physical examination shows pitting edema over the ankles and feet and around his eyes. Abdominal examination is positive for ascites and hepatomegaly. Oral examination shows several missing teeth. Which of the following best explains these findings?",
-        "options": [
-          "Kwashiorkor",
-          "Marasmus",
-          "Beriberi",
-          "Rickets",
-          "Scurvy"
-        ],
+        "options": ["Kwashiorkor", "Marasmus", "Beriberi", "Rickets", "Scurvy"],
         "correct_answer": "A",
         "predicted_answer": "C",
         "is_correct": false,
@@ -13314,13 +13146,7 @@
       },
       {
         "question": "An investigator is studying cellular regeneration of epithelial cells. She has obtained a tissue sample from a normal thyroid gland for histopathologic examination. It shows follicles lined by a single layer of cube-like cells with large central nuclei. Which of the following parts of the female reproductive tract is also lined by this type of epithelium?",
-        "options": [
-          "Ovaries",
-          "Vagina",
-          "Fallopian tubes",
-          "Vulva",
-          "Cervix"
-        ],
+        "options": ["Ovaries", "Vagina", "Fallopian tubes", "Vulva", "Cervix"],
         "correct_answer": "A",
         "predicted_answer": "C",
         "is_correct": false,
@@ -13496,13 +13322,7 @@
       },
       {
         "question": "A 72-year-old man with hypertension and type 2 diabetes mellitus is admitted to the hospital for the evaluation of breathlessness and fatigue. His pulse is 100/min, and blood pressure is 90/60 mm Hg. Further evaluation shows a systemic vascular resistance of 35 mm Hg × min/L with an end-systolic volume of 80 mL. Which of the following describes the ejection fraction in this patient?",
-        "options": [
-          "30%",
-          "15%",
-          "35%",
-          "25%",
-          "20%"
-        ],
+        "options": ["30%", "15%", "35%", "25%", "20%"],
         "correct_answer": "E",
         "predicted_answer": "C",
         "is_correct": false,
@@ -14630,13 +14450,7 @@
       },
       {
         "question": "A 4-year-old boy presents to the pediatrician’s office. His mother complains that he has been sleeping poorly, and she has noticed that he often scratches his perianal area. A scotch tape test is found to be positive and mebendazole is prescribed. Into which of the following subsets have the naïve T cells (TH0) developed due to the infection in this patient?",
-        "options": [
-          "TH1 cells",
-          "TH2 cells",
-          "TH17",
-          "T0 cells",
-          "TREGS"
-        ],
+        "options": ["TH1 cells", "TH2 cells", "TH17", "T0 cells", "TREGS"],
         "correct_answer": "B",
         "predicted_answer": "C",
         "is_correct": false,
@@ -14658,13 +14472,7 @@
       },
       {
         "question": "An investigator is studying the frequency of polycythemia in a population of a remote, mountainous region. A representative sample of 100 men shows a normal distribution of hemoglobin concentration with a mean concentration of 17 g/dL and a standard error of 0.1 g/dL. Which of the following best represents the probability that a subject will have a hemoglobin concentration greater than 18 g/dL?",
-        "options": [
-          "30%",
-          "15%",
-          "95%",
-          "99%",
-          "5%"
-        ],
+        "options": ["30%", "15%", "95%", "99%", "5%"],
         "correct_answer": "B",
         "predicted_answer": "C",
         "is_correct": false,
@@ -15386,13 +15194,7 @@
       },
       {
         "question": "A 32-year-old woman presents to the emergency department with complaints of a headache. The last menstrual period was 4 months ago. She also reports having a mild headache for 1 month. There has been a grape-like mass protruding from her vagina for the last 15 days. On examination, the fundus of the uterus is at the level of the umbilicus and no fetal heart sounds are heard. The vital signs are as follows: blood pressure 160/100 mm Hg, pulse rate 108/min. On USG examination, no fetal parts are seen. What will be the genotype of the substance which will be aspirated by dilation and evacuation?",
-        "options": [
-          "69XXY",
-          "45XO",
-          "23XX",
-          "47XYY",
-          "46XX"
-        ],
+        "options": ["69XXY", "45XO", "23XX", "47XYY", "46XX"],
         "correct_answer": "E",
         "predicted_answer": "C",
         "is_correct": false,
@@ -15918,13 +15720,7 @@
       },
       {
         "question": "A 42-year-old man comes to the physician because of progressive fatigue and shortness of breath for 1 month. He has been unable to practice with his recreational soccer team and has had to rest frequently when walking to work. His only medication is ibuprofen for joint pain. Physical examination shows tanned skin. There is tenderness to palpation and stiffness of the metacarpophalangeal joints of both hands. Pulmonary examination shows coarse crackles in both lung fields. The liver is palpated 4 cm below the right costal margin. Human leukocyte antigen (HLA) testing is most likely to be positive for which of the following?",
-        "options": [
-          "HLA-B27",
-          "HLA-DR3",
-          "HLA-DR4",
-          "HLA-B8",
-          "HLA-A3"
-        ],
+        "options": ["HLA-B27", "HLA-DR3", "HLA-DR4", "HLA-B8", "HLA-A3"],
         "correct_answer": "E",
         "predicted_answer": "C",
         "is_correct": false,
@@ -16492,13 +16288,7 @@
       },
       {
         "question": "A 35-year-old woman presents with an unsteady and broad-based gait, dysmetria, and intention tremor in the distal upper extremities. Her past medical history is relevant for depression, personality changes, and declining work performance, for which she has been put on leave from her current job as an elementary school teacher. On physical examination, patient has dysarthria, dystonia, and an ataxic gait. Ophthalmologic examination reveals multi-colored irises with concentric rings around the periphery (findings shown in the photo). Sensation and motor functions are preserved. Which of the following would you expect to be abnormally accumulated in this patient’s tissues?",
-        "options": [
-          "Arsenic",
-          "Iron",
-          "Copper",
-          "Lead",
-          "Mercury"
-        ],
+        "options": ["Arsenic", "Iron", "Copper", "Lead", "Mercury"],
         "correct_answer": "C",
         "predicted_answer": "C",
         "is_correct": true,
@@ -16898,13 +16688,7 @@
       },
       {
         "question": "A 35-year-old woman comes to the physician for genetic counseling prior to conception. Her younger brother has mild developmental delay, pale complexion, and has to limit his dietary intake of phenylalanine. She has no similar symptoms and is in good health. Her parents are healthy. Which of the following is the most appropriate assessment of her carrier status for the disease affecting her brother?",
-        "options": [
-          "67%",
-          "33%",
-          "100%",
-          "75%",
-          "50%"
-        ],
+        "options": ["67%", "33%", "100%", "75%", "50%"],
         "correct_answer": "A",
         "predicted_answer": "C",
         "is_correct": false,
@@ -17094,13 +16878,7 @@
       },
       {
         "question": "A 67-year-old woman with depression comes to the physician because of easy bruising and bleeding of her gums for the past 2 months. She has been living alone since the death of her husband 1 year ago. She appears thin and has temporal wasting bilaterally. Physical examination shows bruises on her lower legs, swollen gums, and petechiae on the hard palate. This patient's symptoms are most likely due to defective synthesis of a substance that is composed primarily of which of the following amino acids?",
-        "options": [
-          "Glycine",
-          "Proline",
-          "Tyrosine",
-          "Lysine",
-          "Arginine"
-        ],
+        "options": ["Glycine", "Proline", "Tyrosine", "Lysine", "Arginine"],
         "correct_answer": "A",
         "predicted_answer": "C",
         "is_correct": false,
@@ -17304,13 +17082,7 @@
       },
       {
         "question": "A 21-year-old female presents to the clinic requesting prenatal counseling. She was born with a disease that has led her to have recurrent upper respiratory infections throughout her life requiring antibiotic prophylaxis and chest physiotherapy as well as pancreatic enzyme replacement therapy. She marries a man (without this disease phenotype) from a population where the prevalence of this disease is 1/100. What is the chance that their child will have the disease of interest?",
-        "options": [
-          "9/100",
-          "1/10",
-          "18/100",
-          "81/100",
-          "9/10"
-        ],
+        "options": ["9/100", "1/10", "18/100", "81/100", "9/10"],
         "correct_answer": "A",
         "predicted_answer": "C",
         "is_correct": false,
@@ -17472,13 +17244,7 @@
       },
       {
         "question": "A 51-year-old woman goes to respiratory function testing in order to evaluate her shortness of breath. She recently joined a walking program with her friends in order to lose weight; however, she noticed that she was not able to keep up with her friends during the program. She has a 60-pack-year history of smoking as well as hypertension well-controlled on medication. The following represent the parameters for this patient's respiratory anatomy and function:\n\nVital capacity (VC): 5,000 mL\nInspiratory reserve volume (IRV): 2,500 mL\nFunctional reserve capacity (FRC): 2,700 mL\nResidual volume (RV): 1,000 mL\nUpper airway volume: 100 mL\nConducting airway volume: 125 mL\n\nInspired CO2 pressure (PiCO2): 1 mmHg\nArterial CO2 pressure (PaCO2): 50 mmHg\nExpired CO2 pressure (PeCO2): 20 mmHg\n\nWhich of the following best represents the total volume of gas in this patient's airways and lungs that does not participate in gas exchange?",
-        "options": [
-          "225 mL",
-          "480 mL",
-          "600 mL",
-          "800 mL",
-          "1200 mL"
-        ],
+        "options": ["225 mL", "480 mL", "600 mL", "800 mL", "1200 mL"],
         "correct_answer": "B",
         "predicted_answer": "C",
         "is_correct": false,

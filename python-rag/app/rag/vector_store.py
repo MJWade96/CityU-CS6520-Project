@@ -206,6 +206,9 @@ class MedicalVectorStore:
                 self.embedding_model,
                 allow_dangerous_deserialization=True
             )
+            # Restore documents from docstore
+            if hasattr(self.vectorstore, 'docstore') and self.vectorstore.docstore:
+                self.documents = list(self.vectorstore.docstore._dict.values())
         
         # Load metadata
         metadata_path = path / "metadata.json"

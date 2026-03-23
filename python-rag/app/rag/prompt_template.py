@@ -1,8 +1,13 @@
 """
 Medical RAG Prompt Templates
 
-Standard RAG prompt templates following the规划的 template:
+Standard RAG prompt templates following the 规划的 template:
 "Given the following context: {retrieved_contexts}. Answer the question: {question}. Choose from A, B, C, D."
+
+Optimized prompts with:
+- Chain-of-Thought (CoT) reasoning
+- Structured output format
+- Few-shot examples (optional)
 """
 
 from typing import List, Dict, Any, Optional
@@ -24,6 +29,95 @@ Instructions:
 - Choose from the given options (A, B, C, or D)
 
 Answer:"""
+
+MEDICAL_RAG_COT_PROMPT = """You are a medical expert assistant. Answer the following question based on the provided context.
+
+Context:
+{context}
+
+Question: {question}
+
+Options:
+{options}
+
+Please think step by step following this structure:
+
+1. **Analyze the question**: What is being asked?
+
+2. **Review the context**: What relevant information is in the provided context?
+
+3. **Evaluate each option**: 
+   - Option A: [Evaluate based on context]
+   - Option B: [Evaluate based on context]
+   - Option C: [Evaluate based on context]
+   - Option D: [Evaluate based on context]
+
+4. **Conclusion**: Based on the context and analysis, which option is correct?
+
+Please provide your answer in the following format:
+Answer: [A/B/C/D/E]
+
+Your response:"""
+
+STRUCTURED_MEDICAL_PROMPT = """You are a medical AI assistant. Provide a structured analysis and answer.
+
+Context:
+{context}
+
+Question: {question}
+
+Options:
+{options}
+
+Provide your response in the following structured format:
+
+## Analysis
+[Your analysis of the question and context]
+
+## Differential Diagnosis
+[List relevant differential diagnoses if applicable]
+
+## Evidence from Context
+[Cite specific evidence from the provided context]
+
+## Conclusion
+[Your conclusion and reasoning]
+
+## Answer
+Answer: [A/B/C/D/E]
+
+Please provide your structured response:"""
+
+FEWSHOT_MEDICAL_PROMPT = """You are a medical expert assistant. Answer questions based on the provided context.
+
+Context:
+{context}
+
+Question: {question}
+
+Options:
+{options}
+
+Here are some examples of how to answer:
+
+Example 1:
+Question: What is the first-line treatment for hypertension?
+Options: A. Beta blockers B. Thiazide diuretics C. ACE inhibitors D. Calcium channel blockers
+Analysis: According to the context, thiazide diuretics are recommended as first-line treatment.
+Answer: B
+
+Example 2:
+Question: Which symptom is characteristic of pneumonia?
+Options: A. Chest pain B. Fever and cough C. Headache D. Nausea
+Analysis: The context states that pneumonia typically presents with fever and productive cough.
+Answer: B
+
+Now answer the following question:
+
+Please think step by step and provide your answer in the format:
+Answer: [A/B/C/D/E]
+
+Your response:"""
 
 SIMPLE_RAG_PROMPT = """Given the following context, answer the question.
 
@@ -59,7 +153,10 @@ Important guidelines:
 
 def create_rag_prompt_template(
     template_type: str = "medical",
-    include_options: bool = True
+    include_options: bool = True,
+    use_cot: bool = False,
+    use_structured: bool = False,
+    use_fewshot: bool = False,
 ) -> PromptTemplate:
     """
     Create a RAG prompt template.
@@ -67,11 +164,29 @@ def create_rag_prompt_template(
     Args:
         template_type: Type of template ('medical', 'simple', 'context_qa')
         include_options: Whether to include options field
+        use_cot: Use Chain-of-Thought prompting
+        use_structured: Use structured output format
+        use_fewshot: Use few-shot examples
 
     Returns:
         PromptTemplate instance
     """
-    if template_type == "medical":
+    if use_cot:
+        return PromptTemplate(
+            template=MEDICAL_RAG_COT_PROMPT,
+            input_variables=["context", "question", "options"]
+        )
+    elif use_structured:
+        return PromptTemplate(
+            template=STRUCTURED_MEDICAL_PROMPT,
+            input_variables=["context", "question", "options"]
+        )
+    elif use_fewshot:
+        return PromptTemplate(
+            template=FEWSHOT_MEDICAL_PROMPT,
+            input_variables=["context", "question", "options"]
+        )
+    elif template_type == "medical":
         if include_options:
             return PromptTemplate(
                 template=MEDICAL_RAG_PROMPT,

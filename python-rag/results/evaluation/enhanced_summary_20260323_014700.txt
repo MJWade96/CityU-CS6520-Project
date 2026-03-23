@@ -1,0 +1,25 @@
+Enhanced Medical RAG System - Evaluation Summary
+Phase 1 + Phase 2 Optimizations
+============================================================
+
+Date: 2026-03-23 01:47:00
+LLM: deepseek/2656053fa69c4c2d89c5a691d9d737c3
+
+Optimizations Enabled:
+  ✓ Hybrid Retrieval (Dense + BM25)
+  ✓ Query Rewriting
+  ✓ Reranking (Cross-Encoder)
+  ✓ Chain-of-Thought Prompting
+  ✓ Adaptive Retrieval
+
+Development Set Results:
+  Total Questions: 300
+  Correct Answers: 266
+  Accuracy: 0.8867
+
+Test Set Results:
+  Total Questions: 973
+  Correct Answers: 846
+  Accuracy: 0.8695
+  Time: 32268.9s
+  Speed: 0.03 q/s

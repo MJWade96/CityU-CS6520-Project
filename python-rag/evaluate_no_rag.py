@@ -1,7 +1,7 @@
 """
 Evaluate LLM accuracy WITHOUT RAG (direct LLM inference)
 
-This script evaluates the baseline performance of the LLM without any 
+This script evaluates the baseline performance of the LLM without any
 retrieval augmentation - using only the model's internal knowledge.
 
 Usage:
@@ -32,6 +32,9 @@ class EvalConfig:
     # Get script directory
     SCRIPT_DIR = Path(__file__).parent
 
+    # Dataset split (与 enhanced_eval.py 保持一致)
+    DEV_SET_SIZE = 300
+
     # LLM Configuration (联通云 DeepSeek V3.2)
     LLM_PROVIDER = "deepseek"
     LLM_MODEL = "2656053fa69c4c2d89c5a691d9d737c3"  # DeepSeek V3.2
@@ -49,14 +52,20 @@ class EvalConfig:
 # Prompt Template (No Context)
 # ============================================================
 
-NO_RAG_PROMPT = """You are a medical expert assistant. Answer the following question based on your medical knowledge.
+NO_RAG_PROMPT = """You are a medical expert assistant. Answer the following medical question based on your knowledge.
 
 Question: {question}
 
 Options:
 {options}
 
-Please think step by step and then provide your answer in the following format:
+Please analyze this question step by step:
+1. Identify the key medical concepts in the question
+2. Consider what knowledge is needed to answer correctly
+3. Evaluate each option systematically
+4. Select the best answer
+
+Provide your answer in the following format:
 Answer: [A/B/C/D/E]
 
 Your response:"""
@@ -168,17 +177,40 @@ class DirectLLMGenerator:
         """Extract answer choice from LLM response"""
         import re
 
-        # Try to find answer pattern
-        patterns = [
-            r"Answer:\s*([A-E])",
-            r"answer:\s*([A-E])",
-            r"\b([A-E])\b",
-        ]
+        if not response or not isinstance(response, str):
+            return None
 
-        for pattern in patterns:
-            match = re.search(pattern, response, re.IGNORECASE)
+        # Strategy 1: Look for "Answer: X" pattern at the end of response (most reliable)
+        lines = response.strip().split("\n")
+        for line in reversed(lines[-5:]):  # Check last 5 lines only
+            answer_match = re.search(r"^\s*Answer:\s*([A-E])\s*$", line, re.IGNORECASE)
+            if answer_match:
+                return answer_match.group(1).upper()
+
+        # Strategy 2: Look for "Answer: X" anywhere (with word boundaries)
+        answer_match = re.search(r"Answer:\s*([A-E])\b", response, re.IGNORECASE)
+        if answer_match:
+            return answer_match.group(1).upper()
+
+        # Strategy 3: Look for standalone letter in brackets like [A] or (A)
+        bracket_match = re.search(r"[\[\(]([A-E])[\]\)]", response)
+        if bracket_match:
+            return bracket_match.group(1).upper()
+
+        # Strategy 4: Look for conclusion patterns in the last line
+        last_line = lines[-1] if lines else response
+        conclusion_patterns = [
+            r"(?:answer|choice|option|is)\s*[is:]?\s*([A-E])\b",
+        ]
+        for pattern in conclusion_patterns:
+            match = re.search(pattern, last_line, re.IGNORECASE)
             if match:
                 return match.group(1).upper()
+
+        # Strategy 5: If the entire last line is just a single letter
+        last_line_clean = last_line.strip().strip(".").strip(":")
+        if len(last_line_clean) == 1 and last_line_clean.upper() in "ABCDE":
+            return last_line_clean.upper()
 
         return None
 
@@ -310,6 +342,14 @@ def main():
         print("\nNo questions loaded. Exiting...")
         return
 
+    # Split dataset (与 enhanced_eval.py 保持一致)
+    dev_set = questions[: config.DEV_SET_SIZE]
+    test_set = questions[config.DEV_SET_SIZE :]
+
+    print(f"\nDataset Split:")
+    print(f"  Development set: {len(dev_set)} questions")
+    print(f"  Test set: {len(test_set)} questions")
+
     # Initialize LLM generator
     print(f"\nInitializing LLM Generator (No RAG)...")
     print(f"  Provider: {config.LLM_PROVIDER}")
@@ -333,13 +373,13 @@ def main():
         return
 
     # ============================================================
-    # Evaluate Without RAG
+    # Evaluate Without RAG (只测试测试集，与 enhanced_eval.py 保持一致)
     # ============================================================
 
     no_rag_results = evaluate_without_rag(
         llm_generator,
-        questions,
-        dataset_name="Full Dataset (No RAG)",
+        test_set,
+        dataset_name="Test Set (No RAG)",
     )
 
     # ============================================================
@@ -349,9 +389,7 @@ def main():
     timestamp = time.strftime("%Y%m%d_%H%M%S")
 
     # Save complete results
-    results_file = os.path.join(
-        config.OUTPUT_DIR, f"no_rag_eval_{timestamp}.json"
-    )
+    results_file = os.path.join(config.OUTPUT_DIR, f"no_rag_eval_{timestamp}.json")
     with open(results_file, "w", encoding="utf-8") as f:
         json.dump(
             {
@@ -370,9 +408,7 @@ def main():
     print(f"\n[OK] Results saved to {results_file}")
 
     # Save summary
-    summary_file = os.path.join(
-        config.OUTPUT_DIR, f"no_rag_summary_{timestamp}.txt"
-    )
+    summary_file = os.path.join(config.OUTPUT_DIR, f"no_rag_summary_{timestamp}.txt")
     with open(summary_file, "w", encoding="utf-8") as f:
         f.write("Medical RAG System - Baseline Evaluation (WITHOUT RAG)\n")
         f.write("=" * 60 + "\n\n")

@@ -33,6 +33,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
 
 from app.rag.vector_store import MedicalVectorStore
+from app.rag.progress_manager import EvaluationProgressManager
 
 
 # ============================================================
@@ -314,23 +315,49 @@ def evaluate_dataset(
     questions: List[Dict],
     top_k: int = 5,
     dataset_name: str = "Dataset",
+    progress_mgr: Optional[EvaluationProgressManager] = None,
+    start_from: int = 0,
+    initial_results: Optional[List[Dict]] = None,
+    initial_correct: int = 0,
+    initial_total: int = 0,
+    initial_elapsed: float = 0.0,
+    script_name: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Evaluate on a dataset.
+    Evaluate on a dataset with checkpoint support.
+
+    Args:
+        vectorstore: Vector store for retrieval
+        llm_generator: LLM generator for answer generation
+        questions: List of questions to evaluate
+        top_k: Number of documents to retrieve
+        dataset_name: Name of the dataset
+        progress_mgr: Progress manager for checkpointing
+        start_from: Index to start evaluation from (for resume)
+        initial_results: Initial results list (for resume)
+        initial_correct: Initial correct count (for resume)
+        initial_total: Initial total count (for resume)
+        initial_elapsed: Initial elapsed time (for resume)
 
     Returns:
         Evaluation results dictionary
     """
     print(f"\n{'=' * 60}")
-    print(f"Evaluating {dataset_name} (top-k={top_k})")
+    if start_from > 0:
+        print(f"Resuming {dataset_name} (top-k={top_k}) from question {start_from + 1}")
+    else:
+        print(f"Evaluating {dataset_name} (top-k={top_k})")
     print(f"{'=' * 60}")
 
-    start_time = time.time()
-    results = []
-    correct = 0
-    total = 0
+    start_time = time.time() - initial_elapsed
+    results = initial_results if initial_results is not None else []
+    correct = initial_correct
+    total = initial_total
 
-    for i, q in enumerate(questions, 1):
+    # Skip already processed questions
+    questions_to_process = questions[start_from:]
+
+    for i, q in enumerate(questions_to_process, start_from + 1):
         question_text = q.get("question", "")
         options = q.get("options", [])
         correct_answer = q.get("answer", "")
@@ -368,8 +395,48 @@ def evaluate_dataset(
                     f"Speed: {qps:.2f} q/s"
                 )
 
+            # Save checkpoint after each question
+            if progress_mgr:
+                elapsed = time.time() - start_time
+                progress_mgr.save_checkpoint(
+                    dataset_name=dataset_name,
+                    total_questions=len(questions),
+                    processed_questions=i,
+                    current_top_k=top_k,
+                    results=results,
+                    correct_count=correct,
+                    total_count=total,
+                    elapsed_time=elapsed,
+                    config={
+                        "top_k": top_k,
+                        "llm_provider": "deepseek",
+                        "llm_model": "2656053fa69c4c2d89c5a691d9d737c3",
+                    },
+                    script_name=script_name or "complete_eval",
+                )
+
         except Exception as e:
             print(f"  ERROR on question {i}: {e}")
+            # Still save checkpoint on error
+            if progress_mgr:
+                elapsed = time.time() - start_time
+                progress_mgr.save_checkpoint(
+                    dataset_name=dataset_name,
+                    total_questions=len(questions),
+                    processed_questions=i,
+                    current_top_k=top_k,
+                    results=results,
+                    correct_count=correct,
+                    total_count=total,
+                    elapsed_time=elapsed,
+                    config={
+                        "top_k": top_k,
+                        "llm_provider": "deepseek",
+                        "llm_model": "2656053fa69c4c2d89c5a691d9d737c3",
+                    },
+                    script_name=script_name or "complete_eval",
+                    error_message=f"Error on question {i}: {str(e)}",
+                )
             continue
 
     elapsed = time.time() - start_time
@@ -392,9 +459,11 @@ def find_best_top_k(
     llm_generator: MedicalLLMGenerator,
     dev_set: List[Dict],
     k_values: List[int],
+    progress_mgr: Optional[EvaluationProgressManager] = None,
+    resume_info: Optional[Dict[str, Any]] = None,
 ) -> Tuple[int, Dict[int, float]]:
     """
-    Find the best top-k on development set.
+    Find the best top-k on development set with checkpoint support.
 
     Returns:
         (best_k, accuracy_dict)
@@ -404,14 +473,40 @@ def find_best_top_k(
     print(f"{'=' * 60}")
 
     accuracy_scores = {}
+    start_k_index = 0
+    
+    # If resuming, determine which k values to skip
+    if resume_info and resume_info.get('current_top_k') in k_values:
+        completed_k = resume_info['current_top_k']
+        # Calculate accuracy from resumed results for completed k
+        if resume_info.get('total_count', 0) > 0:
+            accuracy_scores[completed_k] = resume_info['correct_count'] / resume_info['total_count']
+            print(f"\n🔄 Resumed k={completed_k}: Accuracy = {accuracy_scores[completed_k]:.4f}")
+        
+        # Find next k to evaluate
+        try:
+            start_k_index = k_values.index(completed_k) + 1
+            if start_k_index < len(k_values):
+                print(f"  Continuing with k={k_values[start_k_index]}")
+            else:
+                print("  All k values have been evaluated")
+        except ValueError:
+            start_k_index = 0
 
-    for k in k_values:
+    for k in k_values[start_k_index:]:
         results = evaluate_dataset(
             vectorstore,
             llm_generator,
             dev_set,
             top_k=k,
-            dataset_name=f"Development Set",
+            dataset_name=f"Development Set (k={k})",
+            progress_mgr=progress_mgr,
+            start_from=0,  # Always start from 0 for each k
+            initial_results=[],
+            initial_correct=0,
+            initial_total=0,
+            initial_elapsed=0.0,
+            script_name="complete_eval_dev",  # Use dev-specific checkpoint name
         )
         accuracy_scores[k] = results["accuracy"]
         print(
@@ -492,7 +587,7 @@ def calculate_retrieval_recall_at_k(
 
 
 def main():
-    """Main evaluation function"""
+    """Main evaluation function with checkpoint support"""
     print("=" * 60)
     print("Medical RAG System - Complete Evaluation")
     print("=" * 60)
@@ -502,6 +597,9 @@ def main():
 
     # Create output directory
     os.makedirs(config.OUTPUT_DIR, exist_ok=True)
+
+    # Initialize progress manager
+    progress_mgr = EvaluationProgressManager(output_dir=config.OUTPUT_DIR)
 
     # Load questions
     questions = load_questions(config.QUESTION_FILE)
@@ -566,12 +664,25 @@ def main():
     # Step 1: Hyperparameter Search on Development Set
     # ============================================================
 
+    # Check if we need to resume dev set evaluation
+    resume_dev = progress_mgr.should_resume(script_name="complete_eval_dev")
+    resume_info_dev = None
+    
+    if resume_dev:
+        resume_info_dev = progress_mgr.get_resume_info(script_name="complete_eval_dev")
+        print(f"\n🔄 Resuming hyperparameter search from checkpoint")
+    
     best_k, dev_accuracy_scores = find_best_top_k(
         vectorstore,
         llm_generator,
         dev_set,
         config.TOP_K_VALUES,
+        progress_mgr=progress_mgr,
+        resume_info=resume_info_dev,
     )
+    
+    # Clear dev set checkpoint after successful completion
+    progress_mgr.clear_checkpoint(script_name="complete_eval_dev")
 
     # ============================================================
     # Step 2: Final Evaluation on Test Set with Best top-k
@@ -581,13 +692,38 @@ def main():
     print(f"Final Evaluation on Test Set (using best top-k={best_k})")
     print(f"{'=' * 60}")
 
-    test_results = evaluate_dataset(
-        vectorstore,
-        llm_generator,
-        test_set,
-        top_k=best_k,
-        dataset_name="Test Set",
-    )
+    # Check if we need to resume test set evaluation
+    resume_test = progress_mgr.should_resume(script_name="complete_eval_test")
+    
+    if resume_test:
+        resume_info = progress_mgr.get_resume_info(script_name="complete_eval_test")
+        print(f"\n🔄 Resuming test set evaluation from question {resume_info['start_from'] + 1}")
+        
+        test_results = evaluate_dataset(
+            vectorstore,
+            llm_generator,
+            test_set,
+            top_k=best_k,
+            dataset_name="Test Set",
+            progress_mgr=progress_mgr,
+            start_from=resume_info['start_from'],
+            initial_results=resume_info['results'],
+            initial_correct=resume_info['correct_count'],
+            initial_total=resume_info['total_count'],
+            initial_elapsed=resume_info['elapsed_time'],
+        )
+    else:
+        test_results = evaluate_dataset(
+            vectorstore,
+            llm_generator,
+            test_set,
+            top_k=best_k,
+            dataset_name="Test Set",
+            progress_mgr=progress_mgr,
+        )
+    
+    # Clear checkpoint after successful completion
+    progress_mgr.clear_checkpoint(script_name="complete_eval_test")
 
     # ============================================================
     # Step 3: Calculate Retrieval Recall@k
