@@ -39,7 +39,10 @@ class EvalConfig:
     QUESTION_FILE = str(SCRIPT_DIR / "data" / "evaluation" / "medqa.json")
     OUTPUT_DIR = str(SCRIPT_DIR / "results" / "evaluation")
 
-    MAX_CONCURRENT = 20
+    RPM_LIMIT = 1000
+    TPM_LIMIT = 100000
+    MAX_CONCURRENT = 10
+    REQUESTS_PER_SECOND = RPM_LIMIT / 60 * 0.9
 
 
 NO_RAG_PROMPT = """You are a medical expert assistant. Answer the following question based on your medical knowledge.
@@ -53,6 +56,42 @@ Please think step by step and then provide your answer in the following format:
 Answer: [A/B/C/D/E]
 
 Your response:"""
+
+
+class RateLimiter:
+    """Token bucket rate limiter for API calls"""
+
+    def __init__(self, requests_per_second: float, burst: int = 10):
+        self.requests_per_second = requests_per_second
+        self.burst = burst
+        self.tokens = burst
+        # FIX 1: Use time.monotonic() for reliable interval timing
+        self.last_update = time.monotonic()
+        # Initialize lock directly in __init__
+        self._lock = asyncio.Lock()
+
+    async def acquire(self):
+        """Acquire a token, waiting if necessary"""
+        while True:
+            # FIX 2: Only lock the math/token update, NOT the sleep!
+            async with self._lock:
+                now = time.monotonic()
+                elapsed = now - self.last_update
+                self.tokens = min(
+                    self.burst, self.tokens + elapsed * self.requests_per_second
+                )
+                self.last_update = now
+
+                if self.tokens >= 1:
+                    self.tokens -= 1
+                    return
+
+                wait_time = (1 - self.tokens) / self.requests_per_second
+                # Enforce a 10ms minimum wait to prevent 0-second infinite micro-loops
+                wait_time = max(wait_time, 0.01)
+
+            # CRITICAL: Sleep OUTSIDE the lock so other concurrent tasks can progress
+            await asyncio.sleep(wait_time)
 
 
 def extract_answer(response: str) -> Optional[str]:
@@ -88,14 +127,16 @@ def load_questions(question_file: str) -> List[Dict]:
 
 async def get_response(
     semaphore: asyncio.Semaphore,
+    rate_limiter: RateLimiter,
     client: AsyncOpenAI,
     item: Dict,
     model: str,
     temperature: float,
     max_tokens: int,
-) -> Dict:
-    """Get response from LLM with semaphore-controlled concurrency"""
+) -> tuple:
+    """Get response from LLM with semaphore-controlled concurrency and rate limiting"""
     async with semaphore:
+        await rate_limiter.acquire()
         question_text = item.get("question", "")
         options = item.get("options", [])
 
@@ -123,14 +164,16 @@ async def get_response(
                 max_tokens=max_tokens,
             )
             response_content = completion.choices[0].message.content
-            return {
+
+            # Return original item along with result so we can process them as they complete
+            return item, {
                 "question": question_text,
                 "options": options,
                 "response": response_content,
                 "error": None,
             }
         except Exception as e:
-            return {
+            return item, {
                 "question": question_text,
                 "options": options,
                 "response": None,
@@ -146,26 +189,25 @@ async def evaluate_without_rag(
 ) -> Dict[str, Any]:
     """
     Evaluate LLM without RAG (direct inference) using async parallel calls.
-
-    Flow:
-    1. Send questions in parallel to LLM (no retrieval)
-    2. Extract answer from responses
-    3. Compare with correct answers
-
-    Returns:
-        Evaluation results dictionary
+    Outputs live progress as tasks complete.
     """
     print(f"\n{'=' * 60}")
     print(f"Evaluating WITHOUT RAG - Full Dataset (Async)")
     print(f"{'=' * 60}")
 
     semaphore = asyncio.Semaphore(config.MAX_CONCURRENT)
+    # The lock initialization requires a running event loop, so this is safe here
+    rate_limiter = RateLimiter(
+        requests_per_second=config.REQUESTS_PER_SECOND,
+        burst=config.MAX_CONCURRENT,
+    )
 
     start_time = time.time()
 
     tasks = [
         get_response(
             semaphore,
+            rate_limiter,
             client,
             q,
             config.LLM_MODEL,
@@ -175,14 +217,11 @@ async def evaluate_without_rag(
         for q in questions
     ]
 
-    results = await asyncio.gather(*tasks)
-
-    elapsed = time.time() - start_time
-
     correct = 0
     total = 0
     detailed_results = []
 
+    # Prepare output file headers
     with open(output_file, "w", encoding="utf-8") as f:
         f.write("{\n")
         f.write('  "config": {\n')
@@ -190,12 +229,17 @@ async def evaluate_without_rag(
         f.write(f'    "llm_provider": "{config.LLM_PROVIDER}",\n')
         f.write(f'    "llm_model": "{config.LLM_MODEL}",\n')
         f.write('    "evaluation_type": "NO_RAG (Direct LLM Inference - Async)",\n')
-        f.write(f'    "max_concurrent": {config.MAX_CONCURRENT}\n')
+        f.write(f'    "max_concurrent": {config.MAX_CONCURRENT},\n')
+        f.write(f'    "rpm_limit": {config.RPM_LIMIT},\n')
+        f.write(f'    "requests_per_second": {config.REQUESTS_PER_SECOND:.2f}\n')
         f.write("  },\n")
         f.write('  "evaluation_results": {\n')
         f.write('    "detailed_results": [\n')
 
-    for i, (q, result) in enumerate(zip(questions, results)):
+    # FIX 3: Process futures as they complete for real-time terminal output!
+    for i, future in enumerate(asyncio.as_completed(tasks)):
+        q, result = await future
+
         answer_index = q.get("answer_index", -1)
         correct_answer = q.get("answer", "")
 
@@ -232,14 +276,18 @@ async def evaluate_without_rag(
                 f.write(",\n")
             f.write("      " + json_str.replace("\n", "\n      "))
 
-        qps = (i + 1) / elapsed if elapsed > 0 else 0
+        # Calculate live metrics
+        elapsed_so_far = time.time() - start_time
+        qps = (i + 1) / elapsed_so_far if elapsed_so_far > 0 else 0
         current_acc = correct / total if total > 0 else 0
+
         print(
             f"  Question {i+1}/{len(questions)} | "
             f"Accuracy: {current_acc:.4f} | "
             f"Speed: {qps:.2f} q/s"
         )
 
+    elapsed = time.time() - start_time
     accuracy = correct / total if total > 0 else 0
 
     with open(output_file, "a", encoding="utf-8") as f:
@@ -294,9 +342,12 @@ async def main():
     print(f"  Base URL: {config.LLM_BASE_URL}")
     print(f"  Max Concurrent: {config.MAX_CONCURRENT}")
 
+    # FIX 4: Add timeout and max_retries to prevent infinite network hanging
     client = AsyncOpenAI(
         api_key=config.LLM_API_KEY,
         base_url=config.LLM_BASE_URL,
+        timeout=30.0,
+        max_retries=2,
     )
     print("[OK] Async LLM Client initialized")
 
@@ -324,7 +375,9 @@ async def main():
         f.write(f"LLM: {config.LLM_PROVIDER}/{config.LLM_MODEL}\n")
         f.write("Evaluation Type: Direct LLM Inference (No Retrieval - Async)\n")
         f.write(f"Dev Set Size: {config.DEV_SET_SIZE}\n")
-        f.write(f"Max Concurrent: {config.MAX_CONCURRENT}\n\n")
+        f.write(f"Max Concurrent: {config.MAX_CONCURRENT}\n")
+        f.write(f"RPM Limit: {config.RPM_LIMIT}\n")
+        f.write(f"Requests/Second: {config.REQUESTS_PER_SECOND:.2f}\n\n")
 
         f.write("Test Set Results:\n")
         f.write(f"  Total Questions: {no_rag_results['total_questions']}\n")

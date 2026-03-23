@@ -1,0 +1,32 @@
+{
+  "concurrent_10": {
+    "elapsed": 21.9717378616333,
+    "results": {
+      "total_questions": 10,
+      "correct": 8,
+      "accuracy": 0.8,
+      "elapsed_time": 21.9717378616333,
+      "questions_per_second": 0.455130134128436
+    }
+  },
+  "concurrent_20": {
+    "elapsed": 20.970337867736816,
+    "results": {
+      "total_questions": 10,
+      "correct": 7,
+      "accuracy": 0.7,
+      "elapsed_time": 20.970337867736816,
+      "questions_per_second": 0.4768640382940683
+    }
+  },
+  "concurrent_30": {
+    "elapsed": 21.930312395095825,
+    "results": {
+      "total_questions": 10,
+      "correct": 8,
+      "accuracy": 0.8,
+      "elapsed_time": 21.930312395095825,
+      "questions_per_second": 0.45598985640698186
+    }
+  }
+}
