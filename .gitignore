@@ -2,3 +2,10 @@
 /Zignored/
 .trae
 
+# Large data files - regenerate as needed
+python-rag/data/corpus/
+python-rag/data/vector_store/
+*.json
+*.faiss
+*.pkl
+
