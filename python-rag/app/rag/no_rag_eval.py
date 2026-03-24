@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List
 
+from .data_paths import EVALUATION_DIR, EVALUATION_RESULTS_DIR
 from .eval_shared import (
     ConcurrencyConfig,
     EvaluationLLMConfig,
@@ -44,8 +45,8 @@ Your response:"""
 class NoRAGEvalConfig:
     dev_size: int = 50
     test_size: int = 50
-    question_file: Path = Path(__file__).resolve().parents[2] / "data" / "evaluation" / "medqa.json"
-    output_dir: Path = Path(__file__).resolve().parents[2] / "results" / "evaluation"
+    question_file: Path = EVALUATION_DIR / "medqa.json"
+    output_dir: Path = EVALUATION_RESULTS_DIR
     llm: EvaluationLLMConfig = field(default_factory=EvaluationLLMConfig)
     concurrency: ConcurrencyConfig = field(default_factory=ConcurrencyConfig)
 

@@ -38,7 +38,7 @@ from app.rag.reranker import RerankerPipeline
 from app.rag.chunking import SemanticChunker, ParentChildChunker
 from app.rag.metadata_enhancement import MetadataGenerator, RuleBasedMetadataGenerator
 from app.rag.progress_manager import EvaluationProgressManager
-from app.rag.data_paths import EVALUATION_DIR, FAISS_INDEX_DIR
+from app.rag.data_paths import EVALUATION_DIR, EVALUATION_RESULTS_DIR, FAISS_INDEX_DIR
 
 
 # ============================================================
@@ -74,7 +74,7 @@ class EnhancedEvaluationConfig:
     # File paths
     VECTOR_STORE_PATH = str(FAISS_INDEX_DIR)
     QUESTION_FILE = str(EVALUATION_DIR / "medqa.json")
-    OUTPUT_DIR = str(Path(__file__).parent / "results" / "evaluation")
+    OUTPUT_DIR = str(EVALUATION_RESULTS_DIR)
 
 
 # ============================================================
