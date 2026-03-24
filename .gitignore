@@ -9,3 +9,6 @@ __pycache__/
 python-rag/results/
 python-rag/data/
 data/
+
+AutoDL-SSH-Tools/
+RAG_Medical_Data/
