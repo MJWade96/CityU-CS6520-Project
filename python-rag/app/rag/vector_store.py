@@ -120,32 +120,28 @@ class MedicalVectorStore:
         filter: Optional[Dict[str, Any]] = None
     ) -> List[Tuple[Document, float]]:
         """
-        Perform similarity search with relevance scores.
-        
-        Args:
-            query: Query string
-            k: Number of results to return
-            filter: Optional metadata filter
-            
-        Returns:
-            List of (document, score) tuples
+        Perform similarity search with scores.
+
+        Keeping this logic in one method avoids duplicate search behavior for
+        FAISS and Chroma backends.
         """
         if self.vectorstore is None:
             return []
-        
+
         if self.store_type == "faiss":
             return self.vectorstore.similarity_search_with_score(
                 query,
                 k=k,
                 filter=filter
             )
-        elif self.store_type == "chroma":
-            return self.vectorstore.similarity_search_with_relevance_scores(
+        if self.store_type == "chroma":
+            results = self.vectorstore.similarity_search_with_relevance_scores(
                 query,
                 k=k,
                 filter=filter
             )
-        
+            return [(doc, 1.0 - score) for doc, score in results]
+
         return []
     
     def max_marginal_relevance_search(
@@ -216,33 +212,6 @@ class MedicalVectorStore:
             with open(metadata_path, 'r') as f:
                 metadata = json.load(f)
                 print(f"Loaded vector store with {metadata.get('document_count', 0)} documents")
-    
-    def similarity_search_with_score(
-        self,
-        query: str,
-        k: int = 5
-    ) -> List[Tuple[Document, float]]:
-        """
-        Perform similarity search with scores.
-        
-        Args:
-            query: Query string
-            k: Number of results to return
-            
-        Returns:
-            List of (document, score) tuples
-        """
-        if self.vectorstore is None:
-            return []
-        
-        if self.store_type == "faiss":
-            return self.vectorstore.similarity_search_with_score(query, k=k)
-        elif self.store_type == "chroma":
-            results = self.vectorstore.similarity_search_with_relevance_scores(query, k=k)
-            # Convert relevance scores to distance-like scores
-            return [(doc, 1.0 - score) for doc, score in results]
-        
-        return []
     
     def get_stats(self) -> Dict[str, Any]:
         """Get vector store statistics"""

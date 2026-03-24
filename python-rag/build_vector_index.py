@@ -1,257 +1,149 @@
 """
-Build Vector Index for Medical RAG System
+Build the FAISS index used by the naive RAG pipeline.
 
-This script:
-1. Loads the combined corpus (Textbooks + PubMed)
-2. Creates BGE embeddings
-3. Builds FAISS vector index
-4. Saves the index for later use
-
-Usage:
-    python build_vector_index.py
+The script reuses corpus normalization and embedding helpers so indexing logic
+stays aligned with the rest of the project.
 """
 
-import os
-import sys
+from __future__ import annotations
+
+import argparse
 import json
 import time
+from math import ceil
 from pathlib import Path
-
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent))
+from typing import Dict, List
 
 from langchain_core.documents import Document
+from tqdm import tqdm
+
+from app.rag.data_paths import COMBINED_CORPUS_FILE, FAISS_INDEX_DIR, ensure_data_directories
 from app.rag.embeddings import get_langchain_embeddings
 from app.rag.vector_store import MedicalVectorStore
 
 
-def load_corpus(corpus_file: str = "./data/corpus/combined_corpus.json"):
-    """
-    Load the combined corpus
-    
-    Args:
-        corpus_file: Path to combined corpus JSON file
-    
-    Returns:
-        List of Document objects
-    """
-    print(f"Loading corpus from {corpus_file}...")
-    
-    if not os.path.exists(corpus_file):
-        print(f"ERROR: Corpus file not found: {corpus_file}")
-        return []
-    
-    with open(corpus_file, "r", encoding="utf-8") as f:
-        chunks = json.load(f)
-    
-    print(f"✓ Loaded {len(chunks):,} chunks")
-    
-    # Convert to LangChain documents
-    documents = []
-    for chunk in chunks:
-        doc = Document(
-            page_content=chunk["content"],
-            metadata={
-                "id": chunk.get("id", ""),
-                "title": chunk.get("title", ""),
-                "source": chunk.get("source", ""),
-                "textbook": chunk.get("textbook", ""),
-                "pmid": chunk.get("pmid", ""),
-                "journal": chunk.get("journal", ""),
-                "year": chunk.get("year", ""),
-            }
-        )
-        documents.append(doc)
-    
-    print(f"✓ Created {len(documents):,} Document objects")
+def load_documents(corpus_file: Path) -> List[Document]:
+    """Load the combined corpus and convert it into LangChain documents."""
+    if not corpus_file.exists():
+        raise FileNotFoundError(f"Corpus file not found: {corpus_file}")
+
+    with corpus_file.open("r", encoding="utf-8") as handle:
+        chunks = json.load(handle)
+
+    documents: List[Document] = []
+    for chunk in tqdm(chunks, desc="Loading corpus", unit="doc"):
+        metadata = {
+            "id": chunk.get("id", ""),
+            "title": chunk.get("title", ""),
+            "source": chunk.get("source", ""),
+            "textbook": chunk.get("textbook", ""),
+            "pmid": chunk.get("pmid", ""),
+            "journal": chunk.get("journal", ""),
+            "year": chunk.get("year", ""),
+        }
+        documents.append(Document(page_content=chunk["content"], metadata=metadata))
     return documents
 
 
-def create_embeddings():
-    """
-    Create embeddings using Sentence Transformer
-    
-    Returns:
-        LangChain embeddings instance
-    """
-    print("\nInitializing embedding model...")
-    print("Model: all-MiniLM-L6-v2 (fast and effective)")
-    
-    # Use a lightweight but effective model
-    from langchain_community.embeddings import HuggingFaceEmbeddings
-    
-    model_name = "sentence-transformers/all-MiniLM-L6-v2"
-    
-    embeddings = HuggingFaceEmbeddings(
-        model_name=model_name,
-        model_kwargs={'device': 'cpu'},
-        encode_kwargs={'normalize_embeddings': True}
+def build_index(
+    documents: List[Document],
+    output_dir: Path,
+    batch_size: int = 1000,
+) -> Dict[str, object]:
+    """Embed documents and persist a FAISS index."""
+    embeddings = get_langchain_embeddings(
+        model_type="huggingface",
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        model_kwargs={"device": "cpu"},
+        encode_kwargs={"normalize_embeddings": True},
     )
-    
-    print("✓ Embedding model initialized")
-    return embeddings
-
-
-def build_vector_index(
-    documents,
-    embeddings,
-    output_dir: str = "./data/vector_store/faiss_index"
-):
-    """
-    Build FAISS vector index
-    
-    Args:
-        documents: List of Document objects
-        embeddings: LangChain embeddings instance
-        output_dir: Directory to save the index
-    
-    Returns:
-        MedicalVectorStore instance
-    """
-    print(f"\nBuilding FAISS vector index...")
-    print(f"Total documents: {len(documents):,}")
-    
-    # Create vector store
     vectorstore = MedicalVectorStore(
         embedding_model=embeddings,
         store_type="faiss",
-        persist_directory=output_dir
+        persist_directory=str(output_dir),
     )
-    
-    # Add documents in batches
-    batch_size = 1000
+
     start_time = time.time()
-    
-    print(f"\nAdding documents in batches of {batch_size}...")
-    
-    for i in range(0, len(documents), batch_size):
-        batch = documents[i:i + batch_size]
-        end_idx = min(i + batch_size, len(documents))
-        
+    total_batches = ceil(len(documents) / batch_size) if documents else 0
+    batch_iterator = range(0, len(documents), batch_size)
+    for start in tqdm(
+        batch_iterator,
+        total=total_batches,
+        desc="Building FAISS index",
+        unit="batch",
+    ):
+        batch = documents[start : start + batch_size]
         vectorstore.add_documents(batch)
-        
-        # Progress update
-        elapsed = time.time() - start_time
-        docs_per_sec = end_idx / elapsed if elapsed > 0 else 0
-        print(f"  Processed {end_idx:,}/{len(documents):,} docs "
-              f"({elapsed:.1f}s, {docs_per_sec:.1f} docs/s)")
-    
+
     elapsed = time.time() - start_time
-    print(f"\n✓ Index built in {elapsed:.1f} seconds")
-    
-    # Save the index
-    print(f"\nSaving index to {output_dir}...")
-    vectorstore.save(output_dir)
-    
-    # Save metadata
+    vectorstore.save(str(output_dir))
+
+    source_counts: Dict[str, int] = {}
+    for doc in documents:
+        source = doc.metadata.get("source", "unknown")
+        source_counts[source] = source_counts.get(source, 0) + 1
+
     metadata = {
         "document_count": len(documents),
-        "embedding_model": "BAAI/bge-small-en-v1.5",
+        "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
         "store_type": "faiss",
-        "sources": {
-            "medrag_textbooks": sum(1 for d in documents if d.metadata.get("source") == "medrag_textbooks"),
-            "pubmed": sum(1 for d in documents if d.metadata.get("source") == "pubmed"),
-        },
+        "sources": source_counts,
         "build_time_seconds": elapsed,
     }
-    
-    metadata_file = os.path.join(output_dir, "build_metadata.json")
-    with open(metadata_file, "w", encoding="utf-8") as f:
-        json.dump(metadata, f, indent=2, ensure_ascii=False)
-    
-    print(f"✓ Index saved")
-    print(f"✓ Metadata saved to {metadata_file}")
-    
-    return vectorstore
+
+    with (output_dir / "build_metadata.json").open("w", encoding="utf-8") as handle:
+        json.dump(metadata, handle, indent=2, ensure_ascii=False)
+
+    return metadata
 
 
-def test_retrieval(vectorstore, k: int = 5):
-    """
-    Test the retrieval system
-    
-    Args:
-        vectorstore: MedicalVectorStore instance
-        k: Number of results to retrieve
-    """
-    print(f"\n{'=' * 60}")
-    print("Testing Retrieval System")
-    print(f"{'=' * 60}")
-    
-    # Test queries
-    test_queries = [
-        "What is hypertension?",
-        "How to diagnose diabetes?",
-        "Treatment for pneumonia",
-    ]
-    
-    for query in test_queries:
+def test_retrieval(index_dir: Path, k: int = 5) -> None:
+    """Run a small smoke test against the persisted index."""
+    embeddings = get_langchain_embeddings(
+        model_type="huggingface",
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        model_kwargs={"device": "cpu"},
+        encode_kwargs={"normalize_embeddings": True},
+    )
+    vectorstore = MedicalVectorStore(
+        embedding_model=embeddings,
+        store_type="faiss",
+        persist_directory=str(index_dir),
+    )
+    vectorstore.load(str(index_dir))
+
+    for query in ("hypertension treatment", "diabetes diagnosis", "pneumonia antibiotics"):
         print(f"\nQuery: {query}")
-        print("-" * 60)
-        
-        results = vectorstore.similarity_search_with_score(query, k=k)
-        
-        for i, (doc, score) in enumerate(results, 1):
-            source = doc.metadata.get("source", "unknown")
-            title = doc.metadata.get("title", "")[:50]
-            
-            print(f"{i}. [{source}] {title}")
-            print(f"   Score: {score:.4f}")
-            print(f"   Content: {doc.page_content[:100]}...")
-        
-        print()
+        for rank, (doc, score) in enumerate(vectorstore.similarity_search_with_score(query, k=k), start=1):
+            print(f"{rank}. [{doc.metadata.get('source', 'unknown')}] {doc.metadata.get('title', '')[:60]}")
+            print(f"   score={score:.4f}")
 
 
-def main():
-    """Main entry point"""
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Build vector index for Medical RAG")
+    parser.add_argument("--corpus", type=Path, default=COMBINED_CORPUS_FILE)
+    parser.add_argument("--output", type=Path, default=FAISS_INDEX_DIR)
+    parser.add_argument("--batch-size", type=int, default=1000)
+    parser.add_argument("--no-test", action="store_true", help="Skip retrieval smoke test")
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    ensure_data_directories()
+    documents = load_documents(Path(args.corpus))
+    metadata = build_index(documents, Path(args.output), batch_size=args.batch_size)
+
     print("=" * 60)
-    print("Building Medical RAG Vector Index")
+    print("Vector Index Build Complete")
     print("=" * 60)
-    
-    # Configuration
-    corpus_file = "./data/corpus/combined_corpus.json"
-    output_dir = "./data/vector_store/faiss_index"
-    test_queries = True
-    
-    # Parse command line arguments
-    if "--corpus" in sys.argv:
-        idx = sys.argv.index("--corpus") + 1
-        if idx < len(sys.argv):
-            corpus_file = sys.argv[idx]
-    
-    if "--output" in sys.argv:
-        idx = sys.argv.index("--output") + 1
-        if idx < len(sys.argv):
-            output_dir = sys.argv[idx]
-    
-    if "--no-test" in sys.argv:
-        test_queries = False
-    
-    # Load corpus
-    documents = load_corpus(corpus_file)
-    
-    if not documents:
-        print("\n❌ ERROR: No documents loaded. Exiting...")
-        return
-    
-    # Create embeddings
-    embeddings = create_embeddings()
-    
-    # Build index
-    vectorstore = build_vector_index(documents, embeddings, output_dir)
-    
-    # Test retrieval
-    if test_queries:
-        test_retrieval(vectorstore, k=5)
-    
-    # Summary
-    print(f"\n{'=' * 60}")
-    print("Vector Index Build Complete!")
-    print(f"{'=' * 60}")
-    print(f"Documents indexed: {len(documents):,}")
-    print(f"Index location: {os.path.abspath(output_dir)}")
-    print(f"Embedding model: BAAI/bge-small-en-v1.5")
-    print(f"Vector store type: FAISS")
-    print(f"\nReady to use with RAG system!")
+    print(f"Documents indexed: {metadata['document_count']:,}")
+    print(f"Sources: {metadata['sources']}")
+    print(f"Build time: {metadata['build_time_seconds']:.1f}s")
+    print(f"Index location: {Path(args.output).resolve()}")
+
+    if not args.no_test:
+        test_retrieval(Path(args.output))
 
 
 if __name__ == "__main__":

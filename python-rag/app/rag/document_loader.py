@@ -22,6 +22,8 @@ from langchain_community.document_loaders import (
     UnstructuredMarkdownLoader,
 )
 
+from .data_paths import MEDICAL_KNOWLEDGE_DIR
+
 
 @dataclass
 class ProcessedDocument:
@@ -545,9 +547,7 @@ Patient Counseling:
 
 def get_default_knowledge_path() -> str:
     """Get the default path for medical knowledge base"""
-    current_dir = Path(__file__).parent
-    project_root = current_dir.parent.parent
-    return str(project_root / "data" / "medical_knowledge" / "medical_knowledge.json")
+    return str(MEDICAL_KNOWLEDGE_DIR / "medical_knowledge.json")
 
 
 def load_knowledge_from_file(file_path: str = None) -> List[Dict[str, Any]]:

@@ -32,8 +32,9 @@ from .api_medical_rag import (
     create_rag_system,
     create_rag_pipeline,
 )
-from .medqa_evaluation import MedQAEvaluator
 from .corpus_loader import MedicalCorpusLoader, StatPearlsLoader, PubMedLoader
+from .corpus_registry import CORPUS_REGISTRY, combine_registered_corpora
+from .statpearls_dataset import build_statpearls_dataset
 from .prompt_template import (
     MedicalPromptManager,
     create_rag_prompt_template,
@@ -77,12 +78,13 @@ __all__ = [
     "RuleBasedEvaluator",
     "create_rag_system",
     "create_rag_pipeline",
-    # MedQA Evaluation
-    "MedQAEvaluator",
     # Corpus Loader
     "MedicalCorpusLoader",
     "StatPearlsLoader",
     "PubMedLoader",
+    "CORPUS_REGISTRY",
+    "combine_registered_corpora",
+    "build_statpearls_dataset",
     # Prompt Templates
     "MedicalPromptManager",
     "create_rag_prompt_template",

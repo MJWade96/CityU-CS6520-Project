@@ -1,0 +1,12 @@
+{
+  "config": {
+    "dev_set_size": 100,
+    "llm_provider": "deepseek",
+    "llm_model": "8606056bfe0c49448d92587452d1f2fc",
+    "evaluation_type": "NO_RAG (Direct LLM Inference - Async)",
+    "max_concurrent": 10,
+    "rpm_limit": 1000,
+    "requests_per_second": 15.00
+  },
+  "evaluation_results": {
+    "detailed_results": [

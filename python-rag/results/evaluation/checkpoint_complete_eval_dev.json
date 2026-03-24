@@ -1,0 +1,869 @@
+{
+  "timestamp": "2026-03-23T20:51:43.168095",
+  "script_name": "complete_eval_dev",
+  "dataset_name": "Development Set (k=3)",
+  "total_questions": 300,
+  "processed_questions": 34,
+  "current_top_k": 3,
+  "results": [
+    {
+      "question": "A junior orthopaedic surgery resident is completing a carpal tunnel repair with the department chairman as the attending physician. During the case, the resident inadvertently cuts a flexor tendon. The tendon is repaired without complication. The attending tells the resident that the patient will do fine, and there is no need to report this minor complication that will not harm the patient, as he does not want to make the patient worry unnecessarily. He tells the resident to leave this complication out of the operative report. Which of the following is the correct next action for the resident to take?",
+      "options": [
+        "Disclose the error to the patient but leave it out of the operative report",
+        "Disclose the error to the patient and put it in the operative report",
+        "Tell the attending that he cannot fail to disclose this mistake",
+        "Report the physician to the ethics committee",
+        "Refuse to dictate the operative report"
+      ],
+      "correct_answer": "C",
+      "predicted_answer": "C",
+      "is_correct": true,
+      "response": "\n\nAnswer: C",
+      "retrieved_docs": 3,
+      "scores": [
+        0.900642991065979,
+        0.9274286031723022,
+        0.9790503978729248
+      ],
+      "contexts": [
+        "should address it a second time. If the concern is still unanswered or uncorrected, the team member is then obligated to go up the chain of command to a supervisor or higher-ranking physician to have his or her concerns satisfied.",
+        "error sometime during their careers.47 The specialties most com-monly involved in reporting wrong-site surgeries according to The Joint Commission are orthopedic/podiatric surgery (41%); general surgery (20%); neurosurgery (14%); urology (11%); and maxillofacial, cardiovascular, otolaryngology, and oph-thalmology (14%).46 Most errors involved symmetric anatomic structures: lower extremities (30%), head/neck (24%), and geni-tal/urinary/pelvic/groin (21%).42 Although orthopedic surgery is the most frequently involved, this may be due to the higher volume of cases performed as well as the increased opportu-nity for lateralization errors inherent in the specialty. In addi-tion, because the American Academy of Orthopaedic Surgeons has historically tried as a professional organization to reduce wrong-site operations, orthopedic surgeons may be more likely to report these events when they do occur.47The Joint Commission Universal Protocol to Ensure Correct SurgeryThe movement to eliminate",
+        "with a second square of plaster over the thenar eminence, which joins the first. D. Sugar tong splint. This dorsal and volar slab splints immobilizes the wrist and elbow in neutral and 90° positions, respectively.Figure 44-13. The zones of flexor tendon injury. I. Flexor digito-rum superficialis insertion to the flexor digitorum profundus inser-tion. II. Start of the A1 pulley to the flexor digitorum superficialis insertion. III. End of the carpal tunnel to the start of the A1 pulley. IV. Within the carpal tunnel. V. Proximal to the carpal tunnel.Brunicardi_Ch44_p1925-p1966.indd 193520/02/19 2:48 PM 1936SPECIFIC CONSIDERATIONSPART IIof injury, the closer to the day of injury they are repaired, the easier it will be to retrieve the retracted proximal end in surgery. The laceration should be washed out and closed at the skin level only using permanent sutures. The hand should be splinted as described earlier; one notable difference is that the wrist should be splinted at slight"
+      ]
+    },
+    {
+      "question": "A 67-year-old man with transitional cell carcinoma of the bladder comes to the physician because of a 2-day history of ringing sensation in his ear. He received this first course of neoadjuvant chemotherapy 1 week ago. Pure tone audiometry shows a sensorineural hearing loss of 45 dB. The expected beneficial effect of the drug that caused this patient's symptoms is most likely due to which of the following actions?",
+      "options": [
+        "Inhibition of thymidine synthesis",
+        "Inhibition of proteasome",
+        "Hyperstabilization of microtubules",
+        "Generation of free radicals",
+        "Cross-linking of DNA"
+      ],
+      "correct_answer": "E",
+      "predicted_answer": "E",
+      "is_correct": true,
+      "response": "\n\nAnswer: E",
+      "retrieved_docs": 3,
+      "scores": [
+        0.7712313532829285,
+        0.8113754391670227,
+        0.8352665901184082
+      ],
+      "contexts": [
+        "the ear. The vertiginous symptoms differed from those of Ménière disease in that discrete attacks separated by periods of normalcy were rare. The vertigo coincided more or less with hearing loss and tinnitus (most often a unilateral high-pitched ringing, sometimes a machinery-like roaring or hissing sound, like that of a steam kettle). Some of our patients ignored their deafness for many months or years; often the first indication of the tumor in such patients is a shift to the unaccustomed ear (usually right to left) in the use of the telephone. Others neglected these symptoms to a point where they presented with impaired mentation, imbalance, and sphincteric incontinence because of brainstem compression and secondary hydrocephalus.",
+        "This has many causes. The common high-frequency sensorineural type of hearing loss in the aged (presbycusis) is probably a result of neuronal degeneration, that is, progressive loss of spiral ganglion neurons (Suga and Lindsay). Explosions or intense, sustained noise in certain industrial settings or from gun blasts or even rock music may result in a high-tone sensorineural hearing loss from cochlear damage. Certain antimicrobial drugs (namely, the aminoglycoside group and vancomycin) damage cochlear hair cells and, after prolonged use, can result in severe hearing loss. If these drugs have been used to treat bacterial meningitis, it may be difficult to determine whether the antibiotic or the infection is the cause. A variety of other commonly used drugs are ototoxic, including certain neurotoxic cancer chemotherapies, especially platinum containing drugs, usually in a dose-dependent fashion (see Nadol). Quinine and acetylsalicylic acid may impair sensorineural function transiently.",
+        "The goal in the evaluation of a patient with auditory complaints is to determine (1) the nature of the hearing impairment (conductive vs sensorineural vs mixed), (2) the severity of the impairment (mild, moderate, severe, or profound), (3) the anatomy of the impairment (external ear, middle ear, inner ear, or central auditory pathway), and (4) the etiology. The history should elicit characteristics of the hearing loss, including the duration of deafness, unilateral versus bilateral involvement, nature of onset (sudden vs insidious), and rate of progression (rapid vs slow). Symptoms of tinnitus, vertigo, imbalance, aural fullness, otorrhea, headache, facial nerve dysfunction, and head and neck paresthesias should be noted. Information regarding head trauma, exposure to ototoxins, occupational or recreational noise exposure, and family history of hearing impairment may also be important. A sudden onset of unilateral hearing loss, with or without tinnitus, may represent a viral infection"
+      ]
+    },
+    {
+      "question": "Two weeks after undergoing an emergency cardiac catherization with stenting for unstable angina pectoris, a 61-year-old man has decreased urinary output and malaise. He has type 2 diabetes mellitus and osteoarthritis of the hips. Prior to admission, his medications were insulin and naproxen. He was also started on aspirin, clopidogrel, and metoprolol after the coronary intervention. His temperature is 38°C (100.4°F), pulse is 93/min, and blood pressure is 125/85 mm Hg. Examination shows mottled, reticulated purplish discoloration of the feet. Laboratory studies show:\nHemoglobin count 14 g/dL\nLeukocyte count 16,400/mm3\nSegmented neutrophils 56%\nEosinophils 11%\nLymphocytes 31%\nMonocytes 2%\nPlatelet count 260,000/mm3\nErythrocyte sedimentation rate 68 mm/h\nSerum\nUrea nitrogen 25 mg/dL\nCreatinine 4.2 mg/dL\nRenal biopsy shows intravascular spindle-shaped vacuoles. Which of the following is the most likely cause of this patient's symptoms?\"",
+      "options": [
+        "Renal papillary necrosis",
+        "Allergic interstitial nephritis",
+        "Cholesterol embolization",
+        "Eosinophilic granulomatosis with polyangiitis",
+        "Polyarteritis nodosa"
+      ],
+      "correct_answer": "C",
+      "predicted_answer": "C",
+      "is_correct": true,
+      "response": "\n\nAnswer: C",
+      "retrieved_docs": 3,
+      "scores": [
+        0.8126339316368103,
+        0.8291348218917847,
+        0.8368222117424011
+      ],
+      "contexts": [
+        "Schnermann J, Huang Y, Mizel D: Fluid reabsorption in proximal convoluted tubules of mice with gene deletions of claudin-2 and/or aquaporin1. Am J Physiol Renal Physiol 2013;305:F1352. Shargorodsky M et al: Treatment of hypertension with thiazides: benefit or damage—Effect of lowand high-dose thiazide diuretics on arterial elasticity and metabolic parameters in hypertensive patients with and without glucose intolerance. J Cardiometab Syndr 2007;2:16. Shlipak MG, Massie BM: The clinical challenge of cardiorenal syndrome. Circulation 2004;110:1514. Sica DA, Gehr TWB: Diuretic use in stage 5 chronic kidney disease and end-stage renal disease. Curr Opin Nephrol Hypertens 2003;12:483. Takeuchi T et al: Diuretic effects of sodium-glucose cotransporter 2 inhibitor in patients with type 2 diabetes mellitus and heart failure. Int J Cardiol 2015;201:1. Tavares M et al: New pharmacologic therapies in acute heart failure. Crit Care Med 2008;36:S112.",
+        "FIGURE 331-4 Management of patients at high risk for the tumor lysis syndrome. edema frequently occur. Severe hypertension, pul *See text. monary edema, and rapid worsening of hemolysis and renal function may occur after a blood or blood product transfusion. Cardiac findings include during laboratory monitoring of the patient with TLS. Samples atrial arrhythmias, pericardial friction rub, and pericardial effusion. must be cooled immediately to deactivate the urate oxidase. Despite Raynaud’s phenomenon is part of the syndrome in patients treated aggressive prophylaxis, TLS and/or oliguric or anuric renal failure with bleomycin. may occur. Care should be taken to prevent worsening of symptom-Laboratory findings include severe to moderate anemia associatic hypocalcemia by induction of alkalosis during bicarbonate infu-ated with red blood cell fragmentation and numerous schistocytes sion. Administration of sodium bicarbonate may also lead to urinary on peripheral smear. Reticulocytosis,",
+        "Femoropopliteal disease: Calf claudication; pulses below the femoral artery are absent. Acute ischemia: Most often caused by embolization from the heart; acute occlusions commonly occur at bifurcations distal to the last palpable pulse. May also be 2° to cholesterol atheroembolism (“blue toe syndrome”). ■Severe chronic ischemia: Lack of blood perfusion leads to muscle atrophy, pallor, cyanosis, hair loss, and gangrene/necrosis. Carefully palpate pulses and auscultate for bruits. Measurement of ankle and brachial systolic BP (ankle-brachial index, or ABI) can provide objective evidence of atherosclerosis (rest pain usually occurs with an ABI < 0.4). A high ABI can indicate calcification of the arteries. Doppler ultrasound helps identify stenosis and occlusion. Doppler ankle systolic pressure readings that are > 90% of brachial readings are normal. Arteriography and digital subtraction angiography are necessary for surgical evaluation."
+      ]
+    },
+    {
+      "question": "A 39-year-old woman is brought to the emergency department because of fevers, chills, and left lower quadrant pain. Her temperature is 39.1°C (102.3°F), pulse is 126/min, respirations are 28/min, and blood pressure is 80/50 mm Hg. There is blood oozing around the site of a peripheral intravenous line. Pelvic examination shows mucopurulent discharge from the cervical os and left adnexal tenderness. Laboratory studies show:\nPlatelet count 14,200/mm3\nFibrinogen 83 mg/mL (N = 200–430 mg/dL)\nD-dimer 965 ng/mL (N < 500 ng/mL)\nWhen phenol is applied to a sample of the patient's blood at 90°C, a phosphorylated N-acetylglucosamine dimer with 6 fatty acids attached to a polysaccharide side chain is identified. A blood culture is most likely to show which of the following?\"",
+      "options": [
+        "Coagulase-positive, gram-positive cocci forming mauve-colored colonies on methicillin-containing agar",
+        "Encapsulated, gram-negative coccobacilli forming grey-colored colonies on charcoal blood agar",
+        "Spore-forming, gram-positive bacilli forming yellow colonies on casein agar",
+        "Lactose-fermenting, gram-negative rods forming pink colonies on MacConkey agar",
+        "Gamma-hemolytic, gram-positive cocci forming green colonies on vancomycin agar"
+      ],
+      "correct_answer": "D",
+      "predicted_answer": "B",
+      "is_correct": false,
+      "response": "\n\nAnswer: B",
+      "retrieved_docs": 3,
+      "scores": [
+        0.7513009309768677,
+        0.7802850604057312,
+        0.8378334045410156
+      ],
+      "contexts": [
+        "made to obtain a 1:1:1 ratio of plasma:platelets:RBCs.3. Once initiated, the MT will continue until stopped by the attending physician. MT should be terminated once the patient is no longer actively bleeding.4. No blood components will be issued without a pickup slip with the recipient’s medical record number and name.5. Basic laboratory tests should be drawn immediately on ED arrival and optimally performed on point-of-care devices, facilitating timely delivery of relevant information to the attending clinicians. These tests should be repeated as clinically indicated (e.g., after each cooler of products has been transfused). Suggested laboratory values are:• CBC• INR, fibrinogen• pH and/or base deficit• TEG, where availableCBC = complete blood count; ED = emergency department; FFP = fresh frozen plasma; INR = international normalized ratio; TEG = thromboelastography.Table 4-7Component therapy administration during massive transfusionFresh frozen plasma (FFP)As soon as the need for",
+        "Fever can be due to infectious or noninfectious causes and results from the body's natural response to exogenous or endogenous pyrogens. Laboratory tests including complete blood count, differential blood count, C‑reactive protein, erythrocyte sedimentation rate and procalcitonin do not have sufficient sensitivity and specificity to definitively detect or rule out an infectious (bacterial, viral, parasitic) cause of fever. Blood cultures should be carried out when bacteremic or septic illnesses are suspected. Fever is not always present in infections and can be absent, especially in older and immunocompromised patients. If fever is suspected, core temperatures should be taken, e.g., rectally, orally or invasively. Depending on the clinical situation, infectious causes must be excluded as the most likely cause of an acutely occurring fever. The investigation of long-standing fever (fever of unknown origin, FUO) can be complex and some infectious diseases should first be ruled out, whereby a syndromic classification often helps to clarify the cause of the fever.",
+        "and are fairly common (approximately 1% of all transfusions). Preformed cytokines in donated blood and recipi-ent antibodies reacting with donated antibodies are postulated eti-ologies. The incidence of febrile reactions can be greatly reduced by the use of leukocyte-reduced blood products. Pretreatment with acetaminophen reduces the severity of the reaction.Bacterial contamination of infused blood is rare. Gram-negative organisms, which are capable of growth at 4°C, are the most common cause. Most cases, however, are associated with the administration of platelets that are stored at 20°C or, even more commonly, with apheresis platelets stored at room tem-perature. Cases from FFP thawed in contaminated water baths have also been reported.150 Bacterial contamination can result in sepsis and death in up 25% of patients.151 Clinical manifesta-tions includes systemic signs such as fever and chills, tachycar-dia and hypotension, and gastrointestinal symptoms (abdominal cramps, vomiting,"
+      ]
+    },
+    {
+      "question": "A 35-year-old man comes to the physician because of itchy, watery eyes for the past week. He has also been sneezing multiple times a day during this period. He had a similar episode 1 year ago around springtime. He has iron deficiency anemia and ankylosing spondylitis. Current medications include ferrous sulfate, artificial tear drops, and indomethacin. He works as an elementary school teacher. His vital signs are within normal limits. Visual acuity is 20/20 without correction. Physical examination shows bilateral conjunctival injection with watery discharge. The pupils are 3 mm, equal, and reactive to light. Examination of the anterior chamber of the eye is unremarkable. Which of the following is the most appropriate treatment?",
+      "options": [
+        "Erythromycin ointment",
+        "Ketotifen eye drops",
+        "Warm compresses",
+        "Fluorometholone eye drops",
+        "Latanoprost eye drops"
+      ],
+      "correct_answer": "B",
+      "predicted_answer": "B",
+      "is_correct": true,
+      "response": "\n\nAnswer: B",
+      "retrieved_docs": 3,
+      "scores": [
+        0.8253037333488464,
+        0.8452475070953369,
+        0.8561707735061646
+      ],
+      "contexts": [
+        "Infection usually is present within the first 5 days of life and is characterized initially by a clear, watery discharge, which rapidly becomes purulent. There is marked conjunctival hyperemia and chemosis. Infection tends to be bilateral; however, one eye may be clinically worse than the other. Untreated infections can spread to the cornea (keratitis) and anterior chamber of the eye. This extension can result in corneal perforation and blindness.",
+        "Keratoconjunctivitis Sicca Also known as dry eye, this produces a burning foreign-body sensation, injection, and photophobia. In mild cases the eye appears surprisingly normal, but tear production measured by wetting of a filter paper (Schirmer strip) is deficient. A variety of systemic drugs, including antihistaminic, anticholinergic, and psychotropic medications, result in dry eye by reducing lacrimal secretion. Disorders that involve the lacrimal gland directly, such as sarcoidosis and Sjögren’s syndrome, also cause dry eye. Patients may develop dry eye after radiation therapy if the treatment field includes the orbits. Problems with ocular drying are also common after lesions affecting cranial nerve V or VII. Corneal anesthesia is particularly dangerous, because the absence of a normal blink reflex exposes the cornea to injury without pain to warn the patient. Dry eye is managed by frequent and liberal application of artificial tears and ocular lubricants. In severe cases the tear",
+        "Immunologically competent adults and older children who have only lymphadenopathy do not require specific therapy unless they have persistent, severe symptoms. Patients with ocular toxoplasmosis are usually treated for 1 month with pyrimethamine plus either sulfadiazine or clindamycin and sometimes with prednisone. Treatment should be supervised by an ophthalmologist familiar with Toxoplasma disease. Ocular disease can be self-limited without treatment, but therapy is typically considered for lesions that are severe or close to the fovea or optic disc."
+      ]
+    },
+    {
+      "question": "A 39-year-old man presents to the emergency department because of progressively worsening chest pain and nausea that started at a local bar 30 minutes prior. The pain radiates to the epigastric area. He has a 5-year history of untreated hypertension. He has smoked 1 pack of cigarettes daily for the past 5 years and started abusing cocaine 2 weeks before his emergency room visit. The patient is diaphoretic and in marked distress. What should be the first step in management?",
+      "options": [
+        "Diltiazem",
+        "Labetalol",
+        "Nitroglycerin",
+        "Propranolol",
+        "Reassurance and continuous monitoring"
+      ],
+      "correct_answer": "E",
+      "predicted_answer": "B",
+      "is_correct": false,
+      "response": "\n\nAnswer: B",
+      "retrieved_docs": 3,
+      "scores": [
+        0.8850727081298828,
+        0.9029061794281006,
+        0.9073435068130493
+      ],
+      "contexts": [
+        "Neal L. Benowitz, MD A 35-year-old man presents with a blood pressure of 150/95 mm Hg. He has been generally healthy, is sedentary, drinks several cocktails per day, and does not smoke cigarettes. He has a family history of hypertension, and his father died of a myocardial infarction at age 55. Physical examination is remarkable only for moderate obesity. Total cholesterol is 220, and high-density lipoprotein (HDL) cholesterol level is 40 mg/dL. Fasting glucose is 105 mg/dL. Chest X-ray is normal. Electrocardiogram shows left ven-tricular enlargement. How would you treat this patient?",
+        "Treatment of cocaine overdose is a medical emergency that is best managed in an intensive care unit. Cocaine toxicity produces a hyperadrenergic state characterized by hypertension, tachycardia, tonic-clonic seizures, dyspnea, and ventricular arrhythmias. IV diazepam in doses up to 0.5 mg/kg administered over an 8-h period has been shown to be effective for control of seizures. Ventricular arrhythmias have been managed successfully by administration of 0.5–1.0 mg of propranolol IV. Because many instances of cocaine-related mortality have been associated with concurrent use of other illicit drugs (particularly heroin), the physician must be prepared to institute effective emergency treatment for multiple drug toxicities.",
+        "David Robertson, MD, & Italo Biaggioni, MD* A 38-year-old man has been experiencing palpitations and headaches. He enjoyed good health until 1 year ago when spells of rapid heartbeat began. These became more severe and were eventually accompanied by throbbing headaches and drenching sweats. Physical examination revealed a blood pressure of 150/90 mm Hg and heart rate of 88 bpm. During the physical examination, palpation of the abdomen elicited a sudden and typical episode, with a rise in blood pressure to 210/120 mm Hg, heart rate to 122 bpm, profuse sweating, and facial pallor. This was accompanied by severe headache. What is the likely cause of his episodes? What caused the blood pressure and heart rate to rise so high during the examination? What treatments might help this patient?"
+      ]
+    },
+    {
+      "question": "A 68-year-old male comes to the physician for evaluation of right flank pain. He has a history of diabetes and peripheral artery disease. His blood pressure is 160/90 mm Hg. Physical examination shows abdominal tenderness and right flank tenderness. An ultrasound shows dilation of the right ureter and renal pelvis. Which of the following is the most likely underlying cause of this patient's condition?",
+      "options": [
+        "Renal artery stenosis",
+        "Benign prostatic hyperplasia",
+        "Diabetic nephropathy",
+        "Common iliac artery aneurysm",
+        "Urethral stricture"
+      ],
+      "correct_answer": "D",
+      "predicted_answer": "B",
+      "is_correct": false,
+      "response": "\n\nAnswer: B",
+      "retrieved_docs": 3,
+      "scores": [
+        0.7351312637329102,
+        0.8340247869491577,
+        0.8563954830169678
+      ],
+      "contexts": [
+        "Flank pain is the most common symptom. Persistent urinary tract infection, persistent proteinuria, or hematuria in patients with cancer should raise suspicion of ureteral obstruction. Total anuria and/or anuria alternating with polyuria may occur. A slow, continuous rise in the serum creatinine level necessitates immediate evaluation. Renal ultrasound is the safest and cheapest way to identify hydronephrosis. The function of an obstructed kidney can be evaluated by a nuclear scan. CT scan can reveal the point of obstruction and identify a retro-peritoneal mass or adenopathy.",
+        "Obstruction of the urinary bladder usually causes dull, low-intensity pain in the suprapubic region. Restlessness without specific complaint of pain may be the only sign of a distended bladder in an obtunded patient. In contrast, acute obstruction of the intravesicular portion of the ureter is characterized by severe suprapubic and flank pain that radiates to the penis, scrotum, or inner aspect of the upper thigh. Obstruction of the ureteropelvic junction manifests as pain near the costovertebral angle, whereas obstruction of the remainder of the ureter is associated with flank pain that often extends into the same side of the abdomen.",
+        "The physical examination should focus on blood pressure and target organ damage from hypertension. Thus, funduscopy and precordial examination (left ventricular heave, a fourth heart sound) should be carried out. Funduscopy is important in the diabetic patient, because it may show evidence of diabetic retinopathy, which is associated with nephropathy. Other physical examination manifestations of CKD include edema and sensory polyneuropathy. The finding of asterixis or a pericardial friction rub not attributable to other causes usually signifies the presence of the uremic syndrome."
+      ]
+    },
+    {
+      "question": "A 65-year-old man is brought to the emergency department 30 minutes after the onset of acute chest pain. He has hypertension and asthma. Current medications include atorvastatin, lisinopril, and an albuterol inhaler. He appears pale and diaphoretic. His pulse is 114/min and blood pressure is 130/88 mm Hg. An ECG shows ST-segment depressions in leads II, III, and aVF. Laboratory studies show an increased serum troponin T concentration. The patient is treated for acute coronary syndrome and undergoes percutaneous transluminal coronary angioplasty. At the time of discharge, echocardiography shows a left ventricular ejection fraction of 58%. In addition to aspirin, which of the following drugs should be added to this patient's medication regimen?",
+      "options": [
+        "Nifedipine",
+        "Enoxaparin",
+        "Clopidogrel",
+        "Spironolactone",
+        "Propranolol\n\""
+      ],
+      "correct_answer": "C",
+      "predicted_answer": "C",
+      "is_correct": true,
+      "response": "\n\nAnswer: C",
+      "retrieved_docs": 3,
+      "scores": [
+        0.7481012344360352,
+        0.7541837096214294,
+        0.7562293410301208
+      ],
+      "contexts": [
+        "7.4. Current medical advice for individuals experiencing chest pain is to call emergency medical services and chew a regular strength, noncoated aspirin. What is the basis for recommending aspirin? Aspirin has an antithrombogenic effect: It prevents formation of blood clots that could occlude heart vessels. Aspirin inhibits thromboxane A2 synthesis by cyclooxygenase-1 in platelets through irreversible acetylation, thereby inhibiting platelet activation and vasoconstriction. Chewing a noncoated aspirin increases the rate of its absorption. Cholesterol, Lipoprotein, and Steroid Metabolism 18 For additional ancillary materials related to this chapter, please visit thePoint. I. OVERVIEW",
+        "In patients who understand and accept the risks associated with cardiac catheterization, there are no absolute contraindications when the procedure is performed in anticipation of a life-saving intervention. Relative contraindications do, however, exist; these include decompensated congestive heart failure; acute renal failure; severe chronic renal insufficiency, unless dialysis is planned; bacteremia; acute stroke; active gastrointestinal bleeding; severe, uncorrected electrolyte abnormalities; a history of an anaphylactic/anaphylactoid reaction to iodinated contrast agents; and a history of allergy/bronchospasm to aspirin in patients for whom progression to a percutaneous coronary intervention is likely and aspirin desensitization has not been performed.",
+        "Mark von Zastrow, MD, PhD* A 51-year-old man presents to the emergency department due to acute difficulty breathing. The patient is afebrile and normotensive but anxious, tachycardic, and markedly tachy-pneic. Auscultation of the chest reveals diffuse wheezes. The physician provisionally makes the diagnosis of bronchial asthma and administers epinephrine by intramuscular injec-tion, improving the patient’s breathing over several minutes. A normal chest X-ray is subsequently obtained, and the medical history is remarkable only for mild hypertension that is being treated with propranolol. The physician instructs the patient to discontinue use of propranolol, and changes the patient’s antihypertensive medication to verapamil. Why is the physician correct to discontinue propranolol? Why is verapamil a better choice for managing hypertension in this patient? What alternative treatment change might the physi-cian consider?"
+      ]
+    },
+    {
+      "question": "A 37-year-old-woman presents to her primary care physician requesting a new form of birth control. She has been utilizing oral contraceptive pills (OCPs) for the past 8 years, but asks to switch to an intrauterine device (IUD). Her vital signs are: blood pressure 118/78 mm Hg, pulse 73/min and respiratory rate 16/min. She is afebrile. Physical examination is within normal limits. Which of the following past medical history statements would make copper IUD placement contraindicated in this patient?",
+      "options": [
+        "A history of stroke or venous thromboembolism",
+        "Current tobacco use",
+        "Active or recurrent pelvic inflammatory disease (PID)",
+        "Past medical history of breast cancer",
+        "Known liver neoplasm"
+      ],
+      "correct_answer": "C",
+      "predicted_answer": "C",
+      "is_correct": true,
+      "response": "\n\nAnswer: C",
+      "retrieved_docs": 3,
+      "scores": [
+        0.7049775123596191,
+        0.7346354126930237,
+        0.7728967666625977
+      ],
+      "contexts": [
+        "Clinical Management Contraindications to IUD use listed by the World Health Organization include pregnancy, puerperal sepsis, PID, or STDs current or within the past 3 months, endometrial or cervical cancer, undiagnosed genital bleeding, uterine anomalies, and fibroid tumors that distort the endometrial cavity (87). Infection with HIV is not considered a contraindication for IUD use. No increase in pelvic infection, female-to-male transmission, or viral shedding was found among HIV-1 infected women (89,90). Copper allergy and Wilson’s disease are contraindications to the use of copper IUDs.",
+        "World Health Organization. Select practice recommendations for contraceptive use. Geneva: WHO, 2002. 81. Mol BW. Contraception and the risk of ectopic pregnancy. Contraception 1995;52:337. 82. Mikkelsen MS, Højgaard A, Bor P. [Extrauterine pregnancy with gestagen-releasing intrauterine device in situ] [in Danish]. Ugeskr Laeger 2010;172:1304–1305. 83. Meirik O, Rowe PJ, Peregoudov A, et al. IUD Research Group at the UNDP/UNFPA/WHO/World Bank Special Programme of Research, Development and Research Training in Human Reproduction. The frameless copper IUD (GyneFix) and the TCu380A IUD: results of an 8-year multicenter randomized comparative trial. Contraception 2009;80:133–141. 84. Hubacher D, Lara-Ricalde R, Taylor D, et al. Use of copper intrauterine device and the risk of tubal infertility among nulligravid women. N Engl J Med 2001;345:561–567. 85.",
+        "Gemzell-Danielsson K, Rabe T, Cheng L: Emergency contraception. Gynecol Endocrinol 29 Suppl 1: 1, 2013 Gemzell-Danielsson K, Schellschmidt I, Apter 0: A randomized, phase II study describing the eicacy, bleeding proile, and safety of two low-dose levonorgestrel-releasing intrauterine contraceptive systems and Mirena. Fertil Steril 97(3):616, 2012 Godfrey EM, Folger SG, Jeng G, et al: Treatment of bleeding irregularities in women with copper-containing IUDs: a systematic review. Contraception 87(5):549,n2013 Grimes DA, Jones LB, Lopez LM, et al: Oral contraceptives for functional ovarian cysts. Cochrane Database Syst Rev 4:CD006134, 2014 Grimes DA, Schulz KF: Antibiotic prophylaxis for intrauterine contraceptive device insertion. Cochrane Database Syst Rev 2:CD001327, 2001, Reaffirmed 2012 Grunloh OS, Casner T, Secura GM, et al: Characteristics associated with discontinuation of long-acting reversible contraception within the irst 6 months of use. Obstet Gynecol 122(6):1214,n2013"
+      ]
+    },
+    {
+      "question": "A 23-year-old woman comes to the physician because she is embarrassed about the appearance of her nails. She has no history of serious illness and takes no medications. She appears well. A photograph of the nails is shown. Which of the following additional findings is most likely in this patient?",
+      "options": [
+        "Silvery plaques on extensor surfaces",
+        "Flesh-colored papules in the lumbosacral region",
+        "Erosions of the dental enamel",
+        "Pallor of the conjunctival mucosa",
+        "Holosystolic murmur at the left lower sternal border"
+      ],
+      "correct_answer": "A",
+      "predicted_answer": "D",
+      "is_correct": false,
+      "response": "\n\nAnswer: D",
+      "retrieved_docs": 3,
+      "scores": [
+        0.9531148076057434,
+        0.9622095823287964,
+        0.9785445928573608
+      ],
+      "contexts": [
+        "they are difficult to appreciate in dark-skinned individuals. Evanescent and restricted skin manifestations are emphasized because they are frequently overlooked and provide clues to diagnosis. In the healing stage, the skin lesions leave whitened atrophic scars with a flat, scaly base. Dilated capillary loops at the cuticular nail beds may be seen but are more characteristic of the childhood type discussed further on.",
+        "Initial investigation for any mass starts with a complete 6ABAFigure 44-22. Paronychia. A. Fluctuance in the nail fold is the hallmark of this infection. B. The authors prefer to drain a paro-nychia using the bevel of an 18-gauge needle inserted between the nail fold and the nail plate at the location of maximal fluctuance.NondiagnosticFractureForeign bodyCellulitisadmit, IV Abxserial examSite of fluctuanceEntire fingerseYoNPyogenic FTSKanavel’ssigns presentMRI if nofluctuanceSubcutaneousabscessThenarabscessMidpalmabscessHypothenarabscessDistalLoss ofpalmarconcavityRadial toIF MCUlnar toSF MCWeb spaceabscessPalmPain withaxial loadingof jointPyogenic vs.crystallinearthritisConsiderarthrocentesisNo improvementin 48 hoursHand inflammationPlain X-raysPartial fingerDorsalCenteredon jointBetweendigitsLocalized fluctuanceFigure 44-23. Diagnostic algorithm. Diagnostic workup for a patient with hand inflammation to evaluate for infection. See text for details about particular infectious",
+        "Six patterns of nail involvement are identified: pitting, horizontal ridging, onycholysis, yellowish discoloration of the nail margins, dystrophic hyperkeratosis, and combinations of these findings. Other extraarticular manifestations of the spondyloarthritides are common. Eye involvement, either conjunctivitis or uveitis, is reported in 7–33% of PsA patients. Unlike the uveitis associated with AS, the uveitis in PsA is more often bilateral, chronic, and/or posterior. Aortic valve insufficiency has been found in <4% of patients, usually after longstanding disease."
+      ]
+    },
+    {
+      "question": "A 24-year-old G2P1 woman at 39 weeks’ gestation presents to the emergency department complaining of painful contractions occurring every 10 minutes for the past 2 hours, consistent with latent labor. She says she has not experienced vaginal discharge, bleeding, or fluid leakage, and is currently taking no medications. On physical examination, her blood pressure is 110/70 mm Hg, heart rate is 86/min, and temperature is 37.6°C (99.7°F). She has had little prenatal care and uses condoms inconsistently. Her sexually transmitted infections status is unknown. As part of the patient’s workup, she undergoes a series of rapid screening tests that result in the administration of zidovudine during delivery. The infant is also given zidovudine to reduce the risk of transmission. A confirmatory test is then performed in the mother to confirm the diagnosis of HIV. Which of the following is most true about the confirmatory test?",
+      "options": [
+        "It determines the genotype of the virus",
+        "It is a Southwestern blot, identifying the presence of DNA-binding proteins",
+        "It is a Northern blot, identifying the presence of RNA",
+        "It is a Northern blot, identifying the presence of DNA",
+        "It is an HIV-1/HIV2 antibody differentiation immunoassay"
+      ],
+      "correct_answer": "E",
+      "predicted_answer": "E",
+      "is_correct": true,
+      "response": "\n\nAnswer: E",
+      "retrieved_docs": 3,
+      "scores": [
+        0.7651547789573669,
+        0.7917999029159546,
+        0.7961761355400085
+      ],
+      "contexts": [
+        "delivery; and obstetric procedures such as amniocentesis, amnioscopy, fetal scalp electrodes, and episiotomy. In a seminal study conducted in the United States and France in the 1990s, zidovudine treatment of HIV-infected pregnant women from the beginning of the second trimester through delivery and of the infant for 6 weeks following birth dramatically decreased the rate of intrapartum and perinatal transmission of HIV infection from 22.6% in the untreated group to <5%. Today, the rate of motherto-child transmission has fallen to 1% or less in pregnant women who are receiving combination antiretroviral therapy (cART) for their HIV infection. Such treatment, combined with cesarean section delivery, has rendered mother-to-child transmission of HIV an unusual event in the United States and other developed nations. In this regard, both the United States Public Health Service and the World Health Organization guidelines recommend that all pregnant HIV-infected 1223 women should receive",
+        "delivery. For women with <1000 copies of plasma HIV RNA/ml who are receiving combination antiretroviral therapy, the risk of transmission to the newborn is approximately 1% regardless of mode of delivery or duration of membrane rupture. These women may elect to attempt a vaginal birth following the spontaneous onset of labor. For women with a viral load of ≥1000 copies/ml prior to 38 weeks of gestation, a scheduled prelabor cesarean at 38 weeks is recommended to reduce the risk of HIV transmission to the newborn. To reduce the risk of mother-to-newborn transmission, women with >400 copies of HIV RNA/ml should be treated during the intrapartum interval with zidovudine. All newborns of HIV-infected mothers should be treated with zidovudine for 6 months after birth. Women who are HIV-positive may transmit the virus through their breast milk. In developed countries, HIV-infected mothers are advised not to breast-feed.",
+        "plasma viremia is <1000 copies of HIV RNA/mL of blood and extremely unlikely if the level is undetectable (i.e., <50 copies/mL). However, there may not be a lower “threshold” below which transmission never occurs, since certain studies have reported rare transmission by women with viral RNA levels <50 copies/mL. Increased mother-to-child transmission is also correlated with closer human leukocyte antigen (HLA) match between mother and child. A prolonged interval between membrane rupture and delivery is another well-documented risk factor for transmission. Other conditions that are potential risk factors, but that have not been consistently demonstrated, are the presence of chorioamnionitis at delivery; STIs during pregnancy; illicit drug use during pregnancy; cigarette smoking; preterm delivery; and obstetric procedures such as amniocentesis, amnioscopy, fetal scalp electrodes, and episiotomy. In a seminal study conducted in the United States and France in the 1990s, zidovudine"
+      ]
+    },
+    {
+      "question": "A 72-year-old man comes to the physician because of a 2-month history of fatigue and worsening abdominal pain. During this period, he also has excessive night sweats and shortness of breath on exertion. Over the past 3 months, he has had a 5.6-kg (12-lb) weight loss. He had a myocardial infarction 3 years ago. He has hypertension, diabetes mellitus, and chronic bronchitis. His medications include insulin, aspirin, lisinopril, and an albuterol inhaler. He has smoked half a pack of cigarettes for the past 45 years. Vital signs are within normal limits. The spleen is palpated 6 cm below the left costal margin. Laboratory studies show:\nHemoglobin 6.4 g/dL\nMean corpuscular volume 85 μm3\nLeukocyte count 5,200/mm3\nPlatelet count 96,000/mm3\nA blood smear is shown. Bone marrow aspiration shows extensive fibrosis and a few scattered plasma cells. A JAK 2 assay is positive. Which of the following is the most appropriate next step in management?\"",
+      "options": [
+        "Cladribine",
+        "Prednisone",
+        "Imatinib",
+        "Ruxolitinib",
+        "Stem cell transplantation"
+      ],
+      "correct_answer": "D",
+      "predicted_answer": "D",
+      "is_correct": true,
+      "response": "\n\nAnswer: D",
+      "retrieved_docs": 3,
+      "scores": [
+        0.7930585145950317,
+        0.8258962631225586,
+        0.8264176845550537
+      ],
+      "contexts": [
+        "Mechanical hemolysis: Associated with mechanical heart valves. Other: Malaria, hypersplenism. Presents with pallor, fatigue, tachycardia, and tachypnea. Patients are typically jaundiced, with low haptoglobin and elevated indirect bilirubin and LDH. Urine is dark with hemoglobinuria, and there is ↑ excretion of urinary and fecal urobilinogen. Reticulocyte count is elevated. Diagnosed by the history and clinical presentation. High LDH, elevated indirect bilirubin, and ↓ haptoglobin levels are consistent with a diagnosis of hemolytic anemia. Also obtain a reticulocyte count. A Coombs’ test is used to detect autoimmune hemolysis. Treatment varies with the cause of hemolysis but typically includes corticosteroids to address immunologic causes and iron supplementation to replace urinary losses. Splenectomy may be helpful, and transfusion may be necessary to treat severe anemia.",
+        "pulmonary disease. For this reason, elevated GGT levels are often interpreted in conjunction with other enzyme abnormalities. For example, a raised GGT level with increased AP level supports a liver source.JaundiceJaundice refers to the yellowish staining of the skin, sclera, and mucous membranes with the pigment bilirubin. Hyperbilirubi-nemia usually is detectable as jaundice when blood levels rise above 2.5 to 3 mg/dL. Jaundice can be caused by a wide range of benign and malignant disorders. However, when present, it may indicate a serious condition, and thus knowledge of the differential diagnosis of jaundice and a systematic approach to Brunicardi_Ch31_p1345-p1392.indd 135320/02/19 2:36 PM 1354SPECIFIC CONSIDERATIONSPART IIthe workup of the patient is necessary. Workup of a patient with jaundice is simplified by organizing the possible causes of the disorder into groups based on the location of bilirubin metabo-lism. As mentioned previously, bilirubin metabolism can take place",
+        "The diagnosis of β-thalassemia major is readily made during childhood on the basis of severe anemia accompanied by the characteristic signs of massive ineffective erythropoiesis: hepatosplenomegaly, profound microcytosis, a characteristic blood smear (Fig. 127-5), and elevated levels of HbF, HbA2, or both. Many patients require chronic hypertransfusion therapy designed to maintain a hematocrit of at least 27–30% so that erythropoiesis is suppressed. Splenectomy is required if the annual transfusion requirement (volume of RBCs per kilogram of body weight per year) increases by >50%. Folic acid supplements may be useful. Vaccination with Pneumovax in anticipation of eventual splenectomy is advised, as is close monitoring for infection, leg ulcers, and biliary tract disease. Many patients develop endocrine deficiencies as a result of iron overload. Early endocrine evaluation is required for glucose intolerance, thyroid dysfunction, and delayed onset of puberty or secondary sexual"
+      ]
+    },
+    {
+      "question": "A 20-year-old man comes to the physician because of worsening gait unsteadiness and bilateral hearing loss for 1 month. He has had intermittent tingling sensations on both cheeks over this time period. He has no history of serious medical illness and takes no medications. Audiometry shows bilateral sensorineural hearing loss. Genetic evaluation shows a mutation of a tumor suppressor gene on chromosome 22 that encodes merlin. This patient is at increased risk for which of the following conditions?",
+      "options": [
+        "Renal cell carcinoma",
+        "Meningioma",
+        "Astrocytoma",
+        "Vascular malformations",
+        "Telangiectasias"
+      ],
+      "correct_answer": "B",
+      "predicted_answer": "B",
+      "is_correct": true,
+      "response": "\n\nAnswer: B",
+      "retrieved_docs": 3,
+      "scores": [
+        0.7594681978225708,
+        0.8142873644828796,
+        0.8194454908370972
+      ],
+      "contexts": [
+        "Primary diseases of the central nervous system can also present with hearing impairment. Characteristically, a reduction in clarity of hearing and speech comprehension is much greater than the loss of the ability to hear pure tone. Auditory testing is consistent with an auditory neuropathy; normal otoacoustic emissions (OAE) and an abnormal auditory brainstem response (ABR) is typical (see below). Hearing loss can accompany hereditary sensorimotor neuropathies and inherited disorders of myelin. Tumors of the cerebellopontine angle such as vestibular schwannoma and meningioma usually present with asymmetric sensorineural hearing loss with greater deterioration of speech understanding than pure tone hearing. Multiple sclerosis may present with acute unilateral or bilateral hearing loss; typically, pure tone testing remains relatively stable while speech understanding 220 fluctuates. Isolated labyrinthine infarction can present with acute hearing loss and vertigo due to a cerebrovascular",
+        "Hereditary hearing loss with optic atrophy forms the core of 4 special syndromes: dominant optic atrophy, ataxia, muscle wasting, and progressive hearing loss (Sylvester disease); recessive optic atrophy, polyneuropathy, and neural hearing loss (Rosenberg-Chutorian syndrome); optic atrophy, hearing loss, and juvenile diabetes mellitus (Tunbridge-Paley syndrome); and opticocochleodentate degeneration with optic atrophy, hearing loss, quadriparesis, and developmental delay (Nyssenvan Bogaert syndrome).",
+        "There are >400 syndromic forms of hearing loss. These include Usher’s syndrome (retinitis pigmentosa and hearing loss), Waardenburg’s syndrome (pigmentary abnormality and hearing loss), Pendred’s syndrome (thyroid organification defect and hearing loss), Alport’s syndrome (renal disease and hearing loss), Jervell and Lange-Nielsen syndrome (prolonged QT interval and hearing loss), neurofibromatosis type 2 (bilateral acoustic schwannoma), and mitochondrial disorders (mitochondrial encephalopathy, lactic acidosis, and stroke-like episodes [MELAS]; myoclonic epilepsy and ragged red fibers [MERRF]; progressive external ophthalmoplegia [PEO]) (Table 43-2). APPROACH TO THE PATIENT: Disorders of the Sense of Hearing"
+      ]
+    },
+    {
+      "question": "A 47-year-old executive schedules an appointment his physician for a routine medical check-up. He currently has no complaints and claims to be “as fit as a fiddle.” The physical examination findings are unremarkable, except for a mid-systolic murmur heard in the 2nd left intercostal space that radiates to the carotids on auscultation. The physician instructs the patient to stand from a supine position with the stethoscope still placed on his chest. Which of the following changes would occur with this maneuver?",
+      "options": [
+        "An increase in right atrial pressure",
+        "An increase in left ventricular end-diastolic pressure",
+        "An increase in pulmonary capillary wedge pressure",
+        "A reduction in the slope of the pacemaker potential",
+        "A reduction in diastolic filling time"
+      ],
+      "correct_answer": "E",
+      "predicted_answer": "E",
+      "is_correct": true,
+      "response": "\n\nAnswer: E",
+      "retrieved_docs": 3,
+      "scores": [
+        0.7836464643478394,
+        0.7922258377075195,
+        0.7927014827728271
+      ],
+      "contexts": [
+        "The physical examination findings depend on the size of the shunt. A widened pulse pressure is often present as a result of the runoff of blood into the pulmonary circulation during diastole. A continuous, machinelike murmur can be heard at the left infraclavicular area, radiating along the pulmonary arteries and often well heard over the left side of the back. Larger shunts with increased flow across the mitral valve may result in a mid-diastolic murmur at the apex and a hyperdynamic precordium. Splitting of S2 and intensity of P2 depend on the pulmonary artery pressure. A thrill may be palpable. Figure 143-4 Atrioventricular canal defects. AO, Aorta; LA, left atrium; LV, left ventricle; PA, pulmonary artery; RA, right atrium; RV, right ventricle.",
+        "asthma, or pericardial disease should be considered. During the general examination, signs of anemia (pale conjunctivae), cyanosis, and cirrhosis (spider angiomata, gynecomastia) should be sought. Examination of the chest should focus on symmetry of movement; percussion (dullness is indicative of pleural effusion; hyperresonance is a sign of emphysema); and auscultation (wheezes, rhonchi, prolonged expiratory phase, and diminished breath sounds are clues to disorders of the airways; rales suggest interstitial edema or fibrosis). The cardiac examination should focus on signs of elevated right heart pressures (jugular venous distention, edema, accentuated pulmonic component to the second heart sound); left ventricular dysfunction (S3 and S4 gallops); and valvular disease (murmurs). When examining the abdomen with the patient in the supine position, the physician should note whether there is paradoxical movement of the abdomen: inward motion during inspiration is a sign of diaphragmatic",
+        "rapid sit-ups) carried out just before auscultation. In general, the duration of this murmur correlates with the severity of the stenosis in patients with preserved CO. In patients with sinus rhythm, the murmur often reappears or becomes louder during atrial systole (presystolic accentuation). Soft, grade I or II/VI systolic murmurs are commonly heard at the apex or along the left sternal border in patients with pure MS and do not necessarily signify the presence of MR. Hepatomegaly, ankle edema, ascites, and pleural effusion, particularly in the right pleural cavity, may occur in patients with MS and RV failure."
+      ]
+    },
+    {
+      "question": "A microbiologist is studying the emergence of a virulent strain of the virus. After a detailed study of the virus and its life cycle, he proposes a theory: Initially, a host cell is co-infected with 2 viruses from the same virus family. Within the host cell, concomitant production of various genome segments from both viruses occurs. Ultimately, the different genome segments from the viruses are packaged into a unique and novel virus particle. The newly formed virus particle is both stable and viable and is a new strain from the virus family that caused the outbreak of infection. Which of the following viruses is capable of undergoing the above-mentioned process?",
+      "options": [
+        "Cytomegalovirus",
+        "Epstein-Barr virus",
+        "Human immunodeficiency virus",
+        "Rotavirus",
+        "Vaccinia virus"
+      ],
+      "correct_answer": "D",
+      "predicted_answer": "C",
+      "is_correct": false,
+      "response": "\n\nAnswer: C",
+      "retrieved_docs": 3,
+      "scores": [
+        0.5384591817855835,
+        0.6269960403442383,
+        0.6446315050125122
+      ],
+      "contexts": [
+        "Figure 23–10 a simple viral life cycle. The hypothetical simple virus shown here consists of a small double-stranded DNA molecule that codes for only a single viral capsid protein. To reproduce, the viral genome must first enter a host cell, where it is replicated to produce multiple copies, which are transcribed and translated to produce the viral coat protein. The viral genomes can then assemble spontaneously with the coat protein to form a new virus particle, which escapes from the host cell. No known virus is this simple. and (6) release of progeny virions (Figure 23–10). A single virus particle (a virion) that infects a single host cell can produce thousands of progeny.",
+        "host cell, replicating in parallel with the host cell’s DNA (either integrated into the host genome, or as an extrachromosomal plasmid) in the course of ordinary cell-division cycles. These viruses will switch between two modes of existence according to circumstances, remaining latent and harmless for a long time, but then proliferating in occasional cells in a process that kills the host cell and generates large numbers of infectious particles.",
+        "Prokaryotes provide good examples of the horizontal transfer of genes from one species of cell to another. The most obvious tell-tale signs are sequences recognizable as being derived from viruses, those infecting bacteria being called bacteriophages (Figure 1–22). Viruses are small packets of genetic material that have evolved as parasites on the reproductive and biosynthetic machinery of host cells. Although not themselves living cells, they often serve as vectors for gene transfer. A virus will replicate in one cell, emerge from it with a protective wrapping, and then enter and infect another cell, which may be of the same or a different species. Often, the infected cell will be killed by the massive proliferation of virus particles inside it; but sometimes, the viral DNA, instead of directly generating these particles, may persist in its host for many cell generations as a relatively innocuous passenger, either as a separate intracellular fragment of DNA, known as a plasmid, or as"
+      ]
+    },
+    {
+      "question": "A 59-year-old overweight woman presents to the urgent care clinic with the complaint of severe abdominal pain for the past 2 hours. She also complains of a dull pain in her back with nausea and vomiting several times. Her pain has no relation with food. Her past medical history is significant for recurrent abdominal pain due to cholelithiasis. Her father died at the age of 60 with some form of abdominal cancer. Her temperature is 37°C (98.6°F), respirations are 15/min, pulse is 67/min, and blood pressure is 122/98 mm Hg. Physical exam is unremarkable. However, a CT scan of the abdomen shows a calcified mass near her gallbladder. Which of the following diagnoses should be excluded first in this patient?",
+      "options": [
+        "Acute cholecystitis",
+        "Gallbladder cancer",
+        "Choledocholithiasis",
+        "Pancreatitis",
+        "Duodenal peptic ulcer"
+      ],
+      "correct_answer": "B",
+      "predicted_answer": "B",
+      "is_correct": true,
+      "response": "\n\nAnswer: B",
+      "retrieved_docs": 3,
+      "scores": [
+        0.6118108034133911,
+        0.6279609203338623,
+        0.6547302007675171
+      ],
+      "contexts": [
+        "abdominal pain and thus often diagnose gallbladder Figure 32-6. An ultrasonography of the gallbladder. White arrows indicate stones within the gallbladder; black arrowheads show acoustic shadows from stones.Brunicardi_Ch32_p1393-p1428.indd 139811/02/19 2:43 PM 1399GALLBLADDER AND THE EXTRAHEPATIC BILIARY SYSTEMCHAPTER 32disease. CT scanning is inferior to ultrasonography in diagnos-ing gallstones but is similar in sensitivity for acute cholecystitis. The major application of CT scan, however, is to define the course and status of the extrahepatic biliary tree and adjacent structures, and to evaluate for alternate causes of a patients clini-cal presentation.11 CT is also the initial test of choice in evaluat-ing patients with suspected malignancy of the gallbladder, the extrahepatic biliary system, or nearby organs such as the head of the pancreas. Use of CT scan is an integral part of the dif-ferential diagnosis of obstructive jaundice of unknown origin (Fig. 32-7).Hepatobiliary",
+        "radiates to the right upper back or between the scapulae (Fig. 32-15). The pain is severe and comes on abruptly, typically during the night or after a fatty meal. It often is associated with nausea and sometimes vomiting. Patients generally suffer discrete, recurrent attacks of pain, between which they feel well. Physical examination may reveal mild right upper quadrant tenderness during an episode of pain. If the patient is pain free, the physical examination is usually unremarkable. Labora-tory values, such as WBC count and liver function tests, are usu-ally normal in patients with uncomplicated gallstones.Atypical presentations of gallstone disease are common and a high index of suspicion for biliary disease must be main-tained when evaluating patients with abdominal complaints. Association with meals is present in only about 50% of patients. Some patients report milder attacks of pain but relate it to meals. The pain may be located primarily in the back or the left upper or right",
+        "the reconstruction completed with a Roux-en-Y limb of jejunum. G. Percutaneous transhepatic stents are placed across hepati-cojejunostomy (optional).Brunicardi_Ch32_p1393-p1428.indd 141611/02/19 2:43 PM 1417GALLBLADDER AND THE EXTRAHEPATIC BILIARY SYSTEMCHAPTER 32further investigation. Ultrasonography is usually the diagnos-tic test of choice, as it can be done bedside in the intensive care unit. It can demonstrate the distended gallbladder with thickened wall, biliary sludge, pericholecystic fluid, and the presence or absence of abscess formation. CT scanning can aid in the diagnosis of acalculous cholecystitis and addition-ally allows a more general evaluation of the abdomen and chest to rule out other sources of infection. A HIDA scan can also be useful if it shows nonvisualization of the gallblad-der, but it is less sensitive and can have higher false-positive rates in patients who are in a prolonged fasting state, on total parenteral nutrition, or have liver disease. Once the"
+      ]
+    },
+    {
+      "question": "A 7-year-old boy is brought to his pediatrician’s office for a follow-up visit. He was diagnosed with asthma when he was 3 years old and has since been on treatment for the condition. He is currently on a β-agonist inhaler because of exacerbation of his symptoms. He has observed that his symptoms are more prominent in springtime, especially when the new flowers are blooming. His mother has a backyard garden and whenever he goes out to play there, he experiences chest tightness with associated shortness of breath. He has been advised to take more precaution during this seasonal change and to stay away from pollen. He is also being considered for an experimental therapy, which attenuates the activity of certain mediators which cause his asthmatic attack. The targeted mediator favors the class switching of antibodies. A reduction in this mechanism will eventually reduce the exaggerated response observed during his asthmatic attacks, even when exposed to an allergen. Which of the following mediators is described in this experimental study?",
+      "options": [
+        "IL-5",
+        "IL-2",
+        "IL-10",
+        "IL-13",
+        "IL-4"
+      ],
+      "correct_answer": "E",
+      "predicted_answer": "E",
+      "is_correct": true,
+      "response": "\n\nAnswer: E",
+      "retrieved_docs": 3,
+      "scores": [
+        0.7409824132919312,
+        0.7664822340011597,
+        0.7669328451156616
+      ],
+      "contexts": [
+        "Asthma Asthma affects approximately 22 million individuals in the United States, including 6% of children (239). It is characterized by a history of episodic wheezing, physiologic evidence of reversible obstruction of the airways either spontaneously or following bronchodilator therapy, and pathologic evidence of chronic inﬂammatory changes in the bronchial submucosa. Asthma is not a disease of airway physiology in which hypertrophy and increased contractility of bronchial smooth muscle is the dominant lesion; rather, it is an inﬂammatory disease affecting the airways that secondarily results in epithelial damage, leukocytic infiltration, and increased sensitivity of the airways to a number of stimuli. The treatment of asthma is directed toward relaxing the airways and alleviating inﬂammation (239).",
+        "and adults.  Immunotherapy for Steps 2–4 is based on Evidence B for house-dust mites, animal danders, and pollens; evidence is weak or lacking for molds and cock roaches. Evidence is strongest for immunotherapy with single allergens. The role of allergy in asthma is greater in children than adults. Clinicians who administer immunotherapy should be prepared and equipped to identify and treat anaphylaxis that may occur. Key: Alphabetical listing is used when more than one treatment option is listed within either preferred or alternative therapy. ICS, Inhaled corti-costeroid; LABA, inhaled long-acting beta2-agonist; LTRA, leukotriene receptor antagonist; SABA, inhaled short-acting beta2-agonist",
+        "is applied to a variety of different disorders sharing common clinical features but fundamentally different pathophysiologic mechanisms. Attention has thus turned to the possibility that there are different asthma phenotypes, some of which are less responsive to the current mainstays of asthma controller therapy. The current view of asthma treatment may be summarized as follows: that the treatments commonly used at present are indeed effective for the most common form of the disease, as it presents in children and young adults with allergic asthma, but that there are other phenotypes of asthma for which these therapies are less effective, and that represent an unmet medical need. Accordingly, this chapter first reviews the pathophysiology of the most common form of asthma (classic allergic asthma) and the basic pharmacology of the agents used in its treatment. This is followed by a discussion of different forms or phenotypes of asthma and the efforts to develop effective therapies for"
+      ]
+    },
+    {
+      "question": "A 3-month-old boy is brought the emergency department by his parents after an episode of cyanosis and muscle hypotonia that resolved after 2 minutes. Diagnostic evaluation fails to discover an exact etiology of the boy's symptoms and the episode is classified as a brief resolved unexplained event (BRUE). The risk profile for BRUE in infants remains largely unknown. The pediatrician who saw the boy in the emergency department is trying to identify risk factors for BRUE. She is aware of several confounders, including age, socioeconomic background, and family history of medical illness. She recruits 75 infants under 1 year of age with BRUE and 75 infants without BRUE of the same age, socioeconomic background, and family history of medical illness. She then compares the two groups with regard to history of feeding problems and history of recent upper respiratory infection. Which of the following methods was conducted to control confounding bias in the study?",
+      "options": [
+        "Stratified analysis",
+        "Blinding",
+        "Restriction",
+        "Randomization",
+        "Matching"
+      ],
+      "correct_answer": "E",
+      "predicted_answer": "E",
+      "is_correct": true,
+      "response": "\n\nAnswer: E",
+      "retrieved_docs": 3,
+      "scores": [
+        0.8414069414138794,
+        0.8620792627334595,
+        0.8967803120613098
+      ],
+      "contexts": [
+        "hese studies begin with groups of afected infants (cases) and unafected controls and are structured to allow retrospective assessment of prenatal exposure to particular substances. Casecontrol studies are an eicient way to study rare outcomes (Alwan, 2015). These permit investigators to evaluate associations and generate useful hypotheses. However, case-control studies have inherent potential for recal bias. Namely, parents of an afected infant are often more likely to recall exposure than those whose child is not ill. Confounding by indication is another concern, that is, the indication for the medication may be the cause of the birth defect. And importantly, birth defect registries have statistical power to detect small diferences that may not be clinically meaningful. Grimes and Schulz (2012) have cautioned that unless odds ratios in case-control studies are above three-to fourfold, the observed associations may not be correct.",
+        "family medicine practitioner for this purpose. In the modern era, such consultations have evolved from a simple proscriptive exercise of excluding those with potential contraindications to a more “risk analysis” approach in which each case is evaluated on its own merits. Such analyses require integration of diving physiology, the impact of associated medical problems, and a detailed knowledge of the specific medical condition of the candidate. A detailed discussion of the subject is beyond the scope of this chapter, but a few important principles are outlined below.",
+        "bradycardia, hypothermia, fever, recurrent emesis, or feeding intolerance. Meticulous attention to these subtle findings may unmask the development of potentially serious, life-threatening physiological disturbances.3. Always listen to the mother and the father. Surgical diseases in children can be very difficult to diagnose because children are often minimally communicative, and information that they communicate may be confusing, conflicting, or both. In all cases, it is wise to listen to the child’s parents, who have closely observed their child and know him or her best. Most importantly, the child’s parents know with certainty Brunicardi_Ch39_p1705-p1758.indd 170612/02/19 11:26 AM 1707PEDIATRIC SURGERYCHAPTER 39whether or not the child is sick or not, despite not always knowing the precise diagnosis.4. Pediatric tissue must be handled delicately and with pro-found respect.5. Children suffer pain after surgery. Timely and adequate pain management must accompany surgical"
+      ]
+    },
+    {
+      "question": "A 29-year-old man presents to the emergency department due to central chest pain over the past 3 days which is constant and unrelated to exertion. The pain is sharp, severe, increases when lying down, and improves with leaning forward. The pain also radiates to his shoulders and neck. The patient has no past medical history. He has smoked 10 cigarettes per day for the past 7 years and occasionally drinks alcohol. He presents with vital signs: blood pressure 110/70 mm Hg, regular radial pulse of 95/min, and temperature 37.3°C (99.1°F). On physical exam, a scratching sound of to-and-from character is audible over the left sternal border at end-expiration with the patient leaning forward. His chest X-ray is normal and ECG is shown in the picture. Which of the following is the optimal therapy for this patient?",
+      "options": [
+        "Indomethacin +/- omeprazole",
+        "Ibuprofen + colchicine +/- omeprazole",
+        "Prednisone + colchicine",
+        "Pericardiocentesis",
+        "Pericardiectomy"
+      ],
+      "correct_answer": "B",
+      "predicted_answer": "A",
+      "is_correct": false,
+      "response": "\n\nAnswer: A",
+      "retrieved_docs": 3,
+      "scores": [
+        0.6910706758499146,
+        0.693693220615387,
+        0.724500834941864
+      ],
+      "contexts": [
+        "Source: Developed by Dr. Thomas H. Lee for the 18th edition of Harrison’s Principles of Internal Medicine. The evaluation of nontraumatic chest discomfort relies heavily on the clinical history and physical examination to direct subsequent diagnostic testing. The evaluating clinician should assess the quality, location (including radiation), and pattern (including onset and duration) of the pain as well as any provoking or alleviating factors. The presence of associated symptoms may also be useful in establishing a diagnosis.",
+        "History and Physical Examination The chest discomfort, often severe enough to be described as frank pain, is typically located in the sub-sternal region or sometimes in the epigastrium, and radiates to the left arm, left shoulder, and/or neck. Anginal “equivalents” such as dyspnea, epigastric discomfort, nausea, or weakness may occur instead of chest pain and appear to be more frequent in women, the elderly, and patients with diabetes mellitus. The physical examination resembles that in patients with stable angina (Chap. 293) and may be unremarkable. If the patient has a large area of myocardial ischemia or a large NSTEMI, the physical findings can include diaphoresis; pale, cool skin; sinus tachycardia; a third and/or fourth heart sound; basilar rales; and, sometimes, hypotension.",
+        "1. Could the chest discomfort be due to an acute, potentially life-threatening condition that warrants urgent evaluation and management? 2. If not, could the discomfort be due to a chronic condition likely to lead to serious complications? 3. If not, could the discomfort be due to an acute condition that warrants specific treatment? 4. If not, could the discomfort be due to another treatable chronic condition? Esophageal reflux Cervical disk disease Esophageal spasm Arthritis of the shoulder or spine Peptic ulcer disease Costochondritis Gallbladder disease Other musculoskeletal disorders Other gastrointestinal conditions Anxiety state Source: Developed by Dr. Thomas H. Lee for the 18th edition of Harrison’s Principles of Internal Medicine."
+      ]
+    },
+    {
+      "question": "A 46-year-old man is brought to the emergency department for evaluation of altered mental status. He was found on the floor in front of his apartment. He is somnolent but responsive when aroused. His pulse is 64/min, respiratory rate is 15/min, and blood pressure is 120/75 mm Hg. On physical examination, an alcoholic smell and slurred speech are noted. Neurological exam shows diminished deep tendon reflexes bilaterally and an ataxic gait. His pupils are normal. Blood alcohol concentration is 0.04%. An ECG shows no abnormalities. Which of the following is the most likely cause of this patient's symptoms?",
+      "options": [
+        "Hypoglycemia",
+        "Cerebral ischemia",
+        "Ethanol intoxication",
+        "Cannabis intoxication",
+        "Benzodiazepine intoxication\n\""
+      ],
+      "correct_answer": "E",
+      "predicted_answer": "C",
+      "is_correct": false,
+      "response": "\n\nAnswer: C",
+      "retrieved_docs": 3,
+      "scores": [
+        0.7948386073112488,
+        0.8543317914009094,
+        0.8552297353744507
+      ],
+      "contexts": [
+        "The signs of overactivity of the autonomic nervous system, more than any others, distinguish delirium from other confusional states. Tremor of fast frequency and jerky restless movements are practically always present and may be of high amplitude. The face is flushed, the pupils are dilated, and the conjunctivae are injected; the pulse is rapid, blood pressure elevated, and the temperature may be raised. There is excessive sweating. Most of these signs are reflections of overactivity of the sympathetic nervous system. The most certain indication of the subsidence of the attack is the occurrence of lucid intervals of increasing length and sound sleep. Recovery is usually complete. In retrospect, the patient has only a few vague memories of his illness or none at all. Single seizures may punctuate the syndrome at any time, including before its development.",
+        "The classic anticholinergic (technically, “antimuscarinic”) syndrome is remembered as “red as a beet” (skin flushed), “hot as a hare” (hyperthermia), “dry as a bone” (dry mucous membranes, no sweating), “blind as a bat” (blurred vision, cycloplegia), and “mad as a hatter” (confusion, delirium). Patients usually have sinus tachycardia, and the pupils are usually dilated (see Chapter 8). Agitated delirium or coma may be present. Muscle twitching is common, but seizures are unusual unless the patient has ingested an antihistamine or a tricyclic antidepressant. Urinary retention is common, especially in older men.",
+        "David Robertson, MD, & Italo Biaggioni, MD* A 38-year-old man has been experiencing palpitations and headaches. He enjoyed good health until 1 year ago when spells of rapid heartbeat began. These became more severe and were eventually accompanied by throbbing headaches and drenching sweats. Physical examination revealed a blood pressure of 150/90 mm Hg and heart rate of 88 bpm. During the physical examination, palpation of the abdomen elicited a sudden and typical episode, with a rise in blood pressure to 210/120 mm Hg, heart rate to 122 bpm, profuse sweating, and facial pallor. This was accompanied by severe headache. What is the likely cause of his episodes? What caused the blood pressure and heart rate to rise so high during the examination? What treatments might help this patient?"
+      ]
+    },
+    {
+      "question": "A 77-year-old woman presents to the emergency room with the complaints of fever, malaise, and night sweats. She recently observed an enlargement of her axillary lymph nodes, which she examines on a weekly basis. She has a remote history of breast cancer in her 60s that was treated with radiation and chemotherapy. She also reports a history of extensive travel to Africa and a 30-pack-year history of smoking. On physical exam, several axillary lymph nodes are palpable with a large non-tender palpable mass in her right axilla measuring 10 x 8 cm. Fine-needle aspiration demonstrates what the pathologist describes as \"a centroblastic and immunoblastic cell presence, suspicious for non-Hodgkin’s lymphoma (NHL)–diffuse large B cell variant\". Which of the following risk factors is responsible for this patient’s condition?",
+      "options": [
+        "Travel to Africa",
+        "Axillary lymph node involvement",
+        "Previous radiation therapy",
+        "Female gender",
+        "Previous breast cancer"
+      ],
+      "correct_answer": "C",
+      "predicted_answer": "E",
+      "is_correct": false,
+      "response": "\n\nAnswer: E",
+      "retrieved_docs": 3,
+      "scores": [
+        0.641948938369751,
+        0.7129135727882385,
+        0.7429191470146179
+      ],
+      "contexts": [
+        "except classic HL.63 A proliferation of any one of the three predominant lymph cell types—natural killer cells, T cells, or B cells—may be included in the category of NHL. Because of the wide net cast by NHL, the clinical presentations of the dis-orders under its umbrella vary. The subentities of NHL may be clinically classified into nodal or extranodal, as well as indolent, aggressive, and very aggressive groups. Patients with indolent lymphomas may present with mild or no symptoms and seek medical attention for a swollen lymph node, whereas the aggres-sive and very aggressive lymphomas create easily noticeable symptoms, such as pain, swelling due to obstruction of vessels, fever, and night sweats. Surgical staging is no longer indicated for NHL because the combination of history and physical exam-ination, chest radiograph and abdominal/pelvic CT scan, biopsy of involved lymph nodes (including laparoscopically directed nodal and liver biopsies), and bone marrow biopsy is",
+        "1%, a figure that approximates the mortality rate for DCIS managed by mastectomy. Although this train of reasoning has not formally been proved valid, it is reasonable to recommend that patients who desire breast preservation, and in whom DCIS appears to be reasonably localized, be managed by adequate surgery with meticulous pathologic evaluation, followed by breast irradiation and tamoxifen. For patients with localized DCIS, axillary lymph node dissection is unnecessary. More controversial is the question of what management is optimal when there is any degree of invasion. Because of a significant likelihood (10–15%) of axillary lymph node involvement even when the primary lesion shows only microscopic invasion, it is prudent to do at least a sentinel lymph node sampling for all patients with any degree of invasion. Further management is dictated by the presence of nodal spread.",
+        "to include both anatomic and biologic factors161 (Tables 17-10 and 17-11). Koscielny and colleagues demonstrated that tumor size correlates with the presence of axillary lymph node metastases (see Fig. 17-14B). Others have shown an association between tumor size, axillary lymph node metastases, and disease-free survival. One of the most important predictors of 10and 20-year survival rates in breast cancer is the number of axillary lymph nodes involved with metastatic disease. Routine biopsy of internal mammary lymph nodes is not generally performed; however, it has been reported that in the context of a “triple node” biopsy approach either the internal mammary node or a low axillary node when positive alone carried the same prognostic weight. When both nodes were positive, the prognosis declined to the level associated with apical node positivity. A double node biopsy of the low axil-lary node and either the apical or the internal mammary node gave the same maximum prognostic"
+      ]
+    },
+    {
+      "question": "A 3-month-old infant is brought to her pediatrician because she coughs and seems to have difficulty breathing while feeding. In addition, she seems to have less energy compared to other babies and appears listless throughout the day. She was born by cesarean section to a G1P1 woman with no prior medical history and had a normal APGAR score at birth. Her parents say that she has never been observed to turn blue. Physical exam reveals a high-pitched holosystolic murmur that is best heard at the lower left sternal border. The most likely cause of this patient's symptoms is associated with which of the following abnormalities?",
+      "options": [
+        "22q11 deletion",
+        "Deletion of genes on chromosome 7",
+        "Lithium exposure in utero",
+        "Maternal alcohol consumption",
+        "Retinoic acid exposure in utero"
+      ],
+      "correct_answer": "A",
+      "predicted_answer": "A",
+      "is_correct": true,
+      "response": "\n\nAnswer: A",
+      "retrieved_docs": 3,
+      "scores": [
+        0.7886422276496887,
+        0.8047061562538147,
+        0.8175100684165955
+      ],
+      "contexts": [
+        "Acyanotic conditions (“pink babies”): Have left-to-right shunts in which oxygenated blood from the lungs is shunted back into the pulmonary circulation. Cyanotic conditions (“blue babies”): Have right-to-left shunts in which deoxygenated blood is shunted into the systemic circulation. A condition in which an opening in the ventricular septum allows blood to ﬂow between ventricles. VSD is the most common congenital heart defect. It is more common among patients with Apert’s syndrome (cranial deformities, fusion of the fingers and toes), Down syndrome, fetal alcohol syndrome, TORCH syndrome (toxoplasmosis, other agents, rubella, CMV, HSV), cri du chat syndrome, and trisomies 13 and 18. Small defects are usually asymptomatic at birth, but exam reveals a harsh holosystolic murmur heard best at the lower left sternal border.",
+        "Normal physiologic or innocent murmurs are common, occurring in at least 80% of normal infants and children, heard most often during the first 6 months of life, from 3 to 6 years of age, and in early adolescence. They have also been called benign, functional, vibratory, and flow murmurs. Characteristic findings of innocent murmurs include the quality of the sound, lack of significant radiation, and significant alteration in the intensity of the murmur with positional changes (Table 139-5). Most important, the cardiovascular history and examination are otherwise normal. The presence of symptoms, including failure to thrive or dysmorphic features, should make one more cautious about diagnosing a normal murmur. Diastolic, holosystolic, late systolic, and continuous (except for the venous hum) murmurs and the presence of a thrill are not normal.",
+        "The most important determinant of presentation is the presenceor absence of obstruction to the pulmonary venous drainage.Infants without obstruction have minimal cyanosis and may beasymptomatic. There is a hyperactive right ventricular impulse with a widely split S2 (owing to increased right ventricular volume) and a systolic ejection murmur at the left upper sternalborder. There is usually a mid-diastolic murmur at the lowerleft sternal border from the increased flow across the tricuspidvalve. Growth is relatively poor. Infants with obstruction present with cyanosis, marked tachypnea and dyspnea, and signs ofright-sided heart failure including hepatomegaly. The obstruction results in little, if any, increase in right ventricular volume,so there may be no murmur or changes in S2. For infants without obstruction, the ECG is consistent with right ventricular volume overload. Cardiomegaly with"
+      ]
+    },
+    {
+      "question": "A 30-year-old African American woman comes to the physician for the evaluation of a dry cough and chest discomfort for the past 3 days. During this period, the patient has had headaches, muscle aches, joint pain, fever, and chills. Ten days ago, she was hiking with her family in Mississippi. The patient has asthma that is treated with an albuterol inhaler. Her mother has a lung disease treated with methotrexate. The patient has smoked one pack of cigarettes daily for the past 10 years. Her temperature is 38°C (100.4°F). Physical examination shows slight wheezes throughout both lung fields. Laboratory studies and urinalysis are positive for polysaccharide antigen. Bronchoalveolar lavage using silver/PAS-staining shows macrophages filled with a dimorphic fungus with septate hyphae. Which of the following is the most likely cause of this patient's symptoms?",
+      "options": [
+        "Legionella pneumophila infection",
+        "Aspergillus fumigatus infection",
+        "Pneumocystis pneumonia",
+        "Histoplasma capsulatum infection",
+        "Blastomyces dermatitidis infection"
+      ],
+      "correct_answer": "D",
+      "predicted_answer": "B",
+      "is_correct": false,
+      "response": "\n\nAnswer: B",
+      "retrieved_docs": 3,
+      "scores": [
+        0.732795238494873,
+        0.7393279075622559,
+        0.7463198304176331
+      ],
+      "contexts": [
+        "The typical age of presentation is 30–50 years, and males predominate. The clinical presentation is usually insidious and is manifested by progressive exertional dyspnea, fatigue, weight loss, and low-grade fever. A nonproductive cough is common, but occasionally expectoration of “chunky” gelatinous material may occur. Polycythemia, hypergammaglobulinemia, and increased LDH levels are common. Markedly elevated serum levels of lung surfactant proteins A and D have been found in PAP. In the absence of any known secondary cause of PAP, an elevated serum anti-GM-CSF titer is highly sensitive and specific for the diagnosis of acquired PAP. BAL fluid levels of anti-GM-CSF antibodies correlate better with the severity of PAP than do serum titers. Radiographically, bilateral symmetric alveolar opacities located centrally in middle and lower lung zones result in a “bat-wing” distribution. HRCT shows a ground-glass opacification and thickened intralobular structures and interlobular septa.",
+        "Table 13.4 ). Unlike bronchial asthma, in which bronchi are the focus of immunologically mediated injury, the damage in hypersensitivity pneumonitis occurs at the level of alveoli. Hence, it manifests predominantly as a restrictive lung disease with the typical decreases in diffusion capacity, lung compliance, and total lung volume. The responsible occupational and household exposures are diverse, but the syndromes share common clinical and pathologic findings and probably have a very similar pathophysiologic basis. Table 13.4 Sources of Antigens Causing Hypersensitivity Pneumonitis Source of Antigen Types of Exposures Mushrooms,fungi,yeastsContaminatedwood,humidifiers,centralhotairheatingducts,peatmossplants MycobacteriaMetalworkingfluids,sauna,hottub BirdsPigeons,dovefeathers,ducks,parakeets ChemicalsIsocyanates(autopainters),zinc,dyes FromLacasseY,GirardM,CormierY:Recentadvancesinhypersensitivitypneumonitis,Chest 142:208,2012.",
+        "Bronchopulmonary Aspergillosis Bronchopulmonary aspergillosis (BPA) is uncommon and results from an allergic pulmonary reaction to inhaled spores of Aspergillus fumigatus and, occasionally, other Aspergillus species. A skin prick test to A. fumigatus is always positive, whereas serum Aspergillus precipitins are low or undetectable. Characteristically, there are fleeting eosinophilic infiltrates in the lungs, particularly in the upper lobes. Airways become blocked with mucoid plugs rich in eosinophils, and patients may cough up brown plugs and have hemoptysis. BPA may result in bronchiectasis, particularly affecting central airways, if not suppressed by corticosteroids. Asthma is controlled in the usual way by ICS, but it is necessary to give a course of OCS if any sign of worsening or pulmonary shadowing is found. Treatment with the oral antifungal itraconazole is beneficial in preventing exacerbations."
+      ]
+    },
+    {
+      "question": "A 62-year-old patient has been hospitalized for a week due to a stroke. One week into the hospitalization, he develops a fever and purulent cough. His vitals include: heart rate 88/min, respiratory rate 20/min, temperature 38.4°C (101.1°F), and blood pressure 110/85 mm Hg. On physical examination, he has basal crackles on the right side of the chest. Chest radiography shows a new consolidation on the same side. Complete blood count is as follows:\nHemoglobin 16 mg/dL\nHematocrit 50%\nLeukocyte count 8,900/mm3\nNeutrophils 72%\nBands 4%\nEosinophils 2%\nBasophils 0%\nLymphocytes 17%\nMonocytes 5%\nPlatelet count 280,000/mm3\nWhat is the most likely causal microorganism?",
+      "options": [
+        "Pseudomona aeruginosa",
+        "Streptococcus pneumoniae",
+        "Mycobacterium tuberculosis",
+        "Haemophilus influenzae",
+        "Staphylococcus aureus"
+      ],
+      "correct_answer": "E",
+      "predicted_answer": "B",
+      "is_correct": false,
+      "response": "\n\nAnswer: B",
+      "retrieved_docs": 3,
+      "scores": [
+        0.751613199710846,
+        0.800765872001648,
+        0.8223295211791992
+      ],
+      "contexts": [
+        "aNumbers indicate typical results, but actual results may vary. bCerebrospinal fluid characteristics depend greatly on the specific organism. cNeutrophils may predominate early in the disease course. dPatients typically have striking eosinophilia as well. eSensitivity can be increased by examination of a smear of protein coagulum (pellicle) and the use of acid-fast stains. Abbreviations: PMNs, polymorphonuclear neutrophils; WBC, white blood cell. Septic shock Staphylococcus aureus, Streptococcus pneumoniae, enteric gram-negative bacilli Meningitis S. pneumoniae, Neisseria meningitidis CNS abscess Streptococcus spp., Staphylococcus spp., anaerobes, gram-negative bacilli Endocarditis S. aureus, Streptococcus spp., coagulasenegative staphylococci Community-S. pneumoniae, acquired, Mycoplasma pneuoutpatient moniae, Haemophilus influenzae, Chlamydia pneumoniae Inpatient, non-ICU Above plus Legionella spp. Inpatient, ICU Above plus S. aureus",
+        "95°F) in 30–60 min. Severe Sepsis and Septic Shock Robert S. Munford DEFINITIONS (Table 325-1) Animals mount both local and systemic responses to microbes that traverse their epithelial barriers and enter underlying tissues. Fever or hypothermia, leukocytosis or leukopenia, tachypnea, 325 a Enterobacteriaceae, pseudomonads, Haemophilus spp., other gram-negative bacteria. b Staphylococcus aureus, coagulase-negative staphylococci, enterococci, Streptococcus pneumoniae, other streptococci, other gram-positive bacteria. cSuch as Neisseria meningitidis, S. pneumoniae, Haemophilus influenzae, and Streptococcus pyogenes. Source: Adapted from KE Sands et al: JAMA 278:234, 1997.",
+        "The patterns of tissue reactions described above are useful guidelines for analyzing microscopic features of infectious processes, but in practice it must be remembered that different types of host reactions often occur at the same time. For example, the lung of a patient with AIDS may be infected with CMV, which causes cytolytic changes, and, at the same time, by Pneumocystis, which causes interstitial inflammation. Similar patterns of inflammation also can be seen in tissue responses to physical or chemical agents and in other inflammatory conditions of unknown cause. Finally, in immunocompromised individuals, the absence of a host inflammatory response frequently eliminates some of the histologic clues about the potential nature of infecting microorganism(s). Because of this potential for mixed infections and/or lack of host response, other diagnostic tests for infection in addition to pathologic examination are essential to make a definitive diagnosis."
+      ]
+    },
+    {
+      "question": "A 6-year-old boy is brought to the emergency department by his mother for worsening wheezing and shortness of breath over the past day. He has not had a fever, cough, vomiting, or diarrhea. He has asthma and eczema. He uses a glucocorticoid inhaler and an albuterol inhaler but has missed his medications for the past week while on vacation. He appears uncomfortable. His temperature is 36°C (96.8°F), pulse is 120/min, respirations are 40/min, and blood pressure is 100/80. Expiratory and inspiratory wheezing is heard throughout both lung fields. There are moderate intercostal and subcostal retractions and a decreased inspiratory to expiratory ratio. Nebulized albuterol and ipratropium treatments and intravenous methylprednisolone are given in the emergency department for a presumed asthma exacerbation. One hour later, the child is limp and lethargic. Magnesium sulfate is administered. His temperature is 36°C (96.8°F), pulse is 150/min, respirations are 22/min, and blood pressure is 100/70. No wheezing is heard on repeat pulmonary examination. Which of the following is the most appropriate next step in management?",
+      "options": [
+        "Intubate with mechanical ventilation",
+        "Perform needle thoracostomy at the 2nd intercostal space",
+        "Perform bronchoscopy",
+        "Provide helium and oxygen mixture",
+        "Provide additional dose of methylprednisolone"
+      ],
+      "correct_answer": "A",
+      "predicted_answer": "A",
+      "is_correct": true,
+      "response": "\n\nAnswer: A",
+      "retrieved_docs": 3,
+      "scores": [
+        0.5271447896957397,
+        0.6061628460884094,
+        0.6128359436988831
+      ],
+      "contexts": [
+        "Joshua M. Galanter, MD, & Homer A. Boushey, MD and respirations are 32/min. Her mother states that she has used her albuterol inhaler several times a day for the past 3 days and twice during the previous night. She took an additional two puffs on her way to the emergency department, but her mother states that “the inhaler didn’t seem to be helping so I told her not to take any more.” What emergency measures are indicated? How should her long-term management be altered? A 14-year-old girl with a history of asthma requiring daily inhaled corticosteroid therapy and allergies to house dust mites, cats, grasses, and ragweed presents to the emergency department in mid-September, reporting a recent “cold” com-plicated by worsening shortness of breath and audible inspi-ratory and expiratory wheezing. She appears frightened and refuses to lie down but is not cyanotic. Her pulse is 120 bpm,",
+        "This patient demonstrates the destabilizing effects of a respiratory infection on asthma, and her mother’s comments demonstrate the common (and dangerous) phobia about “overuse” of bronchodilator or steroid inhalers. The patient has signs of imminent respiratory failure, including her refusal to lie down, her fear, and her tachycardia, which can-not be attributed to her minimal treatment with albuterol. Critically important immediate steps are to administer high-flow oxygen and to start albuterol by nebulization. Adding ipratropium (Atrovent) to the nebulized solution is recom-mended. A corticosteroid (0.5–1.0 mg/kg of methylpred-nisolone) should be administered intravenously. It is also advisable to alert the intensive care unit, because a patient with severe bronchospasm who tires can slip into respiratory failure quickly, and intubation can be difficult. Fortunately, most patients treated in hospital emergency departments do well. Asthma mortality is rare (fewer than 4000 deaths",
+        "For some children, symptoms of wheezing with respiratoryinfections subside in the preschool years, whereas othershave more persistent asthma symptoms. Prognostic indicators for children younger than 3 years of age who are at riskfor asthma include eczema, parental asthma, or two of the 90, 180, or 200 µg/inhalation Fluticasone HFA/MDI: 44, 110, or 220 µg/puff DPI: 50, 100, or 250 µg/inhalation Years of Age Years of Age Years of Age Years of Age Years of Age Years of Age >600–1,200 µg >1,200 µg 0.25–0.5 mg 1.0 mg 0.5 mg >0.5–1.0 mg >1.0 mg 2.0 mg 500–1,000 µg 1,000–1,250 >1,000–2,000 >1,250 µg >2,000 µg >1,500 µg >750–1,500 µg Key: DPI, Dry power inhaler; HFA, hydrofluoroalkane; MDI, metered-dose inhaler; NA, not available (either not approved, no data available, or safety and efficacy not established for this age group)"
+      ]
+    },
+    {
+      "question": "A 5-year-old female suffers from recurrent infections by Aspergillus species, Pseudomonas species, and Staphylococcus aureus. The patient's neutrophils are examined in the laboratory and they fail to react during the nitroblue tetrazolium test. Which of the following is most likely dysfunctional in this patient?",
+      "options": [
+        "Lymphocytes",
+        "Immunoglobulin class switching",
+        "Superoxide dismutase",
+        "Myeloperoxidase",
+        "Respiratory burst"
+      ],
+      "correct_answer": "E",
+      "predicted_answer": "E",
+      "is_correct": true,
+      "response": "\n\nAnswer: E",
+      "retrieved_docs": 3,
+      "scores": [
+        0.6891446113586426,
+        0.8148220777511597,
+        0.8154376745223999
+      ],
+      "contexts": [
+        "of the gastric antrum and genitourinary tracts and poor wound healing. Surgeons become involved when the patient develops infectious or obstructive complications.The nitro blue tetrazolium (NBT) reduction test is used to diagnose CGD. Normal neutrophils can reduce this com-pound, while neutrophils from affected patients do not, facili-tating the diagnosis via a colorimetric test. Clinically, patients develop recurrent infections such as pneumonia, lymphadenitis, hepatic abscess, and osteomyelitis. Organisms most commonly responsible are S. aureus, Aspergillus, Klebsiella, Serratia, or Candida. When CGD patients require surgery, a preoperative pulmonary function test should be considered since they are predisposed to obstructive and restrictive lung disease. Wound complications, mainly infection, are common. Sutures should be removed as late as possible since the wounds heal slowly. Abscess drains should be left in place for a prolonged period until the infection is completely",
+        "71301/03/19 7:01 PM 714SPECIFIC CONSIDERATIONSPART IIInvasive pulmonary aspergillosis typically affects immu-nocompromised patients who have dysfunctional cellular immu-nity, namely defective polymorphonuclear leukocytes. Invasion of pulmonary parenchyma and blood vessels by a necrotizing bronchopneumonia may be complicated by thrombosis, hemor-rhage, and then dissemination. Patients present with fever that is nonresponsive to antibiotic therapy in the setting of neutro-penia. They may also have pleuritic chest pain, cough, dys-pnea, or hemoptysis. Characteristic signs on CT scan include the halo sign and cavitary lesions. Treatment with voriconazole must be prompt and aggressive, including reversal of neutrope-nia, if there is to be any chance for recovery. Mortality ranges from 93% to 100% in bone marrow transplant recipients, to approximately 38% in kidney transplant recipients, although this improves to approximately 60% at 12 weeks with antifun-gal therapy. Several other",
+        "In most categories of chronic (not recurrent) meningitis, mononuclear cells predominate in the CSF. When neutrophils predominate after 3 weeks of illness, the principal etiologic considerations are Nocardia asteroides, Actinomyces israelii, Brucella, Mycobacterium tuberculosis (5–10% of early cases only), various fungi (Blastomyces dermatitidis, Candida albicans, Histoplasma capsulatum, Aspergillus spp., Pseudallescheria boydii, Cladophialophora bantiana), and noninfectious causes (SLE, exogenous chemical meningitis). When eosinophils predominate or are present in limited numbers in a primarily mononuclear cell response in the CSF, the differential diagnosis includes parasitic diseases (A. cantonensis, G. spinigerum, B. procyonis, or Toxocara canis infection, cysticercosis, schistosomiasis, echinococcal disease, T. gondii infection), fungal infections (6–20% eosinophils along with a predominantly lymphocyte pleocytosis, particularly with coccidioidal meningitis), neoplastic disease"
+      ]
+    },
+    {
+      "question": "A 3-year-old boy presents to the emergency department with a ‘cough-like-a-seal bark’ and a high-pitched inspiratory noise that is audible without a stethoscope. His mother reports that his cough has worsened over the last few hours. The patient's blood pressure is 118/78 mm Hg, pulse is 90/min, respiratory rate is 35/min, and temperature is 38.3°C (101.1°F). On physical examination, the boy is sitting and leaning forward in apparent respiratory distress with suprasternal and intercostal retractions. Auscultation reveals inspiratory stridor without wheezing. He has a frequent barking cough and a hoarse voice when he speaks. What is a chest X-ray likely to show?",
+      "options": [
+        "Diffuse streaky infiltrates",
+        "Increased interstitial markings",
+        "Lobar consolidation in the lingual",
+        "Thumbprint sign on the lateral image",
+        "Steeple sign"
+      ],
+      "correct_answer": "E",
+      "predicted_answer": "E",
+      "is_correct": true,
+      "response": "\n\nAnswer: E",
+      "retrieved_docs": 3,
+      "scores": [
+        0.6248230338096619,
+        0.6294782757759094,
+        0.6313207745552063
+      ],
+      "contexts": [
+        "The chest x-ray is usually negative, but the presence of a pulmonary infiltrate or mediastinal lymphadenopathy would suggest tuberculosis, histoplasmosis, sarcoidosis, lymphoma, primary lung cancer, or metastatic cancer and demands further investigation.",
+        "presumably due to reactivation. In this setting respiratory symptoms are usually minimal, with cough and dyspnea occurring in 10–30% of patients. The chest x-ray is abnormal in ~50% of patients, showing either a diffuse interstitial infiltrate or diffuse small nodules, and the urine will often be positive for Histoplasma antigen.",
+        "Some children are asymptomatic, but most exhibit some degree of drooling, food refusal, or chest discomfort. Olderchildren usually can point to the region of the chest wherethey feel the object to be lodged. Respiratory symptomstend to be minimal, but cough or wheezing may be present,especially when the esophagus is completely blocked by alarge object, such as a piece of meat, which presses on thetrachea. Plain chest and abdominal radiographs should be taken when foreign body ingestion is suspected. Metallic objectsare easily visualized. A plastic object often can be seen if thechild is given a small amount of dilute x-ray contrast material to drink, although endoscopy is probably safer and moredefinitive."
+      ]
+    },
+    {
+      "question": "A 26-year-old woman presents to a gynecologist after a missed period. After performing a complete physical examination and a screening test for pregnancy, her gynecologist informs her that she is pregnant. She is very surprised as she has been taking oral contraceptives regularly. When the gynecologist asks her about the consumption of any other medications, she mentions that she was placed on treatment for pulmonary tuberculosis (TB) 2 months ago. Her current anti-TB regimen includes rifampin, isoniazid, pyrazinamide, and ethambutol. Which of the following mechanisms best explains the failure of oral contraceptives in this patient?",
+      "options": [
+        "Induction of CYP3A4 by rifampin leading to decreased serum levels of ethinylestradiol and progesterone",
+        "Induction of CYP2A6 by rifampin leading to increased inactivation of ethinylestradiol",
+        "Induction of CYP2E1 by isoniazid leading to decreased serum levels of progesterone",
+        "Interference with the intestinal absorption of the oral contraceptive by pyrazinamide",
+        "Increased renal elimination of the progesterone component of the oral contraceptive by ethambutol"
+      ],
+      "correct_answer": "A",
+      "predicted_answer": "A",
+      "is_correct": true,
+      "response": "\n\nAnswer: A",
+      "retrieved_docs": 3,
+      "scores": [
+        0.6487613320350647,
+        0.7788318395614624,
+        0.8195202350616455
+      ],
+      "contexts": [
+        "Active Infection. Recommended initial treatment for active tuberculosis in pregnant women is a four-drug regimen with isoniazid, rifampin, ethambutol, and pyrazinamide, along with pyridoxine. For meningitis, levoBoxacin may be added (Kalita, 2014). In the irst 2-month phase, all four drugs are givenbactericidal phase. his is followed by a 4-month phase of isoniazid and rifampin-continuation phase (Raviglione, 2015; Zumla, 2013). A few reports describe MDR-TB during pregnancy, and treatment options have been reviewed (Horsburgh, 2015; Lessnau, 2003). Breastfeeding is not prohibited during antituberculous therapy.",
+        "A 9-month regimen of isoniazid and rifampin cures greater than 98% of cases of drug-susceptible pulmonary tuberculosis. After daily administration for the first 1 to 2 months, both drugs can be given daily or twice weekly for the remaining 7 to 8 months, with equivalent results and low rates of adverse reactions. The addition of pyrazinamide for the first 2 months of the regimen reduces the total duration of treatment to 6 months and has similar efficacy. Noncompliance, or nonadherence, is a major problem in tuberculosis control because of the long-term nature of treatment and the sometimes difficult social circumstances of the patients. As treatment regimens become shorter, adherence assumes an even greater importance. Improvement in compliance occurs with directly observed therapy, which means that the health care worker is physically present when the medications are administered, and is the standard of care in most settings.",
+        "Because of the expense, potentially serious side effects, and unknown long-term effects of these agents, their use should be restricted to patients with a definite diagnosis and active disease (BASDAI ≥4 out of 10 and expert opinion) that is inadequately responsive to therapy with at least two different NSAIDs. Before initiation of anti-TNF therapy, all patients should be tested for tuberculin (TB) reactivity, and reactors (≥5 mm on PPD testing or a positive quantiferon test) should be treated with anti-TB agents. Contraindications include active infection or high risk of infection; malignancy or premalignancy; and history of systemic lupus erythematosus, multiple sclerosis, or related autoimmunity. Pregnancy and breast-feeding are relative contraindications. Continuation beyond 12 weeks of therapy requires either a 50% reduction in BASDAI or absolute reduction of ≥2 out of 10, and favorable expert opinion. Switching to a second anti-TNF agent may be effective, especially if there was"
+      ]
+    },
+    {
+      "question": "A 4-year-old previously healthy boy presents with 4 days of intermittent vomiting and 5-6 daily loose stools. His mother noted bloody stools and decreased oral intake of food and water over the last 24 hours. He is normally in daycare; however, he has been home for the past 3 days. On physical exam his temperature is 102.2°F (39°C), blood pressure is 140/90 mmHg, pulse is 120/min, respirations are 22/min and O2 saturation is 99% on room air. He has dry mucous membranes. On abdominal exam you note diffuse tenderness to palpation without rebound or guarding. There are no masses, hepatosplenomegaly, and bowel sounds are hyperactive. Ultrasound of the right lower quadrant is negative for appendicitis. Stool is guaiac positive. He receives 15mg/kg acetaminophen and fluids are started. The next day, he complains of lower extremity weakness and tingling. On repeat exam, lower extremity strength is 3/5 with diminished patellar deep tendon reflexes. Which of the following lab findings would most likely be seen in this patient?",
+      "options": [
+        "Gram stain positive CSF",
+        "Peripheral eosinophilia",
+        "Xanthochromia on cerebrospinal fluid analysis",
+        "Increased cerebrospinal fluid protein with normal cell count",
+        "Oligoclonal bands on cerebrospinal fluid analysis"
+      ],
+      "correct_answer": "D",
+      "predicted_answer": "D",
+      "is_correct": true,
+      "response": "\n\nAnswer: D",
+      "retrieved_docs": 3,
+      "scores": [
+        0.7107158899307251,
+        0.7172483205795288,
+        0.7268024682998657
+      ],
+      "contexts": [
+        "Laboratory evaluation of vomiting should include serumelectrolytes, tests of renal function, complete blood count, amylase, lipase, and liver function tests. Additional testing may berequired immediately when history and examination suggest aspecific etiology. Ultrasound is useful to look for pyloric steno-sis, gallstones, renal stones, hydronephrosis, biliary obstruction,pancreatitis, malrotation, intussusception, and other anatomic Table 126-8 Differential Diagnosis and Historical Features of Vomiting DIFFERENTIAL DIAGNOSIS HISTORICAL CLUES Viral gastroenteritis Fever, diarrhea, sudden onset, absence of pain Gastroesophageal reflux Effortless, not preceded by nausea, chronic Hepatitis Jaundice, history of exposure Otitis media Fever, ear pain Urinary tract infection Dysuria, unusual urine odor, frequency, incontinence Pneumonia Cough, fever, chest discomfort Milk or soy protein intolerance (infants) Associated with particular formula or food, blood in stools",
+        "The history may suggest a diagnosis and direct the evaluation, which should include a full examination as well as a thorough abdominal examination. Extraintestinal disorders may produce GI manifestations (e.g., emesis with group A streptococcal pharyngitis, abdominal pain with lower lobe pneumonia). The examination should begin with a careful external inspection for abdominal distention, bruising or discoloration, abnormal veins, jaundice, surgical scars, and ostomies. Abnormalities of intensity and pitch of bowel sounds can occur with bowel obstruction. When palpating for tenderness, the examiner should note location, facial expression, guarding, and rebound tenderness. Palpation can also detect enlargement of the liver or spleen as well as feces and masses. If detected, organomegaly should be measured (with a tape measure), noting abnormal firmness or contour. A rectal examination, including inspection for fissures, skin tags, abscesses, and fistulous openings, should be performed",
+        "the same symptoms previously described in adults, neonates can also present with abdominal distension and lethargy or irritability. The Pediatric Appendici-tis Score has components similar to the Alvarado Score and is scored of 10 points, with maximum weight (2 points each) for right lower quadrant tenderness and pain with cough, percussion or hopping. A score of 7 or greater indicates that the patient has a high chance of having appendicitis (78%–96% percent).65In the pediatric population, special considerations must be made to exclude relevant differential diagnoses such as intus-susception (currant jelly stools, abdominal mass), gastroenteritis (often no luekocytosis), malrotation (pain out of proportion), pregnancy (ectopic), mesenteric adenitis, torsion of the omen-tum, and ovarian or testicular torsion.Table 30-3Management of Intraoperative Findings Mimicking AppendicitisOvarian TorsionConservative management with detorsion and oophoropexyCrohn’s terminal ileitisAppendectomy if"
+      ]
+    },
+    {
+      "question": "A 3-week-old male newborn is brought to the physician because of an inward turning of his left forefoot. He was born at 38 weeks' gestation by cesarean section because of breech presentation. The pregnancy was complicated by oligohydramnios. Examination shows concavity of the medial border of the left foot with a skin crease just below the ball of the great toe. The lateral border of the left foot is convex. The heel is in neutral position. Tickling the lateral border of the foot leads to correction of the deformity. The remainder of the examination shows no abnormalities. X-ray of the left foot shows an increased angle between the 1st and 2nd metatarsal bones. Which of the following is the most appropriate next step in the management of this patient?",
+      "options": [
+        "Foot abduction brace",
+        "Osteotomy of the metatarsals",
+        "Arthrodesis of the forefoot",
+        "Reassurance",
+        "Tarsometatarsal capsulotomy"
+      ],
+      "correct_answer": "D",
+      "predicted_answer": "D",
+      "is_correct": true,
+      "response": "\n\nAnswer: D",
+      "retrieved_docs": 3,
+      "scores": [
+        0.599787712097168,
+        0.6322516202926636,
+        0.6837912797927856
+      ],
+      "contexts": [
+        "This is the most common cause of in-toeing in a child younger than 2 years old. When it is the result of in utero positioning, it may be associated with metatarsus adductus. Clinical Manifestations. The child will present witha history of in-toeing. The degree of tibial torsion may bemeasured using the thigh-foot angle (Fig. 200-1). Thepatient lies prone on a table with the knee flexed to 90°.The long axis of the foot is compared with the long axis of the thigh. An inwardly rotated foot represents a negativeangle and internal tibial torsion. If follow-up is warranted,measurements should be done at each visit to document improvement. Treatment of In-toeing",
+        "Available @ StudentConsult.com In-Toeing, Out-Toeing, and Toe-Walking Metatarsus adductus is the most common foot disorder in infants. It is characterized by a convexity of the lateral foot (Fig. 201-2) and is caused by in utero positioning. It is bilateral in half of cases. Occurring equally in boys and girls, it is more common in first-born children because of the smaller primigravid uterus. Two percent of infants with metatarsus adductus have developmental dysplasia of the hip. The forefoot is adducted and sometimes supinated, but the midfoot and hindfoot are normal. The lateral border of the foot is convex, while the medial border is concave. Ankle dorsiflexion and plantar flexion are normal. With the midfoot and hindfoot stabilized, the deformity can be pushed beyond a neutral position (into abduction). Older children may present with an in-toeing gait.",
+        "Available @ StudentConsult.com In-Toeing, Out-Toeing, and Toe-Walking Bowlegs and Knock-Knees The in utero position of the fetus can affect the angular and torsional alignment (temporary or permanent) of the skeletal system, especially of the lower extremity (Fig. 197-3). The newborn’s hips are externally rotated. Pes planus and genu varum are common. Infants are usually born with a flexed posture. This position usually decreases to neutral within the first 4 to 6 months. The foot is often flat and tucked under at birth; the ankle will be inverted and the forefoot is adducted when compared with the hindfoot. The lateral border of the foot must straighten out, even with dorsiflexion, to be considered secondary to in utero positioning. The head and neck may also be distorted by in utero positioning. The spine and upper extremities are less likely to be affected. By the age of 3 to 4 years, the effects of in utero positioning have usually resolved."
+      ]
+    },
+    {
+      "question": "A 42-year-old woman comes to the emergency department because of a 2-day history of right upper abdominal pain and nausea. She is 163 cm (5 ft 4 in) tall and weighs 91 kg (200 lb); her BMI is 34 kg/m2. Her temperature is 38.5°C (101.3°F). Physical examination shows a distended abdomen and right upper quadrant tenderness with normal bowel sounds. Laboratory studies show:\nLeukocyte count 14,000/mm3\nSerum\nTotal bilirubin 1.1 mg/dL\nAST 32 U/L\nALT 40 U/L\nAlkaline phosphatase 68 U/L\nAbdominal ultrasonography is performed, but the results are inconclusive. Cholescintigraphy shows the intrahepatic bile ducts, hepatic ducts, common bile duct, and proximal small bowel. Which of the following is the most likely cause of this patient's symptoms?\"",
+      "options": [
+        "Autodigestion of pancreatic parenchyma",
+        "Hypomotility of the gallbadder",
+        "Fistula between the gallbladder and small intestine",
+        "Infection with a hepatotropic virus",
+        "Obstruction of the cystic duct"
+      ],
+      "correct_answer": "E",
+      "predicted_answer": "E",
+      "is_correct": true,
+      "response": "\n\nAnswer: E",
+      "retrieved_docs": 3,
+      "scores": [
+        0.47927388548851013,
+        0.48497602343559265,
+        0.49555328488349915
+      ],
+      "contexts": [
+        "Biliary colic begins quite suddenly and may persist with severe intensity for 30 min to 5 h, subsiding gradually or rapidly. It is steady rather than intermittent, as would be suggested by the word colic, which must be regarded as a misnomer, although it is in widespread use. An episode of biliary pain persisting beyond 5 h should raise the suspicion of acute cholecystitis (see below). Nausea and vomiting frequently accompany episodes of biliary pain. An elevated level of serum bilirubin and/or alkaline phosphatase suggests a common duct stone. Fever or chills (rigors) with biliary pain usually imply a complication, i.e., cholecystitis, pancreatitis, or cholangitis. Complaints of short-lasting, vague epigastric fullness, dyspepsia, eructation, or flatulence, especially following a fatty meal, should not be confused with biliary pain. Such symptoms are frequently elicited from patients with or without gallstone disease Diseases of the Gallbladder and Bile Ducts",
+        "The diagnosis of acute cholecystitis is usually made on the basis of a characteristic history and physical examination. The triad of sudden onset of RUQ tenderness, fever, and leukocytosis is highly suggestive. Typically, leukocytosis in the range of 10,000–15,000 cells per microliter with a left shift on differential count is found. The serum bilirubin is mildly elevated (<85.5 μmol/L [5 mg/dL]) in fewer than half of patients, whereas about one-fourth have modest elevations in serum aminotransferases (usually less than a fivefold elevation). Ultrasound will demonstrate calculi in 90–95% of cases and is useful for detection of signs of gallbladder inflammation including thickening of the wall, pericholecystic fluid, and dilatation of the bile duct. The radionuclide (e.g., HIDA) biliary scan may be confirmatory if bile duct imaging is seen without visualization of the gallbladder.",
+        "(ERCP), which allowed for more detailed imaging of the bili-ary tree. Later, ultrasonography, computed tomography (CT), and magnetic resonance imaging (MRI) would further improve the ability to image the biliary tract.Blood TestsWhen patients with suspected diseases of the gallbladder or the extrahepatic biliary tree are evaluated, a complete blood count and liver function tests are routinely requested. An elevated white blood cell (WBC) count may indicate or raise suspicion of acute cholecystitis (infection within the gallbladder). If asso-ciated with an elevation of bilirubin, alkaline phosphatase, and transaminases, cholangitis (infection within the biliary tree) should be suspected. Cholestasis (an obstruction to bile flow) is generally characterized by an elevation of conjugated bilirubin and a rise in alkaline phosphatase, but it may have no transa-minitis. Such a pattern may suggest choledocholithiasis (stones in the common bile duct) or an obstructing lesion such as a"
+      ]
+    },
+    {
+      "question": "A 72-year-old woman is admitted to the intensive care unit for shortness of breath and palpitations. A cardiac catheterization is performed and measurements of the left ventricular volume and pressure at different points in the cardiac cycle are obtained. The patient's pressure-volume loop (gray) is shown with a normal pressure-volume loop (black) for comparison. Which of the following is the most likely underlying cause of this patient's symptoms?",
+      "options": [
+        "Mitral valve regurgitation",
+        "Increased systemic vascular resistance",
+        "Increased ventricular wall stiffness",
+        "Impaired left ventricular contractility",
+        "Aortic stenosis"
+      ],
+      "correct_answer": "C",
+      "predicted_answer": "D",
+      "is_correct": false,
+      "response": "\n\nAnswer: D",
+      "retrieved_docs": 3,
+      "scores": [
+        0.7102925777435303,
+        0.742925226688385,
+        0.789693295955658
+      ],
+      "contexts": [
+        "chamber. Ventricular compliance is altered by Brunicardi_Ch13_p0433-p0452.indd 43622/02/19 2:20 PM 437PHYSIOLOGIC MONITORING OF THE SURGICAL PATIENTCHAPTER 13Figure 13-2 A-D. Left ventricular pressure-volume loops constructed for various clinically relevant scenarios. For further information refer to the text. A. Standard left ventricular pressure-volume loop, with stroke volume, end systolic volume, and end diastolic volume highlighted for reference. Note the directionality of the pressure-volume loop, which is not annotated in the other figures for clarity. B-D. Demonstration of the effect of changing preload (B), contractility (C), or afterload (D) on the pressure-volume relationships in the left ventricle. Note the differences in stroke volume for various conditions, as well as the end-systolic volume and pressures, as these represent clinically significant parameters that govern patient care.various pathologic conditions and pharmacologic agents. Fur-thermore, the",
+        "and left ventricles with inspiration (right ventricular systolic pressure increases while left ventricular systolic pressure decreases) are observed. The latter hemodynamic phenomenon is the most specific for constriction. Restrictive cardiomyopathy may be distinguished from constrictive pericarditis by a marked increase in right ventricular and pulmonary artery systolic pressures (usually >60 mmHg), a separation of the left and right ventricular diastolic pressures by and magnitude of the pressure waveforms provide important diag->5 mmHg (at baseline or with acute volume loading), and concordant nostic information; an example of normal pressure tracings is shown changes in left and right ventricular diastolic filling pressures with in Fig. 272-1. In the absence of valvular heart disease, the atria and inspiration (both increase). ventricles are “one chamber” during diastole when the tricuspid and mitral valves are open while in systole, when the pulmonary and aortic Cardiac Output",
+        "The changes in left ventricular pressure and volume throughout the cardiac cycle are summarized in Fig. 16.43 . Diastolic filling starts when the mitral valve opens (point A in Fig. 16.43 ), and it terminates when the mitral valve closes (point C). The initial decrease in left ventricular pressure (from points A to B), despite the rapid inflow of blood from the left atrium, is attributed to progressive ventricular relaxation and distensibility. During the remainder of diastole (from points B to C), the increase in ventricular pressure reflects ventricular filling and changes in the passive elastic characteristics of the ventricle. Note that only a small increase in pressure accompanies the substantial increase in ventricular volume during diastole (from points B to C). •Fig. 16.43 Schematizedpressure-volumeloopoftheleftventricleforasinglecardiaccycle."
+      ]
+    },
+    {
+      "question": "A 22-year-old woman is brought to the emergency department because of a 2-day history of fever, intermittent rigors, and night sweats. She also has a 1-month history of progressive fatigue. Five weeks ago, she was hospitalized and received intravenous antibiotics for treatment of bacterial meningitis while visiting relatives in Guatemala. Her temperature is 39.4°C (102.9°F), pulse is 130/min, and blood pressure is 105/70 mm Hg. Examination shows pallor and scattered petechiae and ecchymoses. Laboratory studies show a hemoglobin concentration of 9.0 g/dL, a leukocyte count of 1,100/mm3 with 30% segmented neutrophils, and a platelet count of 20,000/mm3 . Blood cultures grow coagulase-negative staphylococci. The patient was most likely treated with which of the following antibiotics?",
+      "options": [
+        "Doxycycline",
+        "Trimethoprim/sulfamethoxazole",
+        "Vancomycin",
+        "Linezolid",
+        "Chloramphenicol"
+      ],
+      "correct_answer": "E",
+      "predicted_answer": "C",
+      "is_correct": false,
+      "response": "\n\nAnswer: C",
+      "retrieved_docs": 3,
+      "scores": [
+        0.6394825577735901,
+        0.6820048093795776,
+        0.7055388689041138
+      ],
+      "contexts": [
+        "Like other invasive bacterial infections, meningococcal disease may produce elevations of the white blood cell (WBC) count and of values for inflammatory markers (e.g., C-reactive protein and procalcitonin levels or the erythrocyte sedimentation rate). Values may be normal or low in rapidly progressive disease, and a lack of rise in these laboratory test values does not exclude the diagnosis. However, in the presence of fever and a petechial rash, these elevations are suggestive of meningococcal disease. In patients with severe meningococcal septicemia, common laboratory findings include hypoglycemia, acidosis, hypokalemia, hypocalcemia, hypomagnesemia, hypophosphatemia, anemia, and coagulopathy.",
+        "The key to diagnosis is confirming continuous bacteremia or fungemia by culturing the blood. Multiple blood cultures are performed before initiating antibiotic therapy. Three separate venipunctures for blood culture achieve near-maximal sensitivity (about 95%) among patients who have not been treated recently with antibiotics. Patients who have been treated with antibiotics recently or who are currently receiving antibiotics should have additional serial cultures performed. Despite adequate blood culture techniques, the microbiologic diagnosis is not confirmed in 10% to 15% of cases, known as culture-negative endocarditis. Erythrocyte sedimentation rate and C-reactive protein are often elevated. Leukocytosis, anemia, and hematuria are common laboratory findings. A positive rheumatoid factor or antinuclear antibody may also be seen.",
+        "Fever ˜38.3° C (101° F) and illness lasting ˜3 weeks and no known immunocompromised state History and physical examination Stop antibiotic treatment and glucocorticoids Obligatory investigations: ESR and CRP, hemoglobin, platelet count, leukocyte count and differential, electrolytes, creatinine, total protein, protein electrophoresis, alkaline phosphatase, AST, ALT, LDH, creatine kinase, antinuclear antibodies, rheumatoid factor, urinalysis, blood cultures (n=3), urine culture, chest x-ray, abdominal ultrasonography, and tuberculin skin test"
+      ]
+    },
+    {
+      "question": "An otherwise healthy 50-year-old man comes to the physician because of a 6-month history of increasingly frequent episodes of upper abdominal pain, nausea, vomiting, and diarrhea. He has had a 3.2-kg (7-lb) weight loss during this time. Physical examination shows bilateral pitting pedal edema. An endoscopy shows prominent rugae in the gastric fundus. Biopsy shows parietal cell atrophy. Which of the following is the most likely underlying cause?",
+      "options": [
+        "Serotonin-secreting gastric tumor",
+        "Proliferation of gastric mucus-producing cells",
+        "Neoplasia of submucosal lymphoid tissue",
+        "Excessive somatostatin secretion",
+        "Ectopic secretion of gastrin"
+      ],
+      "correct_answer": "B",
+      "predicted_answer": "B",
+      "is_correct": true,
+      "response": "\n\nAnswer: B",
+      "retrieved_docs": 3,
+      "scores": [
+        0.7477413415908813,
+        0.7634358406066895,
+        0.7639142274856567
+      ],
+      "contexts": [
+        "Clinical Features Gastric cancers, when superficial and surgically curable, usually produce no symptoms. As the tumor becomes more extensive, patients may complain of an insidious upper abdominal discomfort varying in intensity from a vague, postprandial fullness to a severe, steady pain. Anorexia, often with slight nausea, is very common but is not the usual presenting complaint. Weight loss may eventually be observed, and nausea and vomiting are particularly prominent in patients whose tumors involve the pylorus; dysphagia and early satiety may be the major symptoms caused by diffuse lesions originating in the cardia. There may be no early physical signs. A palpable abdominal mass indicates long-standing growth and predicts regional extension.",
+        "The clinical presentation in adults is usually insidious and progressive. Epigastric pain, nausea, vomiting, anorexia, peripheral edema, and weight loss are signs and symptoms in patients with MD. Occult GI bleeding may occur, but overt bleeding is unusual and, when present, is due to superficial mucosal erosions. In fact, bleeding is more often seen in one of the common mimics of MD, gastric polyposis. Twenty to 100% of patients (depending on time of presentation) develop a protein-losing gastropathy due to hypersecretion of gastric mucus accompanied by hypoalbuminemia and edema. Gastric acid secretion is usually reduced or absent because of the decreased parietal cells. Large gastric folds are readily detectable by either radiographic (barium meal) or endoscopic methods. Endoscopy with deep mucosal biopsy, preferably full thickness with a snare technique, is required to establish the diagnosis and exclude other entities that may present similarly. A nondiagnostic biopsy may lead to",
+        "A condition in which one portion of the bowel invaginates or “telescopes” into an adjacent segment, usually proximal to the ileocecal valve (see Figure 2.131). The most common cause of bowel obstruction in the first two years of life (males > females); usually seen between three months and three years of age. The cause is often unknown. Risk factors include conditions with potential lead points, including Meckel’s diverticulum, intestinal lymphoma (> 6 years of age), Henoch-Schönlein purpura, parasites, polyps, adenovirus or rotavirus infection, celiac disease, and CF. Presents with abrupt-onset, colicky abdominal pain in apparently healthy children, often accompanied by ﬂexed knees and vomiting. The child may appear well in between episodes if intussusception is released. The classic triad is abdominal pain, vomiting, and blood per rectum (affects only one in three patients)."
+      ]
+    }
+  ],
+  "correct_count": 22,
+  "total_count": 34,
+  "elapsed_time": 493.76474046707153,
+  "config": {
+    "top_k": 3,
+    "llm_provider": "Qwen3-4B",
+    "llm_model": "8606056bfe0c49448d92587452d1f2fc"
+  },
+  "error_message": null
+}

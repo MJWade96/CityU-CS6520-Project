@@ -6,8 +6,8 @@ Handles loading and processing of medical corpora:
 2. PubMed Abstracts - Research abstracts (full abstract as chunk)
 
 Data sources should be placed in:
-- ./data/corpus/statpearls/
-- ./data/corpus/pubmed/
+- {CORPUS_DIR}/statpearls/
+- {CORPUS_DIR}/pubmed/
 """
 
 import os
@@ -22,6 +22,8 @@ from langchain_text_splitters import (
     RecursiveCharacterTextSplitter,
     MarkdownHeaderTextSplitter,
 )
+from .data_paths import CORPUS_DIR
+from .statpearls_dataset import build_statpearls_dataset
 
 
 @dataclass
@@ -261,10 +263,8 @@ class MedicalCorpusLoader:
         return all_documents
 
     def _get_default_corpus_path(self) -> str:
-        """Get default corpus path"""
-        current_dir = Path(__file__).parent
-        project_root = current_dir.parent.parent
-        return str(project_root / "data" / "corpus")
+        """Return the configured corpus root."""
+        return str(CORPUS_DIR)
 
     def chunk_to_langchain_docs(
         self,
@@ -282,14 +282,10 @@ class MedicalCorpusLoader:
 
 def download_statpearls(output_dir: str) -> None:
     """
-    Download StatPearls data.
-
-    Note: This requires access to StatPearls data which may need
-    registration. This function provides a template for the download.
+    Download StatPearls data using the shared downloader.
     """
-    print("Downloading StatPearls data...")
-    print("Note: StatPearls data requires registration at https://www.statpearls.com/")
-    print(f"Please download manually and place in: {output_dir}")
+    result = build_statpearls_dataset(Path(output_dir).parent)
+    print(f"Downloaded StatPearls to: {result['combined_file']}")
 
 
 def download_pubmed(
@@ -360,8 +356,8 @@ def demo():
     print("=" * 60)
 
     print("\nTo use the corpus loader:")
-    print("1. Place StatPearls markdown files in: ./data/corpus/statpearls/")
-    print("2. Place PubMed JSON files in: ./data/corpus/pubmed/")
+    print(f"1. Place StatPearls markdown files in: {CORPUS_DIR / 'statpearls'}")
+    print(f"2. Place PubMed JSON files in: {CORPUS_DIR / 'pubmed'}")
     print("\nExample usage:")
     print("""
     from app.rag.corpus_loader import MedicalCorpusLoader
@@ -370,7 +366,7 @@ def demo():
 
     # Load corpus
     chunks = loader.load_corpus(
-        corpus_path="./data/corpus",
+        corpus_path=None,  # uses app.rag.data_paths.CORPUS_DIR by default
         sources=['statpearls', 'pubmed']
     )
 

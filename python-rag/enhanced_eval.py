@@ -38,6 +38,7 @@ from app.rag.reranker import RerankerPipeline
 from app.rag.chunking import SemanticChunker, ParentChildChunker
 from app.rag.metadata_enhancement import MetadataGenerator, RuleBasedMetadataGenerator
 from app.rag.progress_manager import EvaluationProgressManager
+from app.rag.data_paths import EVALUATION_DIR, FAISS_INDEX_DIR
 
 
 # ============================================================
@@ -48,13 +49,11 @@ from app.rag.progress_manager import EvaluationProgressManager
 class EnhancedEvaluationConfig:
     """Enhanced evaluation configuration"""
 
-    SCRIPT_DIR = Path(__file__).parent
-
     # Dataset split
-    DEV_SET_SIZE = 100
+    DEV_SET_SIZE = 300
 
     # LLM Configuration (联通云 DeepSeek V3.2)
-    LLM_PROVIDER = "deepseek"
+    LLM_PROVIDER = "Qwen3-4B"
     LLM_MODEL = "8606056bfe0c49448d92587452d1f2fc"
     LLM_TEMPERATURE = 0.1
     LLM_MAX_TOKENS = 512
@@ -73,9 +72,9 @@ class EnhancedEvaluationConfig:
     USE_ADAPTIVE_RETRIEVAL = False
 
     # File paths
-    VECTOR_STORE_PATH = r"C:\Users\MJWade\AppData\Local\Temp\medical_rag_faiss"
-    QUESTION_FILE = str(SCRIPT_DIR / "data" / "evaluation" / "medqa.json")
-    OUTPUT_DIR = str(SCRIPT_DIR / "results" / "evaluation")
+    VECTOR_STORE_PATH = str(FAISS_INDEX_DIR)
+    QUESTION_FILE = str(EVALUATION_DIR / "medqa.json")
+    OUTPUT_DIR = str(Path(__file__).parent / "results" / "evaluation")
 
 
 # ============================================================
@@ -88,8 +87,8 @@ class EnhancedMedicalLLMGenerator:
 
     def __init__(
         self,
-        provider: str = "deepseek",
-        model: str = "2656053fa69c4c2d89c5a691d9d737c3",
+        provider: str = "Qwen3-4B",
+        model: str = "8606056bfe0c49448d92587452d1f2fc",
         temperature: float = 0.1,
         max_tokens: int = 512,
         api_key: Optional[str] = None,
@@ -104,7 +103,7 @@ class EnhancedMedicalLLMGenerator:
         self.use_cot = use_cot
 
         # Get API credentials
-        self.api_key = api_key or "6fcecb364d0647d2883e7f1d3f19d5b9"
+        self.api_key = api_key or "4dbe3bec3ee548d28b649b324e741939"
         self.base_url = base_url or "https://wishub-x6.ctyun.cn/v1"
 
         # Initialize LLM
@@ -511,8 +510,8 @@ def evaluate_with_pipeline(
                     elapsed_time=elapsed,
                     config={
                         "top_k": top_k,
-                        "llm_provider": "deepseek",
-                        "llm_model": "2656053fa69c4c2d89c5a691d9d737c3",
+                        "llm_provider": "Qwen3-4B",
+                        "llm_model": "8606056bfe0c49448d92587452d1f2fc",
                         "hybrid_retrieval": pipeline.config.USE_HYBRID_RETRIEVAL,
                         "query_rewrite": pipeline.config.USE_QUERY_REWRITE,
                         "reranker": pipeline.config.USE_RERANKER,
@@ -535,8 +534,8 @@ def evaluate_with_pipeline(
                     elapsed_time=elapsed,
                     config={
                         "top_k": top_k,
-                        "llm_provider": "deepseek",
-                        "llm_model": "2656053fa69c4c2d89c5a691d9d737c3",
+                        "llm_provider": "Qwen3-4B",
+                        "llm_model": "8606056bfe0c49448d92587452d1f2fc",
                         "hybrid_retrieval": pipeline.config.USE_HYBRID_RETRIEVAL,
                         "query_rewrite": pipeline.config.USE_QUERY_REWRITE,
                         "reranker": pipeline.config.USE_RERANKER,

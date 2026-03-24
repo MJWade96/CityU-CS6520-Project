@@ -20,7 +20,7 @@ from app.rag import create_rag_pipeline, RAGConfig, MedicalRAGSystem, RuleBasedE
 CUSTOM_CONFIG = {
     "base_url": "https://wishub-x6.ctyun.cn/v1",
     "api_key": "6fcecb364d0647d2883e7f1d3f19d5b9",
-    "model": "2656053fa69c4c2d89c5a691d9d737c3",
+    "model": "8606056bfe0c49448d92587452d1f2fc",
 }
 
 
@@ -28,7 +28,7 @@ def create_custom_rag_pipeline():
     from app.rag.api_medical_rag import MedicalRAGConfig
 
     config = MedicalRAGConfig(
-        llm_provider="deepseek",
+        llm_provider="Qwen3-4B",
         llm_model=CUSTOM_CONFIG["model"],
         llm_api_key=CUSTOM_CONFIG["api_key"],
         llm_base_url=CUSTOM_CONFIG["base_url"],

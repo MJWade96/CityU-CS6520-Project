@@ -33,6 +33,7 @@ from langchain_openai import ChatOpenAI
 
 # Document loader - Real data from external file
 from app.rag.document_loader import load_medical_knowledge_base
+from app.rag.data_paths import VECTOR_STORE_DIR
 
 
 @dataclass
@@ -57,7 +58,7 @@ class MedicalRAGConfig:
     top_k: int = 5
 
     # Vector Store
-    vector_store_path: str = "./data/vector_store"
+    vector_store_path: str = str(VECTOR_STORE_DIR)
 
 
 class APIGenerator:
