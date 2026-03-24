@@ -1,4 +1,11 @@
 /Med-R2/
 /Zignored/
 .trae
+.DS_Store
+__pycache__/
+*.pyc
 
+# Generated data / artifacts
+python-rag/results/
+python-rag/data/
+data/
