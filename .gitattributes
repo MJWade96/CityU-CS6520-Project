@@ -1,5 +1,5 @@
 python-rag/data/vector_store/faiss_index/index.faiss filter=lfs diff=lfs merge=lfs -text
 python-rag/data/vector_store/faiss_index/index.pkl filter=lfs diff=lfs merge=lfs -text
-* !text !filter !merge !diff
 python-rag/data/corpus/*.json filter=lfs diff=lfs merge=lfs -text
 python-rag/data/vector_store/faiss_index/* filter=lfs diff=lfs merge=lfs -text
+* !text !filter !merge !diff
