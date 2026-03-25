@@ -184,7 +184,6 @@ def get_qwen_completion_kwargs(config: EvaluationLLMConfig) -> Dict[str, Any]:
         "model": config.model,
         "temperature": config.temperature,
         "max_tokens": config.max_tokens,
-        "enable_thinking": False,
     }
 
 
@@ -194,5 +193,4 @@ def get_qwen_langchain_kwargs(config: EvaluationLLMConfig) -> Dict[str, Any]:
         "model": config.model,
         "temperature": config.temperature,
         "max_tokens": config.max_tokens,
-        "model_kwargs": {"enable_thinking": False},
     }
