@@ -73,7 +73,7 @@ class MedicalLLMGenerator:
         self.llm = ChatOpenAI(
             model=config.model,
             temperature=config.temperature,
-            max_tokens=config.max_tokens,
+            model_kwargs={"enable_thinking": False},
             api_key=config.api_key,
             base_url=config.base_url,
         )
@@ -218,7 +218,7 @@ async def evaluate_async_dataset(
                 model=config.llm.model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=config.llm.temperature,
-                max_tokens=config.llm.max_tokens,
+                enable_thinking=False,
             )
 
         response_content = (

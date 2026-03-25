@@ -6,14 +6,13 @@ Architecture:
 - Embedding: sentence-transformers (local, no LLM)
 - Vector Store: FAISS (local)
 - Retrieval: Dense retrieval (no LLM)
-- Generator: LLM API (OpenAI / Zhipu / DeepSeek)
+- Generator: LLM API (Qwen3-4B)
 - Evaluation: Rule-based + Statistical (no LLM)
 """
 
 import os
 from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
-import json
 
 # LangChain imports
 from langchain_core.documents import Document
@@ -41,12 +40,12 @@ class MedicalRAGConfig:
     """Configuration for Medical RAG System - API Key Version"""
 
     # LLM Settings (Only used in Generator)
-    llm_provider: str = "openai"  # openai, zhipu, deepseek
-    llm_model: str = "gpt-4o-mini"
+    llm_provider: str = "Qwen3-4B"
+    llm_model: str = ""
     llm_temperature: float = 0.1
     llm_max_tokens: int = 1024
     llm_api_key: str = ""  # Set via environment variable or config
-    llm_base_url: str = ""  # Optional: for custom endpoints
+    llm_base_url: str = ""  # Required for custom endpoints
 
     # Embedding Settings (Local, no LLM)
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
@@ -66,32 +65,9 @@ class APIGenerator:
     API-based Generator Module
 
     The ONLY module that uses LLM (via API).
-    Supports OpenAI, Zhipu AI, DeepSeek, etc.
+    This project currently only uses Qwen3-4B.
     """
-
-    # Provider configurations
-    PROVIDERS = {
-        "openai": {
-            "base_url": "https://api.openai.com/v1",
-            "default_model": "gpt-4o-mini",
-            "models": ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"],
-        },
-        "zhipu": {
-            "base_url": "https://open.bigmodel.cn/api/paas/v4",
-            "default_model": "glm-4-flash",
-            "models": ["glm-4", "glm-4-flash", "glm-4-plus"],
-        },
-        "deepseek": {
-            "base_url": "https://api.deepseek.com/v1",
-            "default_model": "deepseek-chat",
-            "models": ["deepseek-chat", "deepseek-coder"],
-        },
-        "moonshot": {
-            "base_url": "https://api.moonshot.cn/v1",
-            "default_model": "moonshot-v1-8k",
-            "models": ["moonshot-v1-8k", "moonshot-v1-32k"],
-        },
-    }
+    PROVIDER_NAME = "Qwen3-4B"
 
     MEDICAL_PROMPT = PromptTemplate.from_template(
         """你是一个专业的医疗诊断助手。请基于提供的医学文献上下文回答问题。
@@ -113,7 +89,7 @@ class APIGenerator:
 
     def __init__(
         self,
-        provider: str = "openai",
+        provider: str = PROVIDER_NAME,
         model: str = None,
         api_key: str = None,
         base_url: str = None,
@@ -124,34 +100,45 @@ class APIGenerator:
         Initialize API-based generator.
 
         Args:
-            provider: API provider (openai, zhipu, deepseek, moonshot)
-            model: Model name (auto-selected if not specified)
+            provider: LLM provider name. Only Qwen3-4B is supported.
+            model: Model name/ID
             api_key: API key (or set via environment variable)
-            base_url: Custom API endpoint (optional)
+            base_url: API endpoint
             temperature: Generation temperature
             max_tokens: Maximum tokens to generate
         """
+        if provider != self.PROVIDER_NAME:
+            raise ValueError(
+                f"Unsupported provider: {provider}. "
+                f"Only {self.PROVIDER_NAME} is configured in this project."
+            )
+
         self.provider = provider
         self.temperature = temperature
         self.max_tokens = max_tokens
-
-        # Get provider config
-        provider_config = self.PROVIDERS.get(provider, self.PROVIDERS["openai"])
-
-        # Set model
-        self.model = model or provider_config["default_model"]
+        self.model = model or os.getenv("RAG_LLM_MODEL", "")
 
         # Set API key
-        self.api_key = api_key or self._get_api_key(provider)
+        self.api_key = api_key or self._get_api_key()
         if not self.api_key:
             raise ValueError(
                 f"API key not found for {provider}. "
-                f"Please set {provider.upper()}_API_KEY environment variable "
+                "Please set one of CTYUN_API_KEY, RAG_LLM_API_KEY, or OPENAI_API_KEY "
                 f"or pass api_key parameter."
             )
 
-        # Set base URL
-        self.base_url = base_url or provider_config["base_url"]
+        if not self.model:
+            raise ValueError(
+                "Qwen3-4B model ID not found. "
+                "Pass model explicitly or set RAG_LLM_MODEL."
+            )
+
+        self.base_url = base_url or os.getenv("RAG_LLM_BASE_URL", "")
+        if not self.base_url:
+            raise ValueError(
+                "Qwen3-4B base URL not found. "
+                "Pass base_url explicitly or set RAG_LLM_BASE_URL."
+            )
 
         # Initialize LLM
         self.llm = ChatOpenAI(
@@ -166,16 +153,11 @@ class APIGenerator:
         print(f"  Model: {self.model}")
         print(f"  Base URL: {self.base_url}")
 
-    def _get_api_key(self, provider: str) -> Optional[str]:
+    def _get_api_key(self) -> Optional[str]:
         """Get API key from environment variables"""
-        env_vars = {
-            "openai": ["OPENAI_API_KEY"],
-            "zhipu": ["ZHIPU_API_KEY", "ZHIPUAI_API_KEY"],
-            "deepseek": ["DEEPSEEK_API_KEY"],
-            "moonshot": ["MOONSHOT_API_KEY"],
-        }
+        env_vars = ["CTYUN_API_KEY", "RAG_LLM_API_KEY", "OPENAI_API_KEY"]
 
-        for var in env_vars.get(provider, []):
+        for var in env_vars:
             key = os.getenv(var)
             if key:
                 return key
@@ -640,18 +622,20 @@ NSTEMI：抗血小板治疗、抗凝、早期侵入性策略
 
 
 def create_rag_system(
-    provider: str = "openai",
+    provider: str = APIGenerator.PROVIDER_NAME,
     model: str = None,
     api_key: str = None,
+    base_url: str = None,
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
 ) -> MedicalRAGSystem:
     """
     Factory function to create RAG system.
 
     Args:
-        provider: API provider (openai, zhipu, deepseek, moonshot)
-        model: Model name
+        provider: LLM provider name. Only Qwen3-4B is supported.
+        model: Model name/ID
         api_key: API key
+        base_url: API base URL
         embedding_model: Local embedding model (NO LLM)
 
     Returns:
@@ -661,6 +645,7 @@ def create_rag_system(
         llm_provider=provider,
         llm_model=model,
         llm_api_key=api_key,
+        llm_base_url=base_url,
         embedding_model=embedding_model,
     )
 
@@ -670,36 +655,11 @@ def create_rag_system(
     return system
 
 
-# ============================================================
-# Convenience functions for different providers
-# ============================================================
-
-
-def create_openai_rag(
-    model: str = "gpt-4o-mini", api_key: str = None
-) -> MedicalRAGSystem:
-    """Create RAG system with OpenAI"""
-    return create_rag_system("openai", model, api_key)
-
-
-def create_zhipu_rag(
-    model: str = "glm-4-flash", api_key: str = None
-) -> MedicalRAGSystem:
-    """Create RAG system with Zhipu AI"""
-    return create_rag_system("zhipu", model, api_key)
-
-
-def create_deepseek_rag(
-    model: str = "deepseek-chat", api_key: str = None
-) -> MedicalRAGSystem:
-    """Create RAG system with DeepSeek"""
-    return create_rag_system("deepseek", model, api_key)
-
-
 def create_rag_pipeline(
-    provider: str = "openai",
+    provider: str = APIGenerator.PROVIDER_NAME,
     model: str = None,
     api_key: str = None,
+    base_url: str = None,
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
 ) -> MedicalRAGSystem:
     """
@@ -707,7 +667,7 @@ def create_rag_pipeline(
 
     Alias for create_rag_system for backward compatibility.
     """
-    return create_rag_system(provider, model, api_key, embedding_model)
+    return create_rag_system(provider, model, api_key, base_url, embedding_model)
 
 
 if __name__ == "__main__":
@@ -716,20 +676,13 @@ if __name__ == "__main__":
     print("LLM ONLY used in Generator Module (via API)")
     print("=" * 60)
 
-    # Check for API keys
-    print("\nSupported API Providers:")
+    print("\nConfigured LLM Provider:")
     print("-" * 40)
-
-    providers = {
-        "OpenAI": os.getenv("OPENAI_API_KEY"),
-        "Zhipu AI": os.getenv("ZHIPU_API_KEY") or os.getenv("ZHIPUAI_API_KEY"),
-        "DeepSeek": os.getenv("DEEPSEEK_API_KEY"),
-        "Moonshot": os.getenv("MOONSHOT_API_KEY"),
-    }
-
-    for provider, key in providers.items():
-        status = "✓ API Key Set" if key else "✗ API Key Not Set"
-        print(f"  {provider}: {status}")
+    api_key = os.getenv("CTYUN_API_KEY") or os.getenv("RAG_LLM_API_KEY")
+    print(f"  Provider: {APIGenerator.PROVIDER_NAME}")
+    print(f"  API Key: {'set' if api_key else 'not set'}")
+    print(f"  Base URL: {os.getenv('RAG_LLM_BASE_URL', 'not set')}")
+    print(f"  Model ID: {os.getenv('RAG_LLM_MODEL', 'not set')}")
 
     print("\n" + "=" * 60)
     print("Architecture Summary:")
@@ -745,7 +698,7 @@ if __name__ == "__main__":
     print("│ Retrieval       │ Dense Search    │   NO   │")
     print("├─────────────────────────────────────────────┤")
     print("│ Generator       │ API LLM         │  YES   │")
-    print("│                 │ (OpenAI/Zhipu)  │        │")
+    print("│                 │ (Qwen3-4B)      │        │")
     print("├─────────────────────────────────────────────┤")
     print("│ Evaluation      │ Rule-based      │   NO   │")
     print("└─────────────────────────────────────────────┘")
@@ -754,14 +707,16 @@ if __name__ == "__main__":
     print("-" * 40)
     print(
         """
-from app.rag.api_medical_rag import create_openai_rag
+from app.rag.api_medical_rag import create_rag_pipeline
 
 # Set API key first
 import os
-os.environ["OPENAI_API_KEY"] = "your-api-key"
+os.environ["RAG_LLM_API_KEY"] = "your-api-key"
+os.environ["RAG_LLM_BASE_URL"] = "https://wishub-x6.ctyun.cn/v1"
+os.environ["RAG_LLM_MODEL"] = "your-qwen3-4b-model-id"
 
 # Create and use system
-system = create_openai_rag()
+system = create_rag_pipeline()
 result = system.query("高血压的一线治疗方案是什么？")
 print(result['answer'])
 """
