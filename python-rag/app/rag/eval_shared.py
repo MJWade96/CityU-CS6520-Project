@@ -32,7 +32,6 @@ class EvaluationLLMConfig:
     provider: str = os.getenv("RAG_LLM_PROVIDER", DEFAULT_PROVIDER)
     model: str = os.getenv("RAG_LLM_MODEL", DEFAULT_MODEL)
     temperature: float = float(os.getenv("RAG_LLM_TEMPERATURE", "0.1"))
-    max_tokens: int = int(os.getenv("RAG_LLM_MAX_TOKENS", "512"))
     base_url: str = os.getenv("RAG_LLM_BASE_URL", DEFAULT_BASE_URL)
     api_key: str = os.getenv("RAG_LLM_API_KEY", DEFAULT_API_KEY)
 
@@ -183,7 +182,6 @@ def get_qwen_completion_kwargs(config: EvaluationLLMConfig) -> Dict[str, Any]:
     return {
         "model": config.model,
         "temperature": config.temperature,
-        "max_tokens": config.max_tokens,
     }
 
 
@@ -192,5 +190,4 @@ def get_qwen_langchain_kwargs(config: EvaluationLLMConfig) -> Dict[str, Any]:
     return {
         "model": config.model,
         "temperature": config.temperature,
-        "max_tokens": config.max_tokens,
     }
