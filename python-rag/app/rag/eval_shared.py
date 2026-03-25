@@ -14,7 +14,7 @@ import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from openai import AsyncOpenAI
 
@@ -72,6 +72,42 @@ def format_options(options: Sequence[str]) -> str:
     if not options:
         return "A. Not provided\nB. Not provided\nC. Not provided\nD. Not provided"
     return "\n".join(f"{chr(65 + index)}. {option}" for index, option in enumerate(options))
+
+
+def build_medical_eval_prompt(question: str, options: Sequence[str], context: Optional[str] = None) -> str:
+    """Build the shared evaluation prompt for both no-RAG and naive-RAG flows."""
+    prompt_parts = ["You are a medical expert assistant."]
+    if context:
+        prompt_parts.append(
+            "Answer the following question based on the provided context. "
+            "If the context does not contain enough information to answer the question, "
+            "state that you cannot answer based on the given information."
+        )
+        prompt_parts.extend(
+            [
+                "",
+                "Context:",
+                context,
+            ]
+        )
+    else:
+        prompt_parts.append("Answer the following question based on your medical knowledge.")
+
+    prompt_parts.extend(
+        [
+            "",
+            f"Question: {question}",
+            "",
+            "Options:",
+            format_options(options),
+            "",
+            "Please think step by step and then provide your answer in the following format:",
+            "Answer: [A/B/C/D/E]",
+            "",
+            "Your response:",
+        ]
+    )
+    return "\n".join(prompt_parts)
 
 
 def get_correct_answer_letter(item: Dict) -> str:
@@ -140,3 +176,23 @@ def create_async_client(config: EvaluationLLMConfig) -> AsyncOpenAI:
         timeout=30.0,
         max_retries=2,
     )
+
+
+def get_qwen_completion_kwargs(config: EvaluationLLMConfig) -> Dict[str, Any]:
+    """Return the shared Qwen3-4B completion parameters."""
+    return {
+        "model": config.model,
+        "temperature": config.temperature,
+        "max_tokens": config.max_tokens,
+        "enable_thinking": False,
+    }
+
+
+def get_qwen_langchain_kwargs(config: EvaluationLLMConfig) -> Dict[str, Any]:
+    """Return the shared Qwen3-4B parameters for ChatOpenAI."""
+    return {
+        "model": config.model,
+        "temperature": config.temperature,
+        "max_tokens": config.max_tokens,
+        "model_kwargs": {"enable_thinking": False},
+    }

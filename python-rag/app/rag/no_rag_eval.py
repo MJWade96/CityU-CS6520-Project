@@ -19,26 +19,14 @@ from .eval_shared import (
     ConcurrencyConfig,
     EvaluationLLMConfig,
     RateLimiter,
+    build_medical_eval_prompt,
     create_async_client,
     extract_answer,
-    format_options,
+    get_qwen_completion_kwargs,
     get_correct_answer_letter,
     load_questions,
     split_questions,
 )
-
-
-NO_RAG_PROMPT = """You are a medical expert assistant. Answer the following question based on your medical knowledge.
-
-Question: {question}
-
-Options:
-{options}
-
-Provide your answer in the following format:
-Answer: [A/B/C/D/E]
-
-Your response:"""
 
 
 @dataclass
@@ -67,18 +55,16 @@ async def evaluate_without_rag(config: NoRAGEvalConfig) -> Dict[str, Any]:
         async with semaphore:
             await rate_limiter.acquire()
             completion = await client.chat.completions.create(
-                model=config.llm.model,
                 messages=[
                     {
                         "role": "user",
-                        "content": NO_RAG_PROMPT.format(
+                        "content": build_medical_eval_prompt(
                             question=item["question"],
-                            options=format_options(item.get("options", [])),
+                            options=item.get("options", []),
                         ),
                     }
                 ],
-                temperature=config.llm.temperature,
-                max_tokens=config.llm.max_tokens,
+                **get_qwen_completion_kwargs(config.llm),
             )
 
         response_content = (

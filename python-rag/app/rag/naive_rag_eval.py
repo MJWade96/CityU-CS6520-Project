@@ -15,7 +15,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from langchain_openai import ChatOpenAI
-from langchain_core.prompts import PromptTemplate
 
 from .data_paths import EVALUATION_DIR, EVALUATION_RESULTS_DIR, FAISS_INDEX_DIR
 from .embeddings import get_langchain_embeddings
@@ -23,33 +22,17 @@ from .eval_shared import (
     ConcurrencyConfig,
     EvaluationLLMConfig,
     RateLimiter,
+    build_medical_eval_prompt,
     create_async_client,
     extract_answer,
-    format_options,
+    get_qwen_completion_kwargs,
+    get_qwen_langchain_kwargs,
     get_correct_answer_letter,
     load_questions,
     split_questions,
 )
 from .progress_manager import EvaluationProgressManager
 from .vector_store import MedicalVectorStore
-
-
-MEDICAL_RAG_PROMPT = PromptTemplate.from_template(
-    """You are a medical expert assistant. Answer the following question based on the provided context. If the context does not contain enough information to answer the question, state that you cannot answer based on the given information.
-
-Context:
-{context}
-
-Question: {question}
-
-Options:
-{options}
-
-Please think step by step and then provide your answer in the following format:
-Answer: [A/B/C/D/E]
-
-Your response:"""
-)
 
 
 @dataclass
@@ -71,18 +54,16 @@ class MedicalLLMGenerator:
     def __init__(self, config: EvaluationLLMConfig):
         self.config = config
         self.llm = ChatOpenAI(
-            model=config.model,
-            temperature=config.temperature,
-            model_kwargs={"enable_thinking": False},
             api_key=config.api_key,
             base_url=config.base_url,
+            **get_qwen_langchain_kwargs(config),
         )
 
     def generate(self, question: str, contexts: List[str], options: List[str]) -> str:
-        prompt = MEDICAL_RAG_PROMPT.format(
-            context="\n\n".join(f"[{index + 1}] {context}" for index, context in enumerate(contexts)),
+        prompt = build_medical_eval_prompt(
             question=question,
-            options=format_options(options),
+            options=options,
+            context="\n\n".join(f"[{index + 1}] {context}" for index, context in enumerate(contexts)),
         )
         response = self.llm.invoke(prompt)
         return response.content
@@ -206,19 +187,17 @@ async def evaluate_async_dataset(
         docs = [doc for doc, _ in search_results]
         contexts = [doc.page_content for doc in docs]
         scores = [float(score) for _, score in search_results]
-        prompt = MEDICAL_RAG_PROMPT.format(
-            context="\n\n".join(f"[{index + 1}] {context}" for index, context in enumerate(contexts)),
+        prompt = build_medical_eval_prompt(
             question=item["question"],
-            options=format_options(item.get("options", [])),
+            options=item.get("options", []),
+            context="\n\n".join(f"[{index + 1}] {context}" for index, context in enumerate(contexts)),
         )
 
         async with semaphore:
             await rate_limiter.acquire()
             completion = await client.chat.completions.create(
-                model=config.llm.model,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=config.llm.temperature,
-                enable_thinking=False,
+                **get_qwen_completion_kwargs(config.llm),
             )
 
         response_content = (
