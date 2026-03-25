@@ -22,13 +22,42 @@ import argparse
 import inspect
 import traceback
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 
 def get_script_path(script_name: str) -> Path:
     """Get the full path of evaluation script"""
     script_dir = Path(__file__).parent
     return script_dir / f"{script_name}.py"
+
+
+def get_checkpoint_script_names(script_name: str) -> List[str]:
+    """Return current and legacy checkpoint prefixes for a script."""
+    aliases = {
+        "complete_eval": ["complete_eval_test", "complete_eval_dev", "complete_eval"],
+        "enhanced_eval": ["enhanced_eval_test", "enhanced_eval_dev", "enhanced_eval"],
+        "evaluate_no_rag": ["evaluate_no_rag", "no_rag_eval"],
+    }
+    return aliases.get(script_name, [script_name])
+
+
+def sanitize_runtime_env() -> None:
+    """Remove invalid OpenMP settings that can crash or spam warnings on Linux."""
+    raw_value = os.environ.get("OMP_NUM_THREADS")
+    if raw_value is None:
+        return
+
+    try:
+        if int(str(raw_value).strip()) >= 1:
+            return
+    except (TypeError, ValueError):
+        pass
+
+    print(
+        f"⚠️  Ignoring invalid OMP_NUM_THREADS={raw_value!r}; "
+        "using library default instead."
+    )
+    os.environ.pop("OMP_NUM_THREADS", None)
 
 
 def check_checkpoint_status(output_dir: str, script_name: str) -> Dict[str, Any]:
@@ -39,59 +68,58 @@ def check_checkpoint_status(output_dir: str, script_name: str) -> Dict[str, Any]
         Dictionary with status information
     """
     output_path = Path(output_dir)
-    
-    # Check for checkpoint files
-    checkpoint_files = list(output_path.glob(f"checkpoint_{script_name}*.json"))
-    backup_files = list(output_path.glob("checkpoint*.backup.json"))
-    
-    if not checkpoint_files and not backup_files:
+
+    checkpoint_files = []
+    for checkpoint_script in get_checkpoint_script_names(script_name):
+        checkpoint_files.extend(output_path.glob(f"checkpoint_{checkpoint_script}.json"))
+        checkpoint_files.extend(
+            output_path.glob(f"checkpoint_{checkpoint_script}.backup.json")
+        )
+
+    if not checkpoint_files:
         return {
             "has_checkpoint": False,
             "message": "No interrupted evaluation found"
         }
-    
-    # Find the latest checkpoint
+
     latest_checkpoint = None
+    latest_data = None
     latest_time = None
-    
-    for cp_file in checkpoint_files + backup_files:
+
+    for cp_file in checkpoint_files:
         if cp_file.exists():
             try:
                 with open(cp_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                
+
+                processed = data.get("processed_questions", 0)
+                total = data.get("total_questions", 0)
+                if total and processed >= total:
+                    continue
+
                 timestamp = data.get("timestamp", "")
                 if latest_time is None or timestamp > latest_time:
                     latest_time = timestamp
                     latest_checkpoint = cp_file
+                    latest_data = data
             except Exception:
                 continue
-    
-    if latest_checkpoint:
-        try:
-            with open(latest_checkpoint, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            
-            return {
-                "has_checkpoint": True,
-                "checkpoint_file": str(latest_checkpoint),
-                "timestamp": data.get("timestamp", "unknown"),
-                "dataset": data.get("dataset_name", "unknown"),
-                "progress": f"{data.get('processed_questions', 0)}/{data.get('total_questions', 0)}",
-                "accuracy": f"{data.get('correct_count', 0)}/{data.get('total_count', 0)}",
-                "script": data.get("script_name", "unknown"),
-                "error": data.get("error_message"),
-            }
-        except Exception as e:
-            return {
-                "has_checkpoint": True,
-                "checkpoint_file": str(latest_checkpoint),
-                "error": f"Could not read checkpoint: {e}"
-            }
-    
+
+    if latest_checkpoint and latest_data:
+        return {
+            "has_checkpoint": True,
+            "checkpoint_file": str(latest_checkpoint),
+            "timestamp": latest_data.get("timestamp", "unknown"),
+            "dataset": latest_data.get("dataset_name", "unknown"),
+            "progress": f"{latest_data.get('processed_questions', 0)}/{latest_data.get('total_questions', 0)}",
+            "accuracy": f"{latest_data.get('correct_count', 0)}/{latest_data.get('total_count', 0)}",
+            "script": latest_data.get("script_name", "unknown"),
+            "error": latest_data.get("error_message"),
+        }
+
     return {
         "has_checkpoint": False,
-        "message": "No valid checkpoint found"
+        "message": "No resumable checkpoint found"
     }
 
 
@@ -149,7 +177,9 @@ def run_script(script_name: str, auto_resume: bool = True):
     print(f"\n{'=' * 60}")
     print("Starting Evaluation...")
     print(f"{'=' * 60}\n")
-    
+
+    sanitize_runtime_env()
+
     # Import and run the script
     script_dir = str(script_path.parent)
     if script_dir not in sys.path:
