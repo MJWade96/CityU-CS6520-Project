@@ -16,8 +16,13 @@ from app.rag.naive_rag_eval import NaiveRAGEvalConfig, run_complete_evaluation
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run naive RAG evaluation")
-    parser.add_argument("--dev-size", type=int, default=50, help="Development set size")
-    parser.add_argument("--test-size", type=int, default=50, help="Test set size")
+    parser.add_argument("--dev-size", type=int, default=300, help="Development set size")
+    parser.add_argument(
+        "--test-size",
+        type=int,
+        default=None,
+        help="Test set size (default: evaluate all remaining questions)",
+    )
     parser.add_argument("--top-k", type=int, default=3, help="Manual top-k value")
     parser.add_argument(
         "--auto-top-k",

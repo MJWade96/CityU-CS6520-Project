@@ -36,8 +36,8 @@ from .vector_store import MedicalVectorStore
 
 @dataclass
 class NaiveRAGEvalConfig:
-    dev_size: int = 50
-    test_size: int = 50
+    dev_size: int = 300
+    test_size: Optional[int] = None
     top_k_values: List[int] = field(default_factory=lambda: [1, 3, 5, 10])
     manual_top_k: Optional[int] = 3
     vector_store_path: Path = FAISS_INDEX_DIR
@@ -204,8 +204,12 @@ async def evaluate_async_dataset(
     extra_sections: Optional[Dict[str, Any]] = None,
     dataset_name: str = "Test Set",
     script_name: str = "complete_eval_test",
+    start_from: int = 0,
+    initial_results: Optional[List[Dict[str, Any]]] = None,
+    initial_correct: int = 0,
+    initial_elapsed: float = 0.0,
 ) -> Dict[str, Any]:
-    """Evaluate a dataset asynchronously."""
+    """Evaluate a dataset asynchronously with resume-safe ordered batching."""
     client = create_async_client(config.llm)
     semaphore = asyncio.Semaphore(config.concurrency.max_concurrent)
     rate_limiter = RateLimiter(
@@ -254,59 +258,64 @@ async def evaluate_async_dataset(
             "contexts": contexts,
         }
 
-    start_time = time.time()
-    results: List[Dict[str, Any]] = []
-    correct = 0
+    start_time = time.time() - initial_elapsed
+    results: List[Dict[str, Any]] = list(initial_results or [])
+    correct = initial_correct
+    remaining_questions = questions[start_from:]
 
-    tasks = [evaluate_item(item) for item in questions]
-    for index, future in enumerate(asyncio.as_completed(tasks), start=1):
-        result = await future
-        results.append(result)
-        if result["is_correct"]:
-            correct += 1
+    batch_size = max(1, config.concurrency.max_concurrent)
+    for batch_start in range(0, len(remaining_questions), batch_size):
+        batch = remaining_questions[batch_start : batch_start + batch_size]
+        batch_results = await asyncio.gather(*(evaluate_item(item) for item in batch))
 
-        if progress_mgr:
-            elapsed = time.time() - start_time
-            progress_mgr.save_checkpoint(
-                dataset_name=dataset_name,
-                total_questions=len(questions),
-                processed_questions=index,
-                current_top_k=top_k,
-                results=results,
-                correct_count=correct,
-                total_count=index,
-                elapsed_time=elapsed,
-                config={"top_k": top_k},
-                script_name=script_name,
-            )
-            stage_result = progress_mgr.build_stage_result(
-                dataset_name=dataset_name,
-                total_questions=len(questions),
-                processed_questions=index,
-                correct_count=correct,
-                elapsed_time=elapsed,
-                detailed_results=results,
-                top_k=top_k,
-            )
-            progress_mgr.print_progress(
-                run_name="NAIVE_RAG",
-                dataset_name=dataset_name,
-                processed_questions=index,
-                total_questions=len(questions),
-                correct_count=correct,
-                elapsed_time=elapsed,
-            )
-            if artifact_paths and live_config:
-                live_sections = dict(extra_sections or {})
-                live_sections["current_stage"] = stage_result
-                progress_mgr.write_live_results(
-                    artifact_paths=artifact_paths,
-                    run_name="NAIVE_RAG",
-                    evaluation_type="NAIVE_RAG",
-                    config=live_config,
-                    stage_result=stage_result,
-                    extra_sections=live_sections,
+        for offset, result in enumerate(batch_results, start=1):
+            processed_questions = start_from + batch_start + offset
+            results.append(result)
+            if result["is_correct"]:
+                correct += 1
+
+            if progress_mgr:
+                elapsed = time.time() - start_time
+                progress_mgr.save_checkpoint(
+                    dataset_name=dataset_name,
+                    total_questions=len(questions),
+                    processed_questions=processed_questions,
+                    current_top_k=top_k,
+                    results=results,
+                    correct_count=correct,
+                    total_count=processed_questions,
+                    elapsed_time=elapsed,
+                    config={"top_k": top_k},
+                    script_name=script_name,
                 )
+                stage_result = progress_mgr.build_stage_result(
+                    dataset_name=dataset_name,
+                    total_questions=len(questions),
+                    processed_questions=processed_questions,
+                    correct_count=correct,
+                    elapsed_time=elapsed,
+                    detailed_results=results,
+                    top_k=top_k,
+                )
+                progress_mgr.print_progress(
+                    run_name="NAIVE_RAG",
+                    dataset_name=dataset_name,
+                    processed_questions=processed_questions,
+                    total_questions=len(questions),
+                    correct_count=correct,
+                    elapsed_time=elapsed,
+                )
+                if artifact_paths and live_config:
+                    live_sections = dict(extra_sections or {})
+                    live_sections["current_stage"] = stage_result
+                    progress_mgr.write_live_results(
+                        artifact_paths=artifact_paths,
+                        run_name="NAIVE_RAG",
+                        evaluation_type="NAIVE_RAG",
+                        config=live_config,
+                        stage_result=stage_result,
+                        extra_sections=live_sections,
+                    )
 
     elapsed = time.time() - start_time
     return {
@@ -419,6 +428,11 @@ async def run_complete_evaluation(config: NaiveRAGEvalConfig) -> Dict[str, Any]:
             "detailed_results": [],
         }
 
+    resume_test = progress_mgr.should_resume("complete_eval_test")
+    resume_info_test = (
+        progress_mgr.get_resume_info("complete_eval_test") if resume_test else None
+    )
+
     test_results = await evaluate_async_dataset(
         vectorstore=vectorstore,
         questions=test_set,
@@ -436,8 +450,13 @@ async def run_complete_evaluation(config: NaiveRAGEvalConfig) -> Dict[str, Any]:
                 "used_manual_top_k": config.manual_top_k is not None,
             },
         },
+        start_from=resume_info_test["start_from"] if resume_info_test else 0,
+        initial_results=resume_info_test["results"] if resume_info_test else None,
+        initial_correct=resume_info_test["correct_count"] if resume_info_test else 0,
+        initial_elapsed=resume_info_test["elapsed_time"] if resume_info_test else 0.0,
     )
     recall_scores = calculate_recall_at_k(vectorstore, test_set, [1, 3, 5, 10])
+    progress_mgr.clear_checkpoint("complete_eval_test")
     paths = progress_mgr.write_final_results(
         artifact_paths=artifact_paths,
         run_name="NAIVE_RAG",

@@ -13,8 +13,13 @@ from app.rag.no_rag_eval import NoRAGEvalConfig, run_no_rag_evaluation
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run baseline evaluation without RAG")
-    parser.add_argument("--dev-size", type=int, default=50, help="Development set size")
-    parser.add_argument("--test-size", type=int, default=50, help="Test set size")
+    parser.add_argument("--dev-size", type=int, default=300, help="Development set size")
+    parser.add_argument(
+        "--test-size",
+        type=int,
+        default=None,
+        help="Test set size (default: evaluate all remaining questions)",
+    )
     parser.add_argument("--question-file", type=Path, help="Override MedQA file")
     parser.add_argument("--output-dir", type=Path, help="Override output directory")
     return parser.parse_args()

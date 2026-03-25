@@ -11,7 +11,7 @@ import asyncio
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from .data_paths import EVALUATION_DIR, EVALUATION_RESULTS_DIR
 from .eval_shared import (
@@ -31,8 +31,8 @@ from .progress_manager import EvaluationProgressManager
 
 @dataclass
 class NoRAGEvalConfig:
-    dev_size: int = 50
-    test_size: int = 50
+    dev_size: int = 300
+    test_size: Optional[int] = None
     question_file: Path = EVALUATION_DIR / "medqa.json"
     output_dir: Path = EVALUATION_RESULTS_DIR
     llm: EvaluationLLMConfig = field(default_factory=EvaluationLLMConfig)
@@ -43,6 +43,11 @@ async def evaluate_without_rag(
     config: NoRAGEvalConfig,
     progress_mgr: EvaluationProgressManager,
     artifact_paths: Dict[str, Path],
+    start_from: int = 0,
+    initial_results: Optional[List[Dict[str, Any]]] = None,
+    initial_correct: int = 0,
+    initial_elapsed: float = 0.0,
+    script_name: str = "evaluate_no_rag",
 ) -> Dict[str, Any]:
     """Evaluate the model directly on the test set without retrieval."""
     questions = load_questions(str(config.question_file))
@@ -88,48 +93,66 @@ async def evaluate_without_rag(
             "error": None,
         }
 
-    start_time = time.time()
-    results: List[Dict[str, Any]] = []
-    correct = 0
+    start_time = time.time() - initial_elapsed
+    results: List[Dict[str, Any]] = list(initial_results or [])
+    correct = initial_correct
     config_payload = {
         "dev_set_size": config.dev_size,
-        "test_set_size": config.test_size,
+        "test_set_size": len(test_set),
         "llm_provider": config.llm.provider,
         "llm_model": config.llm.model,
         "evaluation_type": "NO_RAG",
     }
-    tasks = [evaluate_item(item) for item in test_set]
-    for index, future in enumerate(asyncio.as_completed(tasks), start=1):
-        result = await future
-        results.append(result)
-        if result["is_correct"]:
-            correct += 1
+    remaining_questions = test_set[start_from:]
+    batch_size = max(1, config.concurrency.max_concurrent)
 
-        elapsed = time.time() - start_time
-        stage_result = progress_mgr.build_stage_result(
-            dataset_name="Test Set",
-            total_questions=len(test_set),
-            processed_questions=index,
-            correct_count=correct,
-            elapsed_time=elapsed,
-            detailed_results=results,
-        )
-        progress_mgr.print_progress(
-            run_name="NO_RAG",
-            dataset_name="Test Set",
-            processed_questions=index,
-            total_questions=len(test_set),
-            correct_count=correct,
-            elapsed_time=elapsed,
-        )
-        progress_mgr.write_live_results(
-            artifact_paths=artifact_paths,
-            run_name="NO_RAG",
-            evaluation_type="NO_RAG",
-            config=config_payload,
-            stage_result=stage_result,
-            extra_sections={"evaluation_results": stage_result},
-        )
+    for batch_start in range(0, len(remaining_questions), batch_size):
+        batch = remaining_questions[batch_start : batch_start + batch_size]
+        batch_results = await asyncio.gather(*(evaluate_item(item) for item in batch))
+
+        for offset, result in enumerate(batch_results, start=1):
+            processed_questions = start_from + batch_start + offset
+            results.append(result)
+            if result["is_correct"]:
+                correct += 1
+
+            elapsed = time.time() - start_time
+            progress_mgr.save_checkpoint(
+                dataset_name="Test Set",
+                total_questions=len(test_set),
+                processed_questions=processed_questions,
+                current_top_k=0,
+                results=results,
+                correct_count=correct,
+                total_count=processed_questions,
+                elapsed_time=elapsed,
+                config=config_payload,
+                script_name=script_name,
+            )
+            stage_result = progress_mgr.build_stage_result(
+                dataset_name="Test Set",
+                total_questions=len(test_set),
+                processed_questions=processed_questions,
+                correct_count=correct,
+                elapsed_time=elapsed,
+                detailed_results=results,
+            )
+            progress_mgr.print_progress(
+                run_name="NO_RAG",
+                dataset_name="Test Set",
+                processed_questions=processed_questions,
+                total_questions=len(test_set),
+                correct_count=correct,
+                elapsed_time=elapsed,
+            )
+            progress_mgr.write_live_results(
+                artifact_paths=artifact_paths,
+                run_name="NO_RAG",
+                evaluation_type="NO_RAG",
+                config=config_payload,
+                stage_result=stage_result,
+                extra_sections={"evaluation_results": stage_result},
+            )
 
     elapsed = time.time() - start_time
     payload = {
@@ -147,14 +170,28 @@ async def evaluate_without_rag(
 async def run_no_rag_evaluation(config: NoRAGEvalConfig) -> Dict[str, Any]:
     progress_mgr = EvaluationProgressManager(output_dir=str(config.output_dir))
     artifact_paths = progress_mgr.create_run_artifacts("no_rag_eval")
-    results = await evaluate_without_rag(config, progress_mgr, artifact_paths)
+    resume_test = progress_mgr.should_resume("evaluate_no_rag")
+    resume_info_test = (
+        progress_mgr.get_resume_info("evaluate_no_rag") if resume_test else None
+    )
+    results = await evaluate_without_rag(
+        config,
+        progress_mgr,
+        artifact_paths,
+        start_from=resume_info_test["start_from"] if resume_info_test else 0,
+        initial_results=resume_info_test["results"] if resume_info_test else None,
+        initial_correct=resume_info_test["correct_count"] if resume_info_test else 0,
+        initial_elapsed=resume_info_test["elapsed_time"] if resume_info_test else 0.0,
+        script_name="evaluate_no_rag",
+    )
+    progress_mgr.clear_checkpoint("evaluate_no_rag")
     paths = progress_mgr.write_final_results(
         artifact_paths=artifact_paths,
         run_name="NO_RAG",
         evaluation_type="NO_RAG",
         config={
             "dev_set_size": config.dev_size,
-            "test_set_size": config.test_size,
+            "test_set_size": results["total_questions"],
             "llm_provider": config.llm.provider,
             "llm_model": config.llm.model,
         },

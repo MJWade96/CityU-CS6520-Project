@@ -10,13 +10,17 @@ Features:
 Usage:
     python run_with_resume.py complete_eval
     python run_with_resume.py enhanced_eval
+    python run_with_resume.py evaluate_no_rag
     python run_with_resume.py --auto  # Auto-detect and run
 """
 
 import os
 import sys
 import json
+import asyncio
 import argparse
+import inspect
+import traceback
 from pathlib import Path
 from typing import Optional, Dict, Any
 
@@ -165,8 +169,14 @@ def run_script(script_name: str, auto_resume: bool = True):
         
         # Check if module has main function
         if hasattr(module, "main"):
-            # Run main function
-            module.main()
+            original_argv = sys.argv[:]
+            try:
+                sys.argv = [str(script_path)]
+                result = module.main()
+                if inspect.isawaitable(result):
+                    asyncio.run(result)
+            finally:
+                sys.argv = original_argv
             print(f"\n{'=' * 60}")
             print("✅ Evaluation completed successfully!")
             print(f"{'=' * 60}")
@@ -187,11 +197,12 @@ def run_script(script_name: str, auto_resume: bool = True):
         print(f"\n\n{'=' * 60}")
         print(f"❌ ERROR: Evaluation failed")
         print(f"{'=' * 60}")
-        print(f"\nError details: {e}")
+        print(f"\nError type: {type(e).__name__}")
+        print(f"Error details: {e}")
+        print("\nFull traceback:")
+        traceback.print_exc()
         print(f"\n💡 If progress was saved, you can resume by running again:")
         print(f"   python run_with_resume.py {script_name}")
-        import traceback
-        traceback.print_exc()
         return False
 
 
@@ -205,6 +216,7 @@ def auto_detect_and_run():
     scripts = [
         "complete_eval",
         "enhanced_eval",
+        "evaluate_no_rag",
     ]
     
     output_dir = Path(__file__).parent / "results" / "evaluation"
@@ -299,6 +311,7 @@ def main():
         print("\nExamples:")
         print("  python run_with_resume.py complete_eval")
         print("  python run_with_resume.py enhanced_eval")
+        print("  python run_with_resume.py evaluate_no_rag")
         print("  python run_with_resume.py --auto")
         print("  python run_with_resume.py complete_eval --no-resume")
 
