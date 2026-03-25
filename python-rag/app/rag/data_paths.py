@@ -12,7 +12,9 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_DATA_DIR = PROJECT_ROOT / "data"
+WORKSPACE_ROOT = PROJECT_ROOT.parent
+LEGACY_DATA_DIR = WORKSPACE_ROOT / "RAG_Medical_Data"
+DEFAULT_DATA_DIR = PROJECT_ROOT / "data" if (PROJECT_ROOT / "data").exists() else LEGACY_DATA_DIR
 DEFAULT_RESULTS_DIR = PROJECT_ROOT / "results"
 DATA_DIR = Path(os.environ.get("RAG_DATA_DIR", str(DEFAULT_DATA_DIR))).resolve()
 RESULTS_DIR = Path(os.environ.get("RAG_RESULTS_DIR", str(DEFAULT_RESULTS_DIR))).resolve()
