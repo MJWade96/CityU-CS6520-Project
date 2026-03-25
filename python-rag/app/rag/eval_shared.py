@@ -38,8 +38,8 @@ class EvaluationLLMConfig:
 
 @dataclass
 class ConcurrencyConfig:
-    rpm_limit: int = int(os.getenv("RAG_EVAL_RPM_LIMIT", "1000"))
-    max_concurrent: int = int(os.getenv("RAG_EVAL_MAX_CONCURRENT", "10"))
+    rpm_limit: int = int(os.getenv("RAG_EVAL_RPM_LIMIT", "60"))
+    max_concurrent: int = int(os.getenv("RAG_EVAL_MAX_CONCURRENT", "2"))
 
     @property
     def requests_per_second(self) -> float:
