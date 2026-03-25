@@ -1,33 +1,35 @@
 """
-Evaluation Progress Manager
-Handles saving and resuming evaluation progress for long-running tasks
+Shared evaluation progress and result persistence helpers.
 
-Features:
-- Auto-save progress after each question
-- Resume from last checkpoint on restart
-- Handle interruptions gracefully
-- Support multiple evaluation runs
+This module standardizes:
+- realtime console progress output
+- incremental JSON/TXT persistence during evaluation
+- final result artifact writing
+- optional checkpoint/resume support
 """
 
-import os
+from __future__ import annotations
+
 import json
+import shutil
 import time
-from pathlib import Path
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
 class CheckpointData:
-    """Checkpoint data structure"""
+    """Checkpoint data structure for resumable evaluation stages."""
+
     timestamp: str
     script_name: str
     dataset_name: str
     total_questions: int
     processed_questions: int
     current_top_k: int
-    results: List[Dict]
+    results: List[Dict[str, Any]]
     correct_count: int
     total_count: int
     elapsed_time: float
@@ -36,158 +38,281 @@ class CheckpointData:
 
 
 class EvaluationProgressManager:
-    """
-    Manages evaluation progress with checkpoint support
-    
-    Usage:
-        progress_mgr = EvaluationProgressManager(output_dir="./results/evaluation")
-        
-        # Check if we can resume
-        if progress_mgr.has_checkpoint():
-            checkpoint = progress_mgr.load_checkpoint()
-            start_from = checkpoint.processed_questions
-            results = checkpoint.results
-        else:
-            start_from = 0
-            results = []
-        
-        # During evaluation, save after each question
-        progress_mgr.save_checkpoint(
-            dataset_name="Test Set",
-            total_questions=len(questions),
-            processed_questions=i,
-            current_top_k=top_k,
-            results=results,
-            correct_count=correct,
-            total_count=total,
-            elapsed_time=elapsed,
-            config=config_dict
-        )
-        
-        # Clear checkpoint when done
-        progress_mgr.clear_checkpoint()
-    """
-    
+    """Manage evaluation progress, checkpoints, and standardized artifacts."""
+
     def __init__(self, output_dir: str = "./results/evaluation"):
-        """
-        Initialize progress manager
-        
-        Args:
-            output_dir: Directory to save checkpoints
-        """
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        
+
         self.checkpoint_file = self.output_dir / "checkpoint.json"
         self.backup_file = self.output_dir / "checkpoint.backup.json"
-        
-        # Auto-save interval (in questions)
-        self.auto_save_interval = 1
-        
-        # Current checkpoint in memory
         self._current_checkpoint: Optional[CheckpointData] = None
-    
+
+    def create_run_artifacts(
+        self,
+        run_name: str,
+        *,
+        timestamp: Optional[str] = None,
+    ) -> Dict[str, Path]:
+        """Create standardized live/final artifact paths for one evaluation run."""
+        run_slug = run_name.lower().replace("-", "_").replace(" ", "_")
+        stamp = timestamp or time.strftime("%Y%m%d_%H%M%S")
+        return {
+            "live_json": self.output_dir / f"{run_slug}_live.json",
+            "live_summary": self.output_dir / f"{run_slug}_live_summary.txt",
+            "final_json": self.output_dir / f"{run_slug}_{stamp}.json",
+            "final_summary": self.output_dir / f"{run_slug}_summary_{stamp}.txt",
+        }
+
+    def print_progress(
+        self,
+        *,
+        run_name: str,
+        dataset_name: str,
+        processed_questions: int,
+        total_questions: int,
+        correct_count: int,
+        elapsed_time: float,
+    ) -> None:
+        """Print a standardized realtime progress line."""
+        accuracy = correct_count / processed_questions if processed_questions > 0 else 0.0
+        progress = processed_questions / total_questions if total_questions > 0 else 0.0
+        speed = processed_questions / elapsed_time if elapsed_time > 0 else 0.0
+        print(
+            f"[{run_name}][{dataset_name}] "
+            f"{processed_questions}/{total_questions} "
+            f"({progress * 100:.1f}%) | "
+            f"acc {accuracy:.4f} | "
+            f"{speed:.2f} q/s | "
+            f"{elapsed_time:.1f}s"
+        )
+
+    def build_stage_result(
+        self,
+        *,
+        dataset_name: str,
+        total_questions: int,
+        processed_questions: int,
+        correct_count: int,
+        elapsed_time: float,
+        detailed_results: List[Dict[str, Any]],
+        top_k: Optional[int] = None,
+        extra: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Build a standardized stage result payload."""
+        stage_result: Dict[str, Any] = {
+            "dataset_name": dataset_name,
+            "total_questions": total_questions,
+            "processed_questions": processed_questions,
+            "correct": correct_count,
+            "accuracy": correct_count / processed_questions if processed_questions > 0 else 0.0,
+            "elapsed_time": elapsed_time,
+            "questions_per_second": processed_questions / elapsed_time if elapsed_time > 0 else 0.0,
+            "detailed_results": detailed_results,
+        }
+        if top_k is not None:
+            stage_result["top_k"] = top_k
+        if extra:
+            stage_result.update(extra)
+        return stage_result
+
+    def write_live_results(
+        self,
+        *,
+        artifact_paths: Dict[str, Path],
+        run_name: str,
+        evaluation_type: str,
+        config: Dict[str, Any],
+        stage_result: Dict[str, Any],
+        extra_sections: Optional[Dict[str, Any]] = None,
+        status: str = "running",
+    ) -> None:
+        """Write standardized realtime JSON and TXT artifacts."""
+        payload: Dict[str, Any] = {
+            "run_name": run_name,
+            "evaluation_type": evaluation_type,
+            "status": status,
+            "updated_at": datetime.now().isoformat(),
+            "config": config,
+            "current_stage": stage_result,
+        }
+        if extra_sections:
+            payload.update(extra_sections)
+
+        self._write_json(artifact_paths["live_json"], payload)
+        artifact_paths["live_summary"].write_text(
+            self._build_summary_text(payload),
+            encoding="utf-8",
+        )
+
+    def write_final_results(
+        self,
+        *,
+        artifact_paths: Dict[str, Path],
+        run_name: str,
+        evaluation_type: str,
+        config: Dict[str, Any],
+        stage_results: Dict[str, Any],
+        extra_sections: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Path]:
+        """Write standardized final JSON and TXT artifacts."""
+        payload: Dict[str, Any] = {
+            "run_name": run_name,
+            "evaluation_type": evaluation_type,
+            "status": "completed",
+            "updated_at": datetime.now().isoformat(),
+            "config": config,
+        }
+        payload.update(stage_results)
+        if extra_sections:
+            payload.update(extra_sections)
+
+        self._write_json(artifact_paths["final_json"], payload)
+        artifact_paths["final_summary"].write_text(
+            self._build_summary_text(payload),
+            encoding="utf-8",
+        )
+
+        if artifact_paths["live_json"].exists():
+            artifact_paths["live_json"].unlink()
+        if artifact_paths["live_summary"].exists():
+            artifact_paths["live_summary"].unlink()
+
+        return {
+            "json": artifact_paths["final_json"],
+            "summary": artifact_paths["final_summary"],
+        }
+
+    def _write_json(self, path: Path, payload: Dict[str, Any]) -> None:
+        path.write_text(
+            json.dumps(payload, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+    def _build_summary_text(self, payload: Dict[str, Any]) -> str:
+        lines = [
+            "Medical RAG Evaluation Progress",
+            "=" * 60,
+            f"Run: {payload.get('run_name', 'UNKNOWN')}",
+            f"Type: {payload.get('evaluation_type', 'UNKNOWN')}",
+            f"Status: {payload.get('status', 'unknown')}",
+            f"Updated: {payload.get('updated_at', '')}",
+            "",
+            "Configuration:",
+        ]
+
+        config = payload.get("config", {})
+        for key, value in config.items():
+            lines.append(f"  {key}: {value}")
+
+        for section_name, title in (
+            ("current_stage", "Current Stage"),
+            ("development_set_evaluation", "Development Set"),
+            ("test_set_evaluation", "Test Set"),
+            ("evaluation_results", "Evaluation Results"),
+        ):
+            section = payload.get(section_name)
+            if not isinstance(section, dict):
+                continue
+            lines.extend(self._format_stage_section(title, section))
+
+        if "hyperparameter_search" in payload:
+            lines.append("")
+            lines.append("Hyperparameter Search:")
+            for key, value in payload["hyperparameter_search"].items():
+                lines.append(f"  {key}: {value}")
+
+        if "retrieval_recall_at_k" in payload:
+            lines.append("")
+            lines.append("Retrieval Recall@k:")
+            for key, value in payload["retrieval_recall_at_k"].items():
+                lines.append(f"  {key}: {value}")
+
+        return "\n".join(lines) + "\n"
+
+    def _format_stage_section(self, title: str, section: Dict[str, Any]) -> List[str]:
+        lines = ["", f"{title}:"]
+        for key in (
+            "dataset_name",
+            "top_k",
+            "processed_questions",
+            "total_questions",
+            "correct",
+            "accuracy",
+            "elapsed_time",
+            "questions_per_second",
+        ):
+            if key in section:
+                value = section[key]
+                if isinstance(value, float) and key in {"accuracy", "elapsed_time", "questions_per_second"}:
+                    if key == "accuracy":
+                        value = f"{value:.4f}"
+                    else:
+                        value = f"{value:.2f}"
+                lines.append(f"  {key}: {value}")
+        return lines
+
     def _get_backup_path(self, script_name: Optional[str] = None) -> Path:
-        """Get backup file path for a specific script"""
         if script_name:
             return self.output_dir / f"checkpoint_{script_name}.backup.json"
         return self.backup_file
-    
+
     def _get_checkpoint_path(self, script_name: Optional[str] = None) -> Path:
-        """Get checkpoint file path"""
         if script_name:
             return self.output_dir / f"checkpoint_{script_name}.json"
         return self.checkpoint_file
-    
+
     def has_checkpoint(self, script_name: Optional[str] = None) -> bool:
-        """Check if a checkpoint exists"""
         checkpoint_path = self._get_checkpoint_path(script_name)
         return checkpoint_path.exists()
-    
-    def load_checkpoint(
-        self, 
-        script_name: Optional[str] = None
-    ) -> Optional[CheckpointData]:
-        """
-        Load checkpoint from disk
-        
-        Returns:
-            CheckpointData if exists, None otherwise
-        """
+
+    def load_checkpoint(self, script_name: Optional[str] = None) -> Optional[CheckpointData]:
         checkpoint_path = self._get_checkpoint_path(script_name)
-        
+        backup_path = self._get_backup_path(script_name)
+
         if not checkpoint_path.exists():
-            # Try backup
-            if self.backup_file.exists():
-                checkpoint_path = self.backup_file
+            if backup_path.exists():
+                checkpoint_path = backup_path
             else:
                 return None
-        
+
         try:
-            with open(checkpoint_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            
+            data = json.loads(checkpoint_path.read_text(encoding="utf-8"))
             checkpoint = CheckpointData(**data)
             self._current_checkpoint = checkpoint
-            
-            print(f"\n[OK] Checkpoint loaded from {checkpoint_path}")
-            print(f"  Timestamp: {checkpoint.timestamp}")
-            print(f"  Progress: {checkpoint.processed_questions}/{checkpoint.total_questions}")
-            print(f"  Current top-k: {checkpoint.current_top_k}")
-            print(f"  Accuracy so far: {checkpoint.correct_count}/{checkpoint.total_count}")
-            
+            print(
+                f"[resume][{checkpoint.script_name}] "
+                f"{checkpoint.processed_questions}/{checkpoint.total_questions} | "
+                f"acc {checkpoint.correct_count / checkpoint.total_count:.4f}"
+                if checkpoint.total_count > 0
+                else f"[resume][{checkpoint.script_name}] {checkpoint.processed_questions}/{checkpoint.total_questions}"
+            )
             return checkpoint
-            
-        except (json.JSONDecodeError, TypeError, KeyError) as e:
-            print(f"Warning: Checkpoint file corrupted: {e}")
-            # Try to load from backup
-            backup_path = self._get_backup_path(script_name)
+        except (json.JSONDecodeError, TypeError, KeyError):
             if backup_path.exists() and backup_path != checkpoint_path:
-                print(f"  Trying backup: {backup_path}")
                 try:
-                    with open(backup_path, "r", encoding="utf-8") as f:
-                        data = json.load(f)
+                    data = json.loads(backup_path.read_text(encoding="utf-8"))
                     checkpoint = CheckpointData(**data)
                     self._current_checkpoint = checkpoint
-                    print(f"  [OK] Checkpoint loaded from backup")
                     return checkpoint
-                except Exception as backup_e:
-                    print(f"  Backup also failed: {backup_e}")
+                except Exception:
+                    return None
             return None
-        except Exception as e:
-            print(f"Warning: Could not load checkpoint: {e}")
-            return None
-    
+
     def save_checkpoint(
         self,
         dataset_name: str,
         total_questions: int,
         processed_questions: int,
         current_top_k: int,
-        results: List[Dict],
+        results: List[Dict[str, Any]],
         correct_count: int,
         total_count: int,
         elapsed_time: float,
         config: Dict[str, Any],
         script_name: Optional[str] = None,
         error_message: Optional[str] = None,
-    ):
-        """
-        Save current progress to checkpoint
-        
-        Args:
-            dataset_name: Name of the dataset being evaluated
-            total_questions: Total questions in dataset
-            processed_questions: Number of questions processed so far
-            current_top_k: Current top-k value
-            results: List of detailed results
-            correct_count: Number of correct answers
-            total_count: Total answers evaluated
-            elapsed_time: Elapsed time in seconds
-            config: Configuration dictionary
-            script_name: Optional script name for checkpoint file
-            error_message: Optional error message if interrupted
-        """
+    ) -> None:
         checkpoint = CheckpointData(
             timestamp=datetime.now().isoformat(),
             script_name=script_name or "unknown",
@@ -202,87 +327,47 @@ class EvaluationProgressManager:
             config=config,
             error_message=error_message,
         )
-        
         self._current_checkpoint = checkpoint
-        
-        # Create backup of existing checkpoint
+
         checkpoint_path = self._get_checkpoint_path(script_name)
         backup_path = self._get_backup_path(script_name)
         if checkpoint_path.exists():
             try:
-                import shutil
                 shutil.copy2(checkpoint_path, backup_path)
             except Exception:
                 pass
-        
-        # Save new checkpoint
-        try:
-            with open(checkpoint_path, "w", encoding="utf-8") as f:
-                json.dump(asdict(checkpoint), f, indent=2, ensure_ascii=False)
-            
-            # Print progress
-            accuracy = correct_count / total_count if total_count > 0 else 0
-            progress = processed_questions / total_questions if total_questions > 0 else 0
-            
-            print(
-                f"\n💾 Progress saved: {processed_questions}/{total_questions} "
-                f"({progress*100:.1f}%) | "
-                f"Accuracy: {accuracy:.4f} | "
-                f"Elapsed: {elapsed_time:.1f}s"
-            )
-            
-        except Exception as e:
-            print(f"Warning: Could not save checkpoint: {e}")
-    
-    def clear_checkpoint(self, script_name: Optional[str] = None):
-        """Remove checkpoint file after successful completion"""
+
+        checkpoint_path.write_text(
+            json.dumps(asdict(checkpoint), indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+    def clear_checkpoint(self, script_name: Optional[str] = None) -> None:
         checkpoint_path = self._get_checkpoint_path(script_name)
         backup_path = self._get_backup_path(script_name)
-        
         if checkpoint_path.exists():
             checkpoint_path.unlink()
-            print(f"✓ Checkpoint cleared: {checkpoint_path}")
-        
         if backup_path.exists():
             backup_path.unlink()
-            print(f"✓ Backup cleared: {backup_path}")
-    
+
     def should_resume(self, script_name: Optional[str] = None) -> bool:
-        """
-        Check if we should resume from checkpoint
-        
-        Returns:
-            True if checkpoint exists and user wants to resume
-        """
         if not self.has_checkpoint(script_name):
             return False
-        
+
         checkpoint = self.load_checkpoint(script_name)
         if not checkpoint:
             return False
-        
-        # Check if already completed
+
         if checkpoint.processed_questions >= checkpoint.total_questions:
-            print("\n✓ Evaluation already completed. Starting fresh...")
             self.clear_checkpoint(script_name)
             return False
-        
-        print(f"\n⚠️  Found interrupted evaluation: {checkpoint.processed_questions}/{checkpoint.total_questions}")
-        
-        # Auto-resume (can be configured to ask user)
+
         return True
-    
+
     def get_resume_info(self, script_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
-        """
-        Get resume information from checkpoint
-        
-        Returns:
-            Dictionary with resume info or None
-        """
         checkpoint = self.load_checkpoint(script_name)
         if not checkpoint:
             return None
-        
         return {
             "start_from": checkpoint.processed_questions,
             "results": checkpoint.results,
@@ -292,40 +377,8 @@ class EvaluationProgressManager:
             "current_top_k": checkpoint.current_top_k,
             "config": checkpoint.config,
         }
-    
-    def save_final_results(
-        self,
-        results: Dict[str, Any],
-        filename: str,
-        backup: bool = True,
-    ):
-        """
-        Save final evaluation results
-        
-        Args:
-            results: Final results dictionary
-            filename: Output filename
-            backup: Whether to backup existing file
-        """
-        output_path = self.output_dir / filename
-        
-        # Backup existing file
-        if backup and output_path.exists():
-            backup_path = self.output_dir / f"{filename}.backup"
-            try:
-                import shutil
-                shutil.copy2(output_path, backup_path)
-                print(f"✓ Backed up existing results to {backup_path}")
-            except Exception as e:
-                print(f"Warning: Could not backup results: {e}")
-        
-        # Save new results
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(results, f, indent=2, ensure_ascii=False)
-        
-        print(f"✓ Results saved to {output_path}")
 
 
 def create_progress_manager(output_dir: str = "./results/evaluation") -> EvaluationProgressManager:
-    """Factory function to create progress manager"""
+    """Factory function to create a progress manager."""
     return EvaluationProgressManager(output_dir)

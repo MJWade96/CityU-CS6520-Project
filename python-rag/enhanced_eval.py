@@ -297,7 +297,6 @@ class EnhancedRAGPipeline:
             primary_query, all_queries = self.query_rewriter.rewrite(
                 query, mode="single"
             )
-            print(f"  Rewritten query: {primary_query[:100]}...")
         else:
             primary_query = query
 
@@ -429,6 +428,9 @@ def evaluate_with_pipeline(
     initial_total: int = 0,
     initial_elapsed: float = 0.0,
     script_name: Optional[str] = None,
+    artifact_paths: Optional[Dict[str, Path]] = None,
+    live_config: Optional[Dict[str, Any]] = None,
+    extra_sections: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Evaluate using enhanced pipeline with checkpoint support"""
     print(f"\n{'=' * 60}")
@@ -485,20 +487,20 @@ def evaluate_with_pipeline(
                 correct += 1
             total += 1
 
-            # Progress reporting
-            if i % 10 == 0 or i == len(questions):
-                elapsed = time.time() - start_time
-                qps = i / elapsed if elapsed > 0 else 0
-                current_acc = correct / total if total > 0 else 0
-                print(
-                    f"  Question {i}/{len(questions)} | "
-                    f"Accuracy: {current_acc:.4f} | "
-                    f"Speed: {qps:.2f} q/s"
+            elapsed = time.time() - start_time
+
+            if progress_mgr:
+                progress_mgr.print_progress(
+                    run_name="ENHANCED_RAG",
+                    dataset_name=dataset_name,
+                    processed_questions=i,
+                    total_questions=len(questions),
+                    correct_count=correct,
+                    elapsed_time=elapsed,
                 )
 
             # Save checkpoint after each question
             if progress_mgr:
-                elapsed = time.time() - start_time
                 progress_mgr.save_checkpoint(
                     dataset_name=dataset_name,
                     total_questions=len(questions),
@@ -518,6 +520,26 @@ def evaluate_with_pipeline(
                     },
                     script_name=script_name or "enhanced_eval",
                 )
+                if artifact_paths and live_config:
+                    stage_result = progress_mgr.build_stage_result(
+                        dataset_name=dataset_name,
+                        total_questions=len(questions),
+                        processed_questions=i,
+                        correct_count=correct,
+                        elapsed_time=elapsed,
+                        detailed_results=results,
+                        top_k=top_k,
+                    )
+                    live_sections = dict(extra_sections or {})
+                    live_sections["current_stage"] = stage_result
+                    progress_mgr.write_live_results(
+                        artifact_paths=artifact_paths,
+                        run_name="ENHANCED_RAG",
+                        evaluation_type="ENHANCED_RAG",
+                        config=live_config,
+                        stage_result=stage_result,
+                        extra_sections=live_sections,
+                    )
 
         except Exception as e:
             print(f"  ERROR on question {i}: {e}")
@@ -551,6 +573,7 @@ def evaluate_with_pipeline(
     return {
         "dataset_name": dataset_name,
         "total_questions": total,
+        "processed_questions": total,
         "correct": correct,
         "accuracy": accuracy,
         "elapsed_time": elapsed,
@@ -580,6 +603,7 @@ def main():
 
     # Initialize progress manager
     progress_mgr = EvaluationProgressManager(output_dir=config.OUTPUT_DIR)
+    artifact_paths = progress_mgr.create_run_artifacts("enhanced_rag_eval")
 
     # Load questions
     questions = load_questions(config.QUESTION_FILE)
@@ -617,6 +641,20 @@ def main():
         config=config,
     )
 
+    live_config = {
+        "dev_set_size": len(dev_set),
+        "test_set_size": len(test_set),
+        "llm_provider": config.LLM_PROVIDER,
+        "llm_model": config.LLM_MODEL,
+        "vector_store": config.VECTOR_STORE_PATH,
+        "default_top_k": config.DEFAULT_TOP_K,
+        "use_hybrid_retrieval": config.USE_HYBRID_RETRIEVAL,
+        "use_query_rewrite": config.USE_QUERY_REWRITE,
+        "use_reranker": config.USE_RERANKER,
+        "use_cot_prompt": config.USE_COT_PROMPT,
+        "use_adaptive_retrieval": config.USE_ADAPTIVE_RETRIEVAL,
+    }
+
     print("[OK] Enhanced RAG Pipeline initialized")
 
     # ============================================================
@@ -649,6 +687,8 @@ def main():
             initial_total=resume_info_dev["total_count"],
             initial_elapsed=resume_info_dev["elapsed_time"],
             script_name="enhanced_eval_dev",
+            artifact_paths=artifact_paths,
+            live_config=live_config,
         )
     else:
         dev_results = evaluate_with_pipeline(
@@ -658,6 +698,8 @@ def main():
             dataset_name="Development Set",
             progress_mgr=progress_mgr,
             script_name="enhanced_eval_dev",
+            artifact_paths=artifact_paths,
+            live_config=live_config,
         )
 
     # Clear dev set checkpoint after successful completion
@@ -695,6 +737,9 @@ def main():
         initial_total=resume_info_test["total_count"] if resume_info_test else 0,
         initial_elapsed=resume_info_test["elapsed_time"] if resume_info_test else 0.0,
         script_name="enhanced_eval_test",
+        artifact_paths=artifact_paths,
+        live_config=live_config,
+        extra_sections={"development_set_evaluation": dev_results},
     )
 
     # Clear checkpoint after successful completion
@@ -704,64 +749,16 @@ def main():
     # Save Results
     # ============================================================
 
-    timestamp = time.strftime("%Y%m%d_%H%M%S")
-
-    # Save complete results
-    results_file = os.path.join(config.OUTPUT_DIR, f"enhanced_eval_{timestamp}.json")
-    with open(results_file, "w", encoding="utf-8") as f:
-        json.dump(
-            {
-                "config": {
-                    "dev_set_size": config.DEV_SET_SIZE,
-                    "llm_provider": config.LLM_PROVIDER,
-                    "llm_model": config.LLM_MODEL,
-                    "optimizations": {
-                        "hybrid_retrieval": config.USE_HYBRID_RETRIEVAL,
-                        "query_rewrite": config.USE_QUERY_REWRITE,
-                        "reranker": config.USE_RERANKER,
-                        "cot_prompt": config.USE_COT_PROMPT,
-                        "adaptive_retrieval": config.USE_ADAPTIVE_RETRIEVAL,
-                    },
-                },
-                "development_set_evaluation": dev_results,
-                "test_set_evaluation": test_results,
-            },
-            f,
-            indent=2,
-            ensure_ascii=False,
-        )
-
-    print(f"\n[OK] Results saved to {results_file}")
-
-    # Save summary
-    summary_file = os.path.join(config.OUTPUT_DIR, f"enhanced_summary_{timestamp}.txt")
-    with open(summary_file, "w", encoding="utf-8") as f:
-        f.write("Enhanced Medical RAG System - Evaluation Summary\n")
-        f.write("Phase 1 + Phase 2 Optimizations\n")
-        f.write("=" * 60 + "\n\n")
-        f.write(f"Date: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
-        f.write(f"LLM: {config.LLM_PROVIDER}/{config.LLM_MODEL}\n\n")
-
-        f.write("Optimizations Enabled:\n")
-        f.write(f"  ✓ Hybrid Retrieval (Dense + BM25)\n")
-        f.write(f"  ✓ Query Rewriting\n")
-        f.write(f"  ✓ Reranking (Cross-Encoder)\n")
-        f.write(f"  ✓ Chain-of-Thought Prompting\n")
-        f.write(f"  ✓ Adaptive Retrieval\n\n")
-
-        f.write("Development Set Results:\n")
-        f.write(f"  Total Questions: {dev_results['total_questions']}\n")
-        f.write(f"  Correct Answers: {dev_results['correct']}\n")
-        f.write(f"  Accuracy: {dev_results['accuracy']:.4f}\n\n")
-
-        f.write("Test Set Results:\n")
-        f.write(f"  Total Questions: {test_results['total_questions']}\n")
-        f.write(f"  Correct Answers: {test_results['correct']}\n")
-        f.write(f"  Accuracy: {test_results['accuracy']:.4f}\n")
-        f.write(f"  Time: {test_results['elapsed_time']:.1f}s\n")
-        f.write(f"  Speed: {test_results['questions_per_second']:.2f} q/s\n")
-
-    print(f"[OK] Summary saved to {summary_file}")
+    paths = progress_mgr.write_final_results(
+        artifact_paths=artifact_paths,
+        run_name="ENHANCED_RAG",
+        evaluation_type="ENHANCED_RAG",
+        config=live_config,
+        stage_results={
+            "development_set_evaluation": dev_results,
+            "test_set_evaluation": test_results,
+        },
+    )
 
     # ============================================================
     # Print Final Summary
@@ -783,6 +780,8 @@ def main():
     print(f"{'=' * 60}")
     print("✓ Phase 1: Hybrid Retrieval, Query Rewrite, Prompt Optimization")
     print("✓ Phase 2: Semantic Chunking, Metadata Enhancement, Reranking")
+    print(f"Results JSON: {paths['json']}")
+    print(f"Summary TXT: {paths['summary']}")
     print(f"{'=' * 60}")
 
 

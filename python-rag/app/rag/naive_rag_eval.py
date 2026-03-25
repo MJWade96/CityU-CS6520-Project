@@ -8,7 +8,6 @@ entrypoint and other scripts can reuse the same retrieval/generation flow.
 from __future__ import annotations
 
 import asyncio
-import json
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -120,6 +119,9 @@ def evaluate_sync_dataset(
     questions: List[Dict[str, Any]],
     top_k: int,
     progress_mgr: Optional[EvaluationProgressManager] = None,
+    artifact_paths: Optional[Dict[str, Path]] = None,
+    live_config: Optional[Dict[str, Any]] = None,
+    extra_sections: Optional[Dict[str, Any]] = None,
     dataset_name: str = "Development Set",
     script_name: str = "complete_eval_dev",
 ) -> Dict[str, Any]:
@@ -135,6 +137,7 @@ def evaluate_sync_dataset(
             correct += 1
 
         if progress_mgr:
+            elapsed = time.time() - start_time
             progress_mgr.save_checkpoint(
                 dataset_name=dataset_name,
                 total_questions=len(questions),
@@ -143,16 +146,45 @@ def evaluate_sync_dataset(
                 results=results,
                 correct_count=correct,
                 total_count=index,
-                elapsed_time=time.time() - start_time,
+                elapsed_time=elapsed,
                 config={"top_k": top_k},
                 script_name=script_name,
             )
+            stage_result = progress_mgr.build_stage_result(
+                dataset_name=dataset_name,
+                total_questions=len(questions),
+                processed_questions=index,
+                correct_count=correct,
+                elapsed_time=elapsed,
+                detailed_results=results,
+                top_k=top_k,
+            )
+            progress_mgr.print_progress(
+                run_name="NAIVE_RAG",
+                dataset_name=dataset_name,
+                processed_questions=index,
+                total_questions=len(questions),
+                correct_count=correct,
+                elapsed_time=elapsed,
+            )
+            if artifact_paths and live_config:
+                live_sections = dict(extra_sections or {})
+                live_sections["current_stage"] = stage_result
+                progress_mgr.write_live_results(
+                    artifact_paths=artifact_paths,
+                    run_name="NAIVE_RAG",
+                    evaluation_type="NAIVE_RAG",
+                    config=live_config,
+                    stage_result=stage_result,
+                    extra_sections=live_sections,
+                )
 
     elapsed = time.time() - start_time
     return {
         "dataset_name": dataset_name,
         "top_k": top_k,
         "total_questions": len(questions),
+        "processed_questions": len(questions),
         "correct": correct,
         "accuracy": correct / len(questions) if questions else 0.0,
         "elapsed_time": elapsed,
@@ -167,6 +199,9 @@ async def evaluate_async_dataset(
     config: NaiveRAGEvalConfig,
     top_k: int,
     progress_mgr: Optional[EvaluationProgressManager] = None,
+    artifact_paths: Optional[Dict[str, Path]] = None,
+    live_config: Optional[Dict[str, Any]] = None,
+    extra_sections: Optional[Dict[str, Any]] = None,
     dataset_name: str = "Test Set",
     script_name: str = "complete_eval_test",
 ) -> Dict[str, Any]:
@@ -231,6 +266,7 @@ async def evaluate_async_dataset(
             correct += 1
 
         if progress_mgr:
+            elapsed = time.time() - start_time
             progress_mgr.save_checkpoint(
                 dataset_name=dataset_name,
                 total_questions=len(questions),
@@ -239,16 +275,45 @@ async def evaluate_async_dataset(
                 results=results,
                 correct_count=correct,
                 total_count=index,
-                elapsed_time=time.time() - start_time,
+                elapsed_time=elapsed,
                 config={"top_k": top_k},
                 script_name=script_name,
             )
+            stage_result = progress_mgr.build_stage_result(
+                dataset_name=dataset_name,
+                total_questions=len(questions),
+                processed_questions=index,
+                correct_count=correct,
+                elapsed_time=elapsed,
+                detailed_results=results,
+                top_k=top_k,
+            )
+            progress_mgr.print_progress(
+                run_name="NAIVE_RAG",
+                dataset_name=dataset_name,
+                processed_questions=index,
+                total_questions=len(questions),
+                correct_count=correct,
+                elapsed_time=elapsed,
+            )
+            if artifact_paths and live_config:
+                live_sections = dict(extra_sections or {})
+                live_sections["current_stage"] = stage_result
+                progress_mgr.write_live_results(
+                    artifact_paths=artifact_paths,
+                    run_name="NAIVE_RAG",
+                    evaluation_type="NAIVE_RAG",
+                    config=live_config,
+                    stage_result=stage_result,
+                    extra_sections=live_sections,
+                )
 
     elapsed = time.time() - start_time
     return {
         "dataset_name": dataset_name,
         "top_k": top_k,
         "total_questions": len(questions),
+        "processed_questions": len(questions),
         "correct": correct,
         "accuracy": correct / len(questions) if questions else 0.0,
         "elapsed_time": elapsed,
@@ -263,9 +328,12 @@ def find_best_top_k(
     dev_set: List[Dict[str, Any]],
     config: NaiveRAGEvalConfig,
     progress_mgr: Optional[EvaluationProgressManager] = None,
-) -> Tuple[int, Dict[int, float]]:
+    artifact_paths: Optional[Dict[str, Path]] = None,
+    live_config: Optional[Dict[str, Any]] = None,
+) -> Tuple[int, Dict[int, float], Dict[str, Any]]:
     """Search for the best top-k on the dev set."""
     scores: Dict[int, float] = {}
+    results_by_k: Dict[int, Dict[str, Any]] = {}
     for k in config.top_k_values:
         result = evaluate_sync_dataset(
             vectorstore=vectorstore,
@@ -273,12 +341,23 @@ def find_best_top_k(
             questions=dev_set,
             top_k=k,
             progress_mgr=progress_mgr,
+            artifact_paths=artifact_paths,
+            live_config=live_config,
+            extra_sections={
+                "hyperparameter_search": {
+                    "k_values_tested": config.top_k_values,
+                    "development_set_accuracy": scores,
+                    "best_k": None,
+                    "used_manual_top_k": False,
+                },
+            },
             dataset_name=f"Development Set (k={k})",
             script_name="complete_eval_dev",
         )
         scores[k] = result["accuracy"]
+        results_by_k[k] = result
     best_k = max(scores, key=scores.get)
-    return best_k, scores
+    return best_k, scores, results_by_k[best_k]
 
 
 def calculate_recall_at_k(
@@ -299,80 +378,46 @@ def calculate_recall_at_k(
     return recall_scores
 
 
-def save_results(
-    config: NaiveRAGEvalConfig,
-    best_k: int,
-    dev_scores: Dict[int, float],
-    dev_size: int,
-    test_size: int,
-    test_results: Dict[str, Any],
-    recall_scores: Dict[int, float],
-) -> Dict[str, Path]:
-    """Persist JSON and text summaries."""
-    config.output_dir.mkdir(parents=True, exist_ok=True)
-    timestamp = time.strftime("%Y%m%d_%H%M%S")
-    json_path = config.output_dir / f"complete_eval_{timestamp}.json"
-    summary_path = config.output_dir / f"evaluation_summary_{timestamp}.txt"
-
-    payload = {
-        "config": {
-            "dev_set_size": dev_size,
-            "test_set_size": test_size,
-            "llm_provider": config.llm.provider,
-            "llm_model": config.llm.model,
-            "vector_store": str(config.vector_store_path),
-            "manual_top_k": config.manual_top_k,
-        },
-        "hyperparameter_search": {
-            "k_values_tested": config.top_k_values if config.manual_top_k is None else "manual",
-            "development_set_accuracy": dev_scores,
-            "best_k": best_k,
-            "used_manual_top_k": config.manual_top_k is not None,
-        },
-        "test_set_evaluation": test_results,
-        "retrieval_recall_at_k": recall_scores,
-    }
-    with json_path.open("w", encoding="utf-8") as handle:
-        json.dump(payload, handle, indent=2, ensure_ascii=False)
-
-    with summary_path.open("w", encoding="utf-8") as handle:
-        handle.write("Medical RAG System - Naive RAG Evaluation Summary\n")
-        handle.write("=" * 60 + "\n\n")
-        handle.write(f"Date: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
-        handle.write(f"LLM: {config.llm.provider}/{config.llm.model}\n")
-        handle.write(f"Vector Store: {config.vector_store_path}\n\n")
-        handle.write("Dataset Split:\n")
-        handle.write(f"  Development Set: {dev_size} questions\n")
-        handle.write(f"  Test Set: {test_size} questions\n\n")
-        if config.manual_top_k is None:
-            handle.write("Hyperparameter Search (Development Set):\n")
-            for k, score in dev_scores.items():
-                handle.write(f"  top-k={k}: Accuracy = {score:.4f}\n")
-        else:
-            handle.write(f"Manual top-k: {best_k}\n")
-        handle.write(f"\nTest Accuracy: {test_results['accuracy']:.4f}\n")
-        handle.write(f"Test Correct: {test_results['correct']}/{test_results['total_questions']}\n")
-        handle.write(f"Time: {test_results['elapsed_time']:.1f}s\n\n")
-        handle.write("Retrieval Recall@k:\n")
-        for k, score in recall_scores.items():
-            handle.write(f"  R@{k}: {score:.4f}\n")
-
-    return {"json": json_path, "summary": summary_path}
-
-
 async def run_complete_evaluation(config: NaiveRAGEvalConfig) -> Dict[str, Any]:
     """Execute the complete naive RAG evaluation flow."""
     questions = load_questions(str(config.question_file))
     dev_set, test_set = split_questions(questions, config.dev_size, config.test_size)
 
     progress_mgr = EvaluationProgressManager(output_dir=str(config.output_dir))
+    artifact_paths = progress_mgr.create_run_artifacts("naive_rag_eval")
+    live_config = {
+        "dev_set_size": len(dev_set),
+        "test_set_size": len(test_set),
+        "llm_provider": config.llm.provider,
+        "llm_model": config.llm.model,
+        "vector_store": str(config.vector_store_path),
+        "manual_top_k": config.manual_top_k,
+    }
     vectorstore = load_vector_store(config.vector_store_path)
     generator = MedicalLLMGenerator(config.llm)
 
     if config.manual_top_k is None:
-        best_k, dev_scores = find_best_top_k(vectorstore, generator, dev_set, config, progress_mgr)
+        best_k, dev_scores, dev_results = find_best_top_k(
+            vectorstore,
+            generator,
+            dev_set,
+            config,
+            progress_mgr,
+            artifact_paths,
+            live_config,
+        )
     else:
         best_k, dev_scores = config.manual_top_k, {}
+        dev_results = {
+            "dataset_name": "Development Set",
+            "top_k": best_k,
+            "total_questions": 0,
+            "correct": 0,
+            "accuracy": 0.0,
+            "elapsed_time": 0.0,
+            "questions_per_second": 0.0,
+            "detailed_results": [],
+        }
 
     test_results = await evaluate_async_dataset(
         vectorstore=vectorstore,
@@ -380,16 +425,37 @@ async def run_complete_evaluation(config: NaiveRAGEvalConfig) -> Dict[str, Any]:
         config=config,
         top_k=best_k,
         progress_mgr=progress_mgr,
+        artifact_paths=artifact_paths,
+        live_config=live_config,
+        extra_sections={
+            "development_set_evaluation": dev_results,
+            "hyperparameter_search": {
+                "k_values_tested": config.top_k_values if config.manual_top_k is None else "manual",
+                "development_set_accuracy": dev_scores,
+                "best_k": best_k,
+                "used_manual_top_k": config.manual_top_k is not None,
+            },
+        },
     )
     recall_scores = calculate_recall_at_k(vectorstore, test_set, [1, 3, 5, 10])
-    paths = save_results(
-        config=config,
-        best_k=best_k,
-        dev_scores=dev_scores,
-        dev_size=len(dev_set),
-        test_size=len(test_set),
-        test_results=test_results,
-        recall_scores=recall_scores,
+    paths = progress_mgr.write_final_results(
+        artifact_paths=artifact_paths,
+        run_name="NAIVE_RAG",
+        evaluation_type="NAIVE_RAG",
+        config=live_config,
+        stage_results={
+            "development_set_evaluation": dev_results,
+            "test_set_evaluation": test_results,
+        },
+        extra_sections={
+            "hyperparameter_search": {
+                "k_values_tested": config.top_k_values if config.manual_top_k is None else "manual",
+                "development_set_accuracy": dev_scores,
+                "best_k": best_k,
+                "used_manual_top_k": config.manual_top_k is not None,
+            },
+            "retrieval_recall_at_k": recall_scores,
+        },
     )
 
     return {
