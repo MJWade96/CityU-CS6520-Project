@@ -12,6 +12,8 @@ import json
 from typing import List, Dict, Any, Optional, Tuple
 from langchain_openai import ChatOpenAI
 
+from app.rag.eval_shared import build_extra_body, parse_optional_bool_env
+
 
 class MedicalDictionaryRewriter:
     """
@@ -190,6 +192,7 @@ Rewritten question:"""
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self.enable_thinking = parse_optional_bool_env("RAG_LLM_ENABLE_THINKING")
 
         # Get API credentials
         self.api_key = api_key or os.getenv(
@@ -198,13 +201,18 @@ Rewritten question:"""
         self.base_url = base_url or "https://wishub-x6.ctyun.cn/v1"
 
         # Initialize LLM
-        self.llm = ChatOpenAI(
-            model=self.model,
-            temperature=self.temperature,
-            max_tokens=self.max_tokens,
-            api_key=self.api_key,
-            base_url=self.base_url,
-        )
+        llm_kwargs = {
+            "model": self.model,
+            "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
+            "api_key": self.api_key,
+            "base_url": self.base_url,
+        }
+        extra_body = build_extra_body(enable_thinking=self.enable_thinking)
+        if extra_body:
+            llm_kwargs["extra_body"] = extra_body
+
+        self.llm = ChatOpenAI(**llm_kwargs)
 
     def rewrite(self, query: str) -> str:
         """
@@ -267,6 +275,7 @@ Generated questions (3-5):"""
         self.provider = provider
         self.model = model
         self.num_expansions = num_expansions
+        self.enable_thinking = parse_optional_bool_env("RAG_LLM_ENABLE_THINKING")
 
         # Get API credentials
         self.api_key = api_key or os.getenv(
@@ -275,13 +284,18 @@ Generated questions (3-5):"""
         self.base_url = base_url or "https://wishub-x6.ctyun.cn/v1"
 
         # Initialize LLM
-        self.llm = ChatOpenAI(
-            model=self.model,
-            temperature=0.3,
-            max_tokens=300,
-            api_key=self.api_key,
-            base_url=self.base_url,
-        )
+        llm_kwargs = {
+            "model": self.model,
+            "temperature": 0.3,
+            "max_tokens": 300,
+            "api_key": self.api_key,
+            "base_url": self.base_url,
+        }
+        extra_body = build_extra_body(enable_thinking=self.enable_thinking)
+        if extra_body:
+            llm_kwargs["extra_body"] = extra_body
+
+        self.llm = ChatOpenAI(**llm_kwargs)
 
     def expand(self, query: str) -> List[str]:
         """

@@ -33,6 +33,7 @@ from langchain_openai import ChatOpenAI
 # Document loader - Real data from external file
 from app.rag.document_loader import load_medical_knowledge_base
 from app.rag.data_paths import VECTOR_STORE_DIR
+from app.rag.eval_shared import build_extra_body, parse_optional_bool_env
 
 
 @dataclass
@@ -117,6 +118,7 @@ class APIGenerator:
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.model = model or os.getenv("RAG_LLM_MODEL", "")
+        self.enable_thinking = parse_optional_bool_env("RAG_LLM_ENABLE_THINKING")
 
         # Set API key
         self.api_key = api_key or self._get_api_key()
@@ -141,13 +143,18 @@ class APIGenerator:
             )
 
         # Initialize LLM
-        self.llm = ChatOpenAI(
-            model=self.model,
-            openai_api_key=self.api_key,
-            openai_api_base=self.base_url,
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
+        llm_kwargs = {
+            "model": self.model,
+            "openai_api_key": self.api_key,
+            "openai_api_base": self.base_url,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+        extra_body = build_extra_body(enable_thinking=self.enable_thinking)
+        if extra_body:
+            llm_kwargs["extra_body"] = extra_body
+
+        self.llm = ChatOpenAI(**llm_kwargs)
 
         print(f"Initialized {provider} generator")
         print(f"  Model: {self.model}")

@@ -12,7 +12,7 @@ import json
 import os
 import re
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -34,6 +34,35 @@ class EvaluationLLMConfig:
     temperature: float = float(os.getenv("RAG_LLM_TEMPERATURE", "0.1"))
     base_url: str = os.getenv("RAG_LLM_BASE_URL", DEFAULT_BASE_URL)
     api_key: str = os.getenv("RAG_LLM_API_KEY", DEFAULT_API_KEY)
+    enable_thinking: Optional[bool] = field(
+        default_factory=lambda: parse_optional_bool_env("RAG_LLM_ENABLE_THINKING", default=False)
+    )
+
+
+def parse_optional_bool_env(name: str, default: Optional[bool] = None) -> Optional[bool]:
+    """Parse an optional boolean environment variable."""
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+
+    normalized = raw_value.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(f"Invalid boolean value for {name}: {raw_value}")
+
+
+def build_extra_body(
+    *,
+    enable_thinking: Optional[bool] = None,
+    extra_body: Optional[Dict[str, Any]] = None,
+) -> Optional[Dict[str, Any]]:
+    """Build provider-specific request fields that must be sent in ``extra_body``."""
+    payload = dict(extra_body or {})
+    if enable_thinking is not None:
+        payload["enable_thinking"] = enable_thinking
+    return payload or None
 
 
 @dataclass
@@ -100,7 +129,7 @@ def build_medical_eval_prompt(question: str, options: Sequence[str], context: Op
             "Options:",
             format_options(options),
             "",
-            "Please think step by step and then provide your answer in the following format:",
+            "Provide only the final answer in the following format:",
             "Answer: [A/B/C/D/E]",
             "",
             "Your response:",
@@ -179,15 +208,23 @@ def create_async_client(config: EvaluationLLMConfig) -> AsyncOpenAI:
 
 def get_qwen_completion_kwargs(config: EvaluationLLMConfig) -> Dict[str, Any]:
     """Return the shared Qwen3-4B completion parameters."""
-    return {
+    kwargs = {
         "model": config.model,
         "temperature": config.temperature,
     }
+    extra_body = build_extra_body(enable_thinking=config.enable_thinking)
+    if extra_body:
+        kwargs["extra_body"] = extra_body
+    return kwargs
 
 
 def get_qwen_langchain_kwargs(config: EvaluationLLMConfig) -> Dict[str, Any]:
     """Return the shared Qwen3-4B parameters for ChatOpenAI."""
-    return {
+    kwargs = {
         "model": config.model,
         "temperature": config.temperature,
     }
+    extra_body = build_extra_body(enable_thinking=config.enable_thinking)
+    if extra_body:
+        kwargs["extra_body"] = extra_body
+    return kwargs

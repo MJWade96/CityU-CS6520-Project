@@ -39,6 +39,7 @@ from app.rag.chunking import SemanticChunker, ParentChildChunker
 from app.rag.metadata_enhancement import MetadataGenerator, RuleBasedMetadataGenerator
 from app.rag.progress_manager import EvaluationProgressManager
 from app.rag.data_paths import EVALUATION_DIR, EVALUATION_RESULTS_DIR, FAISS_INDEX_DIR
+from app.rag.eval_shared import build_extra_body, parse_optional_bool_env
 
 
 # ============================================================
@@ -101,19 +102,25 @@ class EnhancedMedicalLLMGenerator:
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.use_cot = use_cot
+        self.enable_thinking = parse_optional_bool_env("RAG_LLM_ENABLE_THINKING")
 
         # Get API credentials
         self.api_key = api_key or "4dbe3bec3ee548d28b649b324e741939"
         self.base_url = base_url or "https://wishub-x6.ctyun.cn/v1"
 
         # Initialize LLM
-        self.llm = ChatOpenAI(
-            model=self.model,
-            temperature=self.temperature,
-            max_tokens=self.max_tokens,
-            api_key=self.api_key,
-            base_url=self.base_url,
-        )
+        llm_kwargs = {
+            "model": self.model,
+            "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
+            "api_key": self.api_key,
+            "base_url": self.base_url,
+        }
+        extra_body = build_extra_body(enable_thinking=self.enable_thinking)
+        if extra_body:
+            llm_kwargs["extra_body"] = extra_body
+
+        self.llm = ChatOpenAI(**llm_kwargs)
 
         # Initialize prompt
         self.prompt_template = self._get_prompt_template()

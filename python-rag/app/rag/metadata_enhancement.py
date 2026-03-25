@@ -13,6 +13,8 @@ import json
 from typing import List, Dict, Any, Optional, Tuple
 from langchain_openai import ChatOpenAI
 
+from app.rag.eval_shared import build_extra_body, parse_optional_bool_env
+
 
 class MetadataGenerator:
     """
@@ -95,19 +97,25 @@ Entities (format as JSON with categories):"""
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self.enable_thinking = parse_optional_bool_env("RAG_LLM_ENABLE_THINKING")
         
         # Get API credentials
         self.api_key = api_key or os.getenv("DEEPSEEK_API_KEY", "6fcecb364d0647d2883e7f1d3f19d5b9")
         self.base_url = base_url or "https://wishub-x6.ctyun.cn/v1"
         
         # Initialize LLM
-        self.llm = ChatOpenAI(
-            model=self.model,
-            temperature=self.temperature,
-            max_tokens=self.max_tokens,
-            api_key=self.api_key,
-            base_url=self.base_url,
-        )
+        llm_kwargs = {
+            "model": self.model,
+            "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
+            "api_key": self.api_key,
+            "base_url": self.base_url,
+        }
+        extra_body = build_extra_body(enable_thinking=self.enable_thinking)
+        if extra_body:
+            llm_kwargs["extra_body"] = extra_body
+
+        self.llm = ChatOpenAI(**llm_kwargs)
     
     def generate_summary(self, text: str) -> str:
         """
