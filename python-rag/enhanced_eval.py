@@ -22,6 +22,7 @@ import hashlib
 import os
 import sys
 import json
+import re
 import time
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
@@ -46,9 +47,14 @@ from app.rag.eval_shared import (
     EvaluationLLMConfig,
     RateLimiter,
     build_medical_eval_prompt,
+    create_async_client,
     extract_answer,
+    get_correct_answer_letter,
+    get_qwen_completion_kwargs,
     get_qwen_langchain_kwargs,
+    load_questions as load_shared_questions,
     parse_optional_bool_env,
+    split_questions,
 )
 
 
@@ -57,14 +63,20 @@ from app.rag.eval_shared import (
 # ============================================================
 
 
+def _env_flag(name: str, default: bool) -> bool:
+    """Resolve a boolean env var with a concrete fallback."""
+    value = parse_optional_bool_env(name, default=default)
+    return default if value is None else value
+
+
 class EnhancedEvaluationConfig:
     """Enhanced evaluation configuration"""
 
     # Dataset split
-    # Match the legacy no-RAG benchmark: dev uses questions[0:50],
-    # test uses questions[50:100].
-    DEV_SET_SIZE = 50
-    TEST_SET_SIZE = 50
+    # Match evaluate_no_rag.py and complete_eval.py:
+    # dev uses questions[:300], test uses questions[300:].
+    DEV_SET_SIZE = 300
+    TEST_SET_SIZE = None
 
     # LLM Configuration (联通云 DeepSeek V3.2)
     LLM_PROVIDER = "Qwen3-4B"
@@ -92,10 +104,45 @@ class EnhancedEvaluationConfig:
     # Optimization flags
     USE_HYBRID_RETRIEVAL = True
     USE_QUERY_REWRITE = True
+    USE_LLM_QUERY_REWRITE = _env_flag("RAG_ENHANCED_USE_LLM_QUERY_REWRITE", True)
+    LLM_QUERY_REWRITE_MODE = os.getenv(
+        "RAG_ENHANCED_LLM_QUERY_REWRITE_MODE",
+        "auto",
+    ).strip().lower()
+    LLM_QUERY_REWRITE_AUTO_MAX_CHARS = max(
+        1,
+        int(os.getenv("RAG_ENHANCED_LLM_QUERY_REWRITE_AUTO_MAX_CHARS", "160")),
+    )
+    LLM_QUERY_REWRITE_AUTO_MAX_WORDS = max(
+        1,
+        int(os.getenv("RAG_ENHANCED_LLM_QUERY_REWRITE_AUTO_MAX_WORDS", "24")),
+    )
     USE_RERANKER = True
     USE_COT_PROMPT = False
     USE_ADAPTIVE_RETRIEVAL = False
-    CONCURRENCY = ConcurrencyConfig()
+    CONCURRENCY = ConcurrencyConfig(
+        rpm_limit=int(
+            os.getenv(
+                "RAG_ENHANCED_EVAL_RPM_LIMIT",
+                os.getenv("RAG_EVAL_RPM_LIMIT", "60"),
+            )
+        ),
+        max_concurrent=int(
+            os.getenv(
+                "RAG_ENHANCED_EVAL_MAX_CONCURRENT",
+                os.getenv("RAG_EVAL_MAX_CONCURRENT", "4"),
+            )
+        ),
+    )
+    PROGRESS_SAVE_EVERY = max(1, int(os.getenv("RAG_ENHANCED_EVAL_SAVE_EVERY", "5")))
+    PROGRESS_PRINT_EVERY = max(
+        1,
+        int(os.getenv("RAG_ENHANCED_EVAL_PRINT_EVERY", "5")),
+    )
+    IN_FLIGHT_MULTIPLIER = max(
+        1,
+        int(os.getenv("RAG_ENHANCED_EVAL_IN_FLIGHT_MULTIPLIER", "2")),
+    )
 
     # File paths
     VECTOR_STORE_PATH = str(FAISS_INDEX_DIR)
@@ -135,10 +182,29 @@ class EnhancedMedicalLLMGenerator:
             base_url=self.base_url,
             api_key=self.api_key,
         )
+        self.llm_config = llm_config
+        self.completion_kwargs = get_qwen_completion_kwargs(llm_config)
+        self.async_client = create_async_client(llm_config)
         self.llm = ChatOpenAI(
             api_key=self.api_key,
             base_url=self.base_url,
             **get_qwen_langchain_kwargs(llm_config),
+        )
+
+    def _build_prompt(
+        self,
+        question: str,
+        contexts: List[str],
+        options: Optional[List[str]] = None,
+    ) -> str:
+        """Build the shared evaluation prompt for sync/async generation."""
+        return build_medical_eval_prompt(
+            question=question,
+            options=options or [],
+            context="\n\n".join(
+                f"[{index + 1}] {context}"
+                for index, context in enumerate(contexts)
+            ),
         )
 
     def generate(
@@ -148,18 +214,48 @@ class EnhancedMedicalLLMGenerator:
         options: Optional[List[str]] = None,
     ) -> str:
         """Generate an answer using the shared evaluation prompt."""
-        prompt = build_medical_eval_prompt(
-            question=question,
-            options=options or [],
-            context="\n\n".join(
-                f"[{index + 1}] {context}"
-                for index, context in enumerate(contexts)
-            ),
-        )
+        prompt = self._build_prompt(question, contexts, options)
 
         try:
             response = self.llm.invoke(prompt)
             return response.content
+        except Exception as e:
+            return f"Error generating answer: {str(e)}"
+
+    async def generate_async(
+        self,
+        question: str,
+        contexts: List[str],
+        options: Optional[List[str]] = None,
+        *,
+        rate_limiter: Optional[RateLimiter] = None,
+        api_semaphore: Optional[asyncio.Semaphore] = None,
+    ) -> str:
+        """Generate an answer asynchronously for higher evaluation throughput."""
+        prompt = self._build_prompt(question, contexts, options)
+
+        try:
+            if api_semaphore:
+                async with api_semaphore:
+                    if rate_limiter:
+                        await rate_limiter.acquire()
+                    completion = await self.async_client.chat.completions.create(
+                        messages=[{"role": "user", "content": prompt}],
+                        **self.completion_kwargs,
+                    )
+            else:
+                if rate_limiter:
+                    await rate_limiter.acquire()
+                completion = await self.async_client.chat.completions.create(
+                    messages=[{"role": "user", "content": prompt}],
+                    **self.completion_kwargs,
+                )
+
+            return (
+                completion.choices[0].message.content
+                or completion.choices[0].message.reasoning_content
+                or ""
+            )
         except Exception as e:
             return f"Error generating answer: {str(e)}"
 
@@ -213,8 +309,8 @@ class EnhancedRAGPipeline:
 
         # Initialize query rewrite pipeline
         self.query_rewriter = QueryRewritePipeline(
-            use_dict=True,
-            use_llm=config.USE_QUERY_REWRITE,
+            use_dict=config.USE_QUERY_REWRITE,
+            use_llm=config.USE_QUERY_REWRITE and config.USE_LLM_QUERY_REWRITE,
             use_expansion=False,
             llm_provider=config.QUERY_REWRITE_PROVIDER,
             llm_model=config.QUERY_REWRITE_MODEL,
@@ -241,6 +337,47 @@ class EnhancedRAGPipeline:
             api_key=config.LLM_API_KEY,
             base_url=config.LLM_BASE_URL,
         )
+        dict_rewriter = getattr(self.query_rewriter, "dict_rewriter", None)
+        self._rewrite_abbreviation_patterns = tuple(
+            re.compile(rf"\b{re.escape(abbr)}\b", flags=re.IGNORECASE)
+            for abbr in getattr(dict_rewriter, "abbreviations", {})
+        )
+        self._rewrite_chinese_terms = tuple(
+            getattr(dict_rewriter, "chinese_terms", {}).keys()
+        )
+
+    def _should_use_llm_query_rewrite(self, query: str) -> bool:
+        """Use LLM query rewrite selectively to cut extra API latency."""
+        if not (self.config.USE_QUERY_REWRITE and self.config.USE_LLM_QUERY_REWRITE):
+            return False
+
+        mode = self.config.LLM_QUERY_REWRITE_MODE
+        if mode == "always":
+            return True
+        if mode == "never":
+            return False
+
+        normalized = (query or "").strip()
+        if not normalized:
+            return False
+
+        if any("\u4e00" <= ch <= "\u9fff" for ch in normalized):
+            return True
+
+        lowered = normalized.lower()
+        if any(pattern.search(lowered) for pattern in self._rewrite_abbreviation_patterns):
+            return True
+
+        if any(term in normalized for term in self._rewrite_chinese_terms):
+            return True
+
+        if len(normalized) > self.config.LLM_QUERY_REWRITE_AUTO_MAX_CHARS:
+            return False
+
+        if len(normalized.split()) > self.config.LLM_QUERY_REWRITE_AUTO_MAX_WORDS:
+            return False
+
+        return True
 
     def retrieve(
         self,
@@ -265,8 +402,10 @@ class EnhancedRAGPipeline:
         """
         # Step 1: Query rewriting
         if use_rewrite:
-            primary_query, all_queries = self.query_rewriter.rewrite(
-                query, mode="single"
+            primary_query, all_queries = self.query_rewriter.rewrite_with_options(
+                query,
+                mode="single",
+                use_llm=self._should_use_llm_query_rewrite(query),
             )
         else:
             primary_query = query
@@ -284,6 +423,48 @@ class EnhancedRAGPipeline:
             results = self.reranker.rerank(primary_query, results)
 
         # Return top-k
+        return results[:top_k]
+
+    async def retrieve_async(
+        self,
+        query: str,
+        top_k: int = 5,
+        use_rewrite: bool = True,
+        use_rerank: bool = True,
+        use_adaptive: bool = False,
+        *,
+        rate_limiter: Optional[RateLimiter] = None,
+        api_semaphore: Optional[asyncio.Semaphore] = None,
+    ) -> List[Tuple[Document, float]]:
+        """Async retrieval path that keeps remote calls on the async client."""
+        if use_rewrite:
+            primary_query, _ = await self.query_rewriter.arewrite(
+                query,
+                mode="single",
+                rate_limiter=rate_limiter,
+                api_semaphore=api_semaphore,
+                use_llm=self._should_use_llm_query_rewrite(query),
+            )
+        else:
+            primary_query = query
+
+        if use_adaptive:
+            results = await asyncio.to_thread(
+                self.adaptive_retriever.search,
+                primary_query,
+                top_k * 2,
+            )
+        else:
+            results = await asyncio.to_thread(
+                self.hybrid_retriever.search,
+                primary_query,
+                top_k * 2,
+                self.config.USE_HYBRID_RETRIEVAL,
+            )
+
+        if use_rerank and self.reranker:
+            results = await asyncio.to_thread(self.reranker.rerank, primary_query, results)
+
         return results[:top_k]
 
     def answer(
@@ -327,6 +508,44 @@ class EnhancedRAGPipeline:
             "predicted_answer": predicted_answer,
         }
 
+    async def answer_async(
+        self,
+        query: str,
+        options: Optional[List[str]] = None,
+        top_k: int = 5,
+        use_rewrite: bool = True,
+        use_rerank: bool = True,
+        *,
+        rate_limiter: Optional[RateLimiter] = None,
+        api_semaphore: Optional[asyncio.Semaphore] = None,
+    ) -> Dict[str, Any]:
+        """Async end-to-end RAG flow for higher evaluation throughput."""
+        results = await self.retrieve_async(
+            query,
+            top_k=top_k,
+            use_rewrite=use_rewrite,
+            use_rerank=use_rerank,
+            rate_limiter=rate_limiter,
+            api_semaphore=api_semaphore,
+        )
+        contexts = [doc.page_content for doc, score in results]
+        response = await self.llm_generator.generate_async(
+            query,
+            contexts,
+            options,
+            rate_limiter=rate_limiter,
+            api_semaphore=api_semaphore,
+        )
+        predicted_answer = self.llm_generator.extract_answer(response)
+
+        return {
+            "query": query,
+            "retrieved_docs": results,
+            "contexts": contexts,
+            "response": response,
+            "predicted_answer": predicted_answer,
+        }
+
 # ============================================================
 # Evaluation Functions
 # ============================================================
@@ -340,8 +559,7 @@ def load_questions(question_file: str) -> List[Dict]:
         print(f"ERROR: File not found: {question_file}")
         return []
 
-    with open(question_file, "r", encoding="utf-8") as f:
-        questions = json.load(f)
+    questions = load_shared_questions(question_file)
 
     print(f"[OK] Loaded {len(questions)} questions")
     return questions
@@ -459,12 +677,17 @@ def build_progress_config(
         "query_rewrite_temperature": pipeline.config.QUERY_REWRITE_TEMPERATURE,
         "query_rewrite_max_tokens": pipeline.config.QUERY_REWRITE_MAX_TOKENS,
         "query_rewrite_enable_thinking": pipeline.config.QUERY_REWRITE_ENABLE_THINKING,
+        "llm_query_rewrite": pipeline.config.USE_LLM_QUERY_REWRITE,
         "hybrid_retrieval": pipeline.config.USE_HYBRID_RETRIEVAL,
         "query_rewrite": pipeline.config.USE_QUERY_REWRITE,
         "reranker": pipeline.config.USE_RERANKER,
         "reranker_available": reranker_stats.get("cross_encoder_available", False),
         "max_concurrent": pipeline.config.CONCURRENCY.max_concurrent,
         "rpm_limit": pipeline.config.CONCURRENCY.rpm_limit,
+        "progress_save_every": pipeline.config.PROGRESS_SAVE_EVERY,
+        "progress_print_every": pipeline.config.PROGRESS_PRINT_EVERY,
+        "in_flight_multiplier": pipeline.config.IN_FLIGHT_MULTIPLIER,
+        "llm_query_rewrite_mode": pipeline.config.LLM_QUERY_REWRITE_MODE,
     }
 
 
@@ -484,7 +707,7 @@ async def evaluate_with_pipeline_async(
     live_config: Optional[Dict[str, Any]] = None,
     extra_sections: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Evaluate using the enhanced pipeline with batch concurrency."""
+    """Evaluate using the enhanced pipeline with rolling concurrency."""
     print(f"\n{'=' * 60}")
     if start_from > 0:
         print(f"Resuming {dataset_name} (top-k={top_k}) from question {start_from + 1}")
@@ -500,6 +723,10 @@ async def evaluate_with_pipeline_async(
     questions_to_process = questions[start_from:]
     progress_config = build_progress_config(pipeline, top_k=top_k)
     batch_size = max(1, pipeline.config.CONCURRENCY.max_concurrent)
+    max_in_flight = max(1, batch_size * pipeline.config.IN_FLIGHT_MULTIPLIER)
+    persist_every = max(1, pipeline.config.PROGRESS_SAVE_EVERY)
+    print_every = max(1, pipeline.config.PROGRESS_PRINT_EVERY)
+    api_semaphore = asyncio.Semaphore(batch_size)
     rate_limiter = RateLimiter(
         requests_per_second=pipeline.config.CONCURRENCY.requests_per_second,
         burst=batch_size,
@@ -508,23 +735,17 @@ async def evaluate_with_pipeline_async(
     async def evaluate_item(q: Dict[str, Any]) -> Dict[str, Any]:
         question_text = q.get("question", "")
         options = q.get("options", [])
-        correct_answer = q.get("answer", "")
-        answer_index = q.get("answer_index", -1)
-
-        if answer_index >= 0:
-            correct_answer_letter = chr(65 + answer_index)
-        else:
-            correct_answer_letter = correct_answer
+        correct_answer_letter = get_correct_answer_letter(q)
 
         try:
-            await rate_limiter.acquire()
-            result = await asyncio.to_thread(
-                pipeline.answer,
+            result = await pipeline.answer_async(
                 question_text,
                 options,
                 top_k,
                 pipeline.config.USE_QUERY_REWRITE,
                 pipeline.config.USE_RERANKER,
+                rate_limiter=rate_limiter,
+                api_semaphore=api_semaphore,
             )
 
             is_correct = result["predicted_answer"] == correct_answer_letter.upper()
@@ -555,17 +776,66 @@ async def evaluate_with_pipeline_async(
 
         return evaluation_result
 
-    for batch_start in range(0, len(questions_to_process), batch_size):
-        batch = questions_to_process[batch_start : batch_start + batch_size]
-        batch_results = await asyncio.gather(*(evaluate_item(item) for item in batch))
+    indexed_questions = iter(enumerate(questions_to_process, start=start_from))
+    in_flight: Dict[asyncio.Task, Tuple[int, Dict[str, Any]]] = {}
+    buffered_results: Dict[int, Dict[str, Any]] = {}
+    next_commit_index = start_from
 
-        for offset, evaluation_result in enumerate(batch_results, start=1):
-            processed_questions = start_from + batch_start + offset
+    async def run_item(
+        question_index: int,
+        item: Dict[str, Any],
+    ) -> Tuple[int, Dict[str, Any]]:
+        return question_index, await evaluate_item(item)
+
+    def schedule_next() -> bool:
+        try:
+            question_index, item = next(indexed_questions)
+        except StopIteration:
+            return False
+
+        task = asyncio.create_task(run_item(question_index, item))
+        in_flight[task] = (question_index, item)
+        return True
+
+    for _ in range(min(max_in_flight, len(questions_to_process))):
+        if not schedule_next():
+            break
+
+    while in_flight:
+        done, _ = await asyncio.wait(
+            tuple(in_flight.keys()),
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+
+        for task in done:
+            question_index, item = in_flight.pop(task)
+            try:
+                completed_index, evaluation_result = await task
+            except Exception as e:
+                completed_index = question_index
+                correct_answer_letter = get_correct_answer_letter(item)
+                evaluation_result = {
+                    "question": item.get("question", ""),
+                    "options": item.get("options", []),
+                    "correct_answer": correct_answer_letter,
+                    "predicted_answer": None,
+                    "is_correct": False,
+                    "response": f"Error generating answer: {str(e)}",
+                    "retrieved_docs": 0,
+                    "error": str(e),
+                }
+            buffered_results[completed_index] = evaluation_result
+            schedule_next()
+
+        while next_commit_index in buffered_results:
+            evaluation_result = buffered_results.pop(next_commit_index)
+            processed_questions = next_commit_index + 1
 
             if evaluation_result["is_correct"]:
                 correct += 1
             total += 1
             results.append(evaluation_result)
+            next_commit_index += 1
 
             elapsed = time.time() - start_time
 
@@ -573,48 +843,60 @@ async def evaluate_with_pipeline_async(
                 print(f"  ERROR on question {processed_questions}: {evaluation_result['error']}")
 
             if progress_mgr:
-                progress_mgr.print_progress(
-                    run_name="ENHANCED_RAG",
-                    dataset_name=dataset_name,
-                    processed_questions=processed_questions,
-                    total_questions=len(questions),
-                    correct_count=correct,
-                    elapsed_time=elapsed,
+                should_print = (
+                    processed_questions == len(questions)
+                    or evaluation_result.get("error") is not None
+                    or processed_questions % print_every == 0
                 )
+                if should_print:
+                    progress_mgr.print_progress(
+                        run_name="ENHANCED_RAG",
+                        dataset_name=dataset_name,
+                        processed_questions=processed_questions,
+                        total_questions=len(questions),
+                        correct_count=correct,
+                        elapsed_time=elapsed,
+                    )
 
-                progress_mgr.save_checkpoint(
-                    dataset_name=dataset_name,
-                    total_questions=len(questions),
-                    processed_questions=processed_questions,
-                    current_top_k=top_k,
-                    results=results,
-                    correct_count=correct,
-                    total_count=total,
-                    elapsed_time=elapsed,
-                    config=progress_config,
-                    script_name=script_name or "enhanced_eval",
-                    error_message=evaluation_result.get("error"),
+                should_persist = (
+                    processed_questions == len(questions)
+                    or evaluation_result.get("error") is not None
+                    or processed_questions % persist_every == 0
                 )
-                if artifact_paths and live_config:
-                    stage_result = progress_mgr.build_stage_result(
+                if should_persist:
+                    progress_mgr.save_checkpoint(
                         dataset_name=dataset_name,
                         total_questions=len(questions),
                         processed_questions=processed_questions,
+                        current_top_k=top_k,
+                        results=results,
                         correct_count=correct,
+                        total_count=total,
                         elapsed_time=elapsed,
-                        detailed_results=results,
-                        top_k=top_k,
+                        config=progress_config,
+                        script_name=script_name or "enhanced_eval",
+                        error_message=evaluation_result.get("error"),
                     )
-                    live_sections = dict(extra_sections or {})
-                    live_sections["current_stage"] = stage_result
-                    progress_mgr.write_live_results(
-                        artifact_paths=artifact_paths,
-                        run_name="ENHANCED_RAG",
-                        evaluation_type="ENHANCED_RAG",
-                        config=live_config,
-                        stage_result=stage_result,
-                        extra_sections=live_sections,
-                    )
+                    if artifact_paths and live_config:
+                        stage_result = progress_mgr.build_stage_result(
+                            dataset_name=dataset_name,
+                            total_questions=len(questions),
+                            processed_questions=processed_questions,
+                            correct_count=correct,
+                            elapsed_time=elapsed,
+                            detailed_results=results,
+                            top_k=top_k,
+                        )
+                        live_sections = dict(extra_sections or {})
+                        live_sections["current_stage"] = stage_result
+                        progress_mgr.write_live_results(
+                            artifact_paths=artifact_paths,
+                            run_name="ENHANCED_RAG",
+                            evaluation_type="ENHANCED_RAG",
+                            config=live_config,
+                            stage_result=stage_result,
+                            extra_sections=live_sections,
+                        )
 
     elapsed = time.time() - start_time
     accuracy = correct / total if total > 0 else 0
@@ -662,12 +944,16 @@ async def main_async():
         print("\nNo questions loaded. Exiting...")
         return
 
-    # Evaluate only the legacy test slice questions[50:100].
-    test_start_index = config.DEV_SET_SIZE
-    test_set = questions[test_start_index : test_start_index + config.TEST_SET_SIZE]
+    dev_set, test_set = split_questions(
+        questions,
+        config.DEV_SET_SIZE,
+        config.TEST_SET_SIZE,
+    )
+    test_start_index = len(dev_set)
 
     print(f"\nEvaluation Scope:")
     print(f"  Only evaluating test set")
+    print(f"  Dev set size (aligned, not evaluated here): {len(dev_set)} questions")
     print(f"  Test set: {len(test_set)} questions")
     print(
         f"  Test question range: "
@@ -691,10 +977,15 @@ async def main_async():
     print("\nInitializing Enhanced RAG Pipeline...")
     print(f"  Hybrid Retrieval: {config.USE_HYBRID_RETRIEVAL}")
     print(f"  Query Rewrite: {config.USE_QUERY_REWRITE}")
+    print(f"  LLM Query Rewrite: {config.USE_LLM_QUERY_REWRITE}")
+    print(f"  LLM Query Rewrite Mode: {config.LLM_QUERY_REWRITE_MODE}")
     print(f"  Reranker: {config.USE_RERANKER}")
     print(f"  CoT Prompting: {config.USE_COT_PROMPT}")
     print(f"  Adaptive Retrieval: {config.USE_ADAPTIVE_RETRIEVAL}")
     print(f"  Max Concurrent: {config.CONCURRENCY.max_concurrent}")
+    print(f"  In-Flight Multiplier: {config.IN_FLIGHT_MULTIPLIER}")
+    print(f"  Progress Save Every: {config.PROGRESS_SAVE_EVERY} questions")
+    print(f"  Progress Print Every: {config.PROGRESS_PRINT_EVERY} questions")
     if config.USE_QUERY_REWRITE:
         print(
             f"  Query Rewrite Model: {config.QUERY_REWRITE_MODEL} "
@@ -712,6 +1003,7 @@ async def main_async():
     )
 
     live_config = {
+        "dev_set_size": len(dev_set),
         "test_set_size": len(test_set),
         "test_question_start_index": test_start_index,
         "test_question_end_index": test_start_index + len(test_set) - 1,
@@ -722,6 +1014,8 @@ async def main_async():
         "query_rewrite_temperature": config.QUERY_REWRITE_TEMPERATURE,
         "query_rewrite_max_tokens": config.QUERY_REWRITE_MAX_TOKENS,
         "query_rewrite_enable_thinking": config.QUERY_REWRITE_ENABLE_THINKING,
+        "llm_query_rewrite": config.USE_LLM_QUERY_REWRITE,
+        "llm_query_rewrite_mode": config.LLM_QUERY_REWRITE_MODE,
         "vector_store": config.VECTOR_STORE_PATH,
         "default_top_k": config.DEFAULT_TOP_K,
         "use_hybrid_retrieval": config.USE_HYBRID_RETRIEVAL,
@@ -730,7 +1024,10 @@ async def main_async():
         "use_cot_prompt": config.USE_COT_PROMPT,
         "use_adaptive_retrieval": config.USE_ADAPTIVE_RETRIEVAL,
         "max_concurrent": config.CONCURRENCY.max_concurrent,
+        "in_flight_multiplier": config.IN_FLIGHT_MULTIPLIER,
         "rpm_limit": config.CONCURRENCY.rpm_limit,
+        "progress_save_every": config.PROGRESS_SAVE_EVERY,
+        "progress_print_every": config.PROGRESS_PRINT_EVERY,
         "bm25_cache_path": str(bm25_cache_path),
     }
 

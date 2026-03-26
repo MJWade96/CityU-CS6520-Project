@@ -7,6 +7,7 @@ Implements query rewriting strategies:
 3. Query expansion (Multi-Query strategy)
 """
 
+import asyncio
 import os
 import json
 from typing import List, Dict, Any, Optional, Tuple
@@ -18,6 +19,9 @@ from app.rag.eval_shared import (
     DEFAULT_MODEL,
     DEFAULT_PROVIDER,
     EvaluationLLMConfig,
+    RateLimiter,
+    create_async_client,
+    get_qwen_completion_kwargs,
     get_qwen_langchain_kwargs,
     parse_optional_bool_env,
 )
@@ -269,6 +273,11 @@ Rewritten question:"""
             "base_url": self.base_url,
             **get_qwen_langchain_kwargs(llm_config),
         }
+        self.completion_kwargs = {
+            **get_qwen_completion_kwargs(llm_config),
+            "max_tokens": self.max_tokens,
+        }
+        self.async_client = create_async_client(llm_config)
         self.llm = ChatOpenAI(**llm_kwargs)
 
     def rewrite(self, query: str) -> str:
@@ -289,6 +298,43 @@ Rewritten question:"""
             return rewritten
         except Exception as e:
             # Fallback to original query
+            print(f"LLM rewrite failed: {e}")
+            return query
+
+    async def arewrite(
+        self,
+        query: str,
+        *,
+        rate_limiter: Optional[RateLimiter] = None,
+        api_semaphore: Optional[asyncio.Semaphore] = None,
+    ) -> str:
+        """Rewrite query asynchronously."""
+        prompt = self.REWRITE_PROMPT.format(query=query)
+
+        try:
+            if api_semaphore:
+                async with api_semaphore:
+                    if rate_limiter:
+                        await rate_limiter.acquire()
+                    completion = await self.async_client.chat.completions.create(
+                        messages=[{"role": "user", "content": prompt}],
+                        **self.completion_kwargs,
+                    )
+            else:
+                if rate_limiter:
+                    await rate_limiter.acquire()
+                completion = await self.async_client.chat.completions.create(
+                    messages=[{"role": "user", "content": prompt}],
+                    **self.completion_kwargs,
+                )
+
+            content = (
+                completion.choices[0].message.content
+                or completion.choices[0].message.reasoning_content
+                or ""
+            )
+            return content.strip() or query
+        except Exception as e:
             print(f"LLM rewrite failed: {e}")
             return query
 
@@ -385,6 +431,11 @@ Generated questions (3-5):"""
             "base_url": self.base_url,
             **get_qwen_langchain_kwargs(llm_config),
         }
+        self.completion_kwargs = {
+            **get_qwen_completion_kwargs(llm_config),
+            "max_tokens": self.max_tokens,
+        }
+        self.async_client = create_async_client(llm_config)
         self.llm = ChatOpenAI(**llm_kwargs)
 
     def expand(self, query: str) -> List[str]:
@@ -419,6 +470,56 @@ Generated questions (3-5):"""
 
             return cleaned[: self.num_expansions + 1]
 
+        except Exception as e:
+            print(f"Query expansion failed: {e}")
+            return [query]
+
+    async def aexpand(
+        self,
+        query: str,
+        *,
+        rate_limiter: Optional[RateLimiter] = None,
+        api_semaphore: Optional[asyncio.Semaphore] = None,
+    ) -> List[str]:
+        """Expand query asynchronously."""
+        prompt = self.EXPANSION_PROMPT.format(query=query)
+
+        try:
+            if api_semaphore:
+                async with api_semaphore:
+                    if rate_limiter:
+                        await rate_limiter.acquire()
+                    completion = await self.async_client.chat.completions.create(
+                        messages=[{"role": "user", "content": prompt}],
+                        **self.completion_kwargs,
+                    )
+            else:
+                if rate_limiter:
+                    await rate_limiter.acquire()
+                completion = await self.async_client.chat.completions.create(
+                    messages=[{"role": "user", "content": prompt}],
+                    **self.completion_kwargs,
+                )
+
+            content = (
+                completion.choices[0].message.content
+                or completion.choices[0].message.reasoning_content
+                or ""
+            )
+            expanded_queries = content.strip().split("\n")
+
+            cleaned = []
+            for q in expanded_queries:
+                q = q.strip()
+                if q and q[0].isdigit():
+                    q = q[2:].strip()
+                if q and len(q) > 5:
+                    cleaned.append(q)
+
+            if query not in cleaned:
+                cleaned.insert(0, query)
+
+            return cleaned[: self.num_expansions + 1]
         except Exception as e:
             print(f"Query expansion failed: {e}")
             return [query]
@@ -509,6 +610,16 @@ class QueryRewritePipeline:
         Returns:
             Tuple of (primary_rewritten_query, all_queries_for_retrieval)
         """
+        return self._rewrite_internal(query, mode=mode, use_llm=None)
+
+    def _rewrite_internal(
+        self,
+        query: str,
+        *,
+        mode: str = "single",
+        use_llm: Optional[bool] = None,
+    ) -> Tuple[str, List[str]]:
+        """Shared sync rewrite implementation with optional LLM override."""
         all_queries = [query]
 
         # Step 1: Dictionary-based rewriting
@@ -517,7 +628,10 @@ class QueryRewritePipeline:
             all_queries[0] = dict_rewritten
 
         # Step 2: LLM rewriting
-        if self.llm_rewriter and mode == "single":
+        llm_enabled = self.llm_rewriter is not None if use_llm is None else (
+            self.llm_rewriter is not None and use_llm
+        )
+        if llm_enabled and mode == "single":
             llm_rewritten = self.llm_rewriter.rewrite(all_queries[0])
             all_queries[0] = llm_rewritten
 
@@ -525,6 +639,52 @@ class QueryRewritePipeline:
         if self.expander and mode == "expanded":
             expanded = self.expander.expand(all_queries[0])
             all_queries = expanded
+
+        return all_queries[0], all_queries
+
+    def rewrite_with_options(
+        self,
+        query: str,
+        mode: str = "single",
+        *,
+        use_llm: Optional[bool] = None,
+    ) -> Tuple[str, List[str]]:
+        """Rewrite query with an optional per-call LLM toggle."""
+        return self._rewrite_internal(query, mode=mode, use_llm=use_llm)
+
+    async def arewrite(
+        self,
+        query: str,
+        mode: str = "single",
+        *,
+        rate_limiter: Optional[RateLimiter] = None,
+        api_semaphore: Optional[asyncio.Semaphore] = None,
+        use_llm: Optional[bool] = None,
+    ) -> Tuple[str, List[str]]:
+        """Rewrite query asynchronously."""
+        all_queries = [query]
+
+        if self.dict_rewriter:
+            dict_rewritten = self.dict_rewriter.rewrite(query)
+            all_queries[0] = dict_rewritten
+
+        llm_enabled = self.llm_rewriter is not None if use_llm is None else (
+            self.llm_rewriter is not None and use_llm
+        )
+        if llm_enabled and mode == "single":
+            llm_rewritten = await self.llm_rewriter.arewrite(
+                all_queries[0],
+                rate_limiter=rate_limiter,
+                api_semaphore=api_semaphore,
+            )
+            all_queries[0] = llm_rewritten
+
+        if self.expander and mode == "expanded":
+            all_queries = await self.expander.aexpand(
+                all_queries[0],
+                rate_limiter=rate_limiter,
+                api_semaphore=api_semaphore,
+            )
 
         return all_queries[0], all_queries
 
