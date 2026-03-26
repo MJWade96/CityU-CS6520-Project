@@ -7,10 +7,11 @@ Implements hybrid retrieval combining:
 3. RRF (Reciprocal Rank Fusion) for merging results
 """
 
-import os
+import json
+import pickle
 from typing import List, Dict, Any, Tuple, Optional
-from collections import defaultdict
 import math
+from pathlib import Path
 
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
@@ -34,6 +35,8 @@ class HybridRetriever:
         bm25_k1: float = 1.5,
         bm25_b: float = 0.75,
         dense_weight: float = 0.5,
+        dense_vectorstore: Optional[Any] = None,
+        bm25_cache_path: Optional[str] = None,
     ):
         """
         Initialize hybrid retriever.
@@ -44,25 +47,108 @@ class HybridRetriever:
             bm25_k1: BM25 k1 parameter
             bm25_b: BM25 b parameter
             dense_weight: Weight for dense retrieval (1-dense_weight for sparse)
+            dense_vectorstore: Optional persisted vector store for dense search
+            bm25_cache_path: Optional on-disk BM25 cache path
         """
         self.embedding_model = embedding_model
         self.documents = documents
         self.dense_weight = dense_weight
-        
+        self.dense_vectorstore = dense_vectorstore
+        self.bm25_cache_path = Path(bm25_cache_path) if bm25_cache_path else None
+        self.dense_embeddings: Optional[List[List[float]]] = None
+        self._doc_lookup: Dict[Tuple[str, Tuple[Tuple[str, Any], ...]], int] = {}
+
         # Initialize BM25
         self.bm25_k1 = bm25_k1
         self.bm25_b = bm25_b
-        
-        # Tokenize documents for BM25
-        self.bm25_corpus = [self._tokenize(doc.page_content) for doc in documents]
-        self.bm25 = BM25Okapi(
-            self.bm25_corpus,
-            k1=bm25_k1,
-            b=bm25_b
+
+        self.bm25_corpus: List[List[str]] = []
+        if not self._load_bm25_cache():
+            print(f"[HybridRetriever] Building BM25 corpus for {len(documents):,} documents...")
+            self.bm25_corpus = [self._tokenize(doc.page_content) for doc in documents]
+            self.bm25 = BM25Okapi(
+                self.bm25_corpus,
+                k1=bm25_k1,
+                b=bm25_b
+            )
+            self._save_bm25_cache()
+            print("[HybridRetriever] BM25 index ready")
+
+        if self.dense_vectorstore is not None:
+            print("[HybridRetriever] Reusing loaded vector store for dense retrieval")
+            self._doc_lookup = self._build_doc_lookup()
+        else:
+            print("[HybridRetriever] Building dense embeddings cache...")
+            self._build_dense_index()
+            print("[HybridRetriever] Dense embeddings cache ready")
+
+    def _load_bm25_cache(self) -> bool:
+        """Load a persisted BM25 index when available."""
+        if not self.bm25_cache_path or not self.bm25_cache_path.exists():
+            return False
+
+        try:
+            with self.bm25_cache_path.open("rb") as handle:
+                payload = pickle.load(handle)
+            if payload.get("document_count") != len(self.documents):
+                return False
+            if payload.get("bm25_k1") != self.bm25_k1 or payload.get("bm25_b") != self.bm25_b:
+                return False
+            self.bm25 = payload["bm25"]
+            self.bm25_corpus = []
+            print(f"[HybridRetriever] Loaded BM25 cache from {self.bm25_cache_path}")
+            return True
+        except Exception as exc:
+            print(f"[HybridRetriever] Failed to load BM25 cache: {exc}")
+            return False
+
+    def _save_bm25_cache(self) -> None:
+        """Persist the BM25 index for future runs."""
+        if not self.bm25_cache_path:
+            return
+
+        try:
+            self.bm25_cache_path.parent.mkdir(parents=True, exist_ok=True)
+            with self.bm25_cache_path.open("wb") as handle:
+                pickle.dump(
+                    {
+                        "document_count": len(self.documents),
+                        "bm25_k1": self.bm25_k1,
+                        "bm25_b": self.bm25_b,
+                        "bm25": self.bm25,
+                    },
+                    handle,
+                    protocol=pickle.HIGHEST_PROTOCOL,
+                )
+            print(f"[HybridRetriever] Saved BM25 cache to {self.bm25_cache_path}")
+        except Exception as exc:
+            print(f"[HybridRetriever] Failed to save BM25 cache: {exc}")
+
+    def _normalize_metadata_value(self, value: Any) -> Any:
+        """Convert metadata values into a stable hashable representation."""
+        if isinstance(value, (str, int, float, bool)) or value is None:
+            return value
+        try:
+            return json.dumps(value, sort_keys=True, ensure_ascii=False)
+        except TypeError:
+            return str(value)
+
+    def _doc_key(self, doc: Document) -> Tuple[str, Tuple[Tuple[str, Any], ...]]:
+        """Build a stable lookup key for a document."""
+        metadata_items = tuple(
+            sorted(
+                (str(key), self._normalize_metadata_value(value))
+                for key, value in doc.metadata.items()
+            )
         )
-        
-        # Build dense index
-        self._build_dense_index()
+        return (doc.page_content, metadata_items)
+
+    def _build_doc_lookup(self) -> Dict[Tuple[str, Tuple[Tuple[str, Any], ...]], int]:
+        """Map document identity back to the loaded corpus index."""
+        return {
+            self._doc_key(doc): index
+            for index, doc in enumerate(self.documents)
+        }
     
     def _tokenize(self, text: str) -> List[str]:
         """Simple tokenizer for BM25"""
@@ -87,6 +173,23 @@ class HybridRetriever:
         Returns:
             List of (doc_index, score) tuples
         """
+        if self.dense_vectorstore is not None:
+            search_results = self.dense_vectorstore.similarity_search_with_score(
+                query,
+                k=k
+            )
+            indexed_results: List[Tuple[int, float]] = []
+            seen_doc_ids = set()
+
+            for rank, (doc, _) in enumerate(search_results, start=1):
+                doc_id = self._doc_lookup.get(self._doc_key(doc))
+                if doc_id is None or doc_id in seen_doc_ids:
+                    continue
+                seen_doc_ids.add(doc_id)
+                indexed_results.append((doc_id, 1.0 / rank))
+
+            return indexed_results[:k]
+
         query_embedding = self.embedding_model.embed_query(query)
         
         # Calculate cosine similarity
@@ -229,7 +332,8 @@ class HybridRetriever:
                 'k1': self.bm25_k1,
                 'b': self.bm25_b
             },
-            'dense_weight': self.dense_weight
+            'dense_weight': self.dense_weight,
+            'dense_source': 'vectorstore' if self.dense_vectorstore is not None else 'in_memory_embeddings',
         }
 
 

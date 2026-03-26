@@ -17,6 +17,8 @@ Usage:
     python enhanced_eval.py
 """
 
+import asyncio
+import hashlib
 import os
 import sys
 import json
@@ -39,7 +41,15 @@ from app.rag.chunking import SemanticChunker, ParentChildChunker
 from app.rag.metadata_enhancement import MetadataGenerator, RuleBasedMetadataGenerator
 from app.rag.progress_manager import EvaluationProgressManager
 from app.rag.data_paths import EVALUATION_DIR, EVALUATION_RESULTS_DIR, FAISS_INDEX_DIR
-from app.rag.eval_shared import build_extra_body, parse_optional_bool_env
+from app.rag.eval_shared import (
+    ConcurrencyConfig,
+    EvaluationLLMConfig,
+    RateLimiter,
+    build_medical_eval_prompt,
+    extract_answer,
+    get_qwen_langchain_kwargs,
+    parse_optional_bool_env,
+)
 
 
 # ============================================================
@@ -60,9 +70,20 @@ class EnhancedEvaluationConfig:
     LLM_PROVIDER = "Qwen3-4B"
     LLM_MODEL = "8606056bfe0c49448d92587452d1f2fc"
     LLM_TEMPERATURE = 0.1
-    LLM_MAX_TOKENS = 512
     LLM_BASE_URL = "https://wishub-x6.ctyun.cn/v1"
     LLM_API_KEY = "4dbe3bec3ee548d28b649b324e741939"
+    QUERY_REWRITE_PROVIDER = os.getenv("RAG_QUERY_REWRITE_PROVIDER", LLM_PROVIDER)
+    QUERY_REWRITE_MODEL = os.getenv("RAG_QUERY_REWRITE_MODEL", LLM_MODEL)
+    QUERY_REWRITE_TEMPERATURE = float(
+        os.getenv("RAG_QUERY_REWRITE_TEMPERATURE", str(LLM_TEMPERATURE))
+    )
+    QUERY_REWRITE_MAX_TOKENS = int(os.getenv("RAG_QUERY_REWRITE_MAX_TOKENS", "200"))
+    QUERY_REWRITE_BASE_URL = os.getenv("RAG_QUERY_REWRITE_BASE_URL", LLM_BASE_URL)
+    QUERY_REWRITE_API_KEY = os.getenv("RAG_QUERY_REWRITE_API_KEY", LLM_API_KEY)
+    QUERY_REWRITE_ENABLE_THINKING = parse_optional_bool_env(
+        "RAG_QUERY_REWRITE_ENABLE_THINKING",
+        default=False,
+    )
 
     # Retrieval configuration
     TOP_K_VALUES = [1, 3, 5, 10]
@@ -72,13 +93,15 @@ class EnhancedEvaluationConfig:
     USE_HYBRID_RETRIEVAL = True
     USE_QUERY_REWRITE = True
     USE_RERANKER = True
-    USE_COT_PROMPT = True
+    USE_COT_PROMPT = False
     USE_ADAPTIVE_RETRIEVAL = False
+    CONCURRENCY = ConcurrencyConfig()
 
     # File paths
     VECTOR_STORE_PATH = str(FAISS_INDEX_DIR)
     QUESTION_FILE = str(EVALUATION_DIR / "medqa.json")
     OUTPUT_DIR = str(EVALUATION_RESULTS_DIR)
+    CACHE_DIR = str(EVALUATION_RESULTS_DIR / "cache")
 
 
 # ============================================================
@@ -94,72 +117,29 @@ class EnhancedMedicalLLMGenerator:
         provider: str = "Qwen3-4B",
         model: str = "8606056bfe0c49448d92587452d1f2fc",
         temperature: float = 0.1,
-        max_tokens: int = 512,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
-        use_cot: bool = True,
     ):
-        """Initialize enhanced LLM generator"""
+        """Initialize the shared-eval-style LLM generator."""
         self.provider = provider
         self.model = model
         self.temperature = temperature
-        self.max_tokens = max_tokens
-        self.use_cot = use_cot
-        self.enable_thinking = parse_optional_bool_env("RAG_LLM_ENABLE_THINKING")
-
         # Get API credentials
         self.api_key = api_key or "4dbe3bec3ee548d28b649b324e741939"
         self.base_url = base_url or "https://wishub-x6.ctyun.cn/v1"
 
-        # Initialize LLM
-        llm_kwargs = {
-            "model": self.model,
-            "temperature": self.temperature,
-            "max_tokens": self.max_tokens,
-            "api_key": self.api_key,
-            "base_url": self.base_url,
-        }
-        extra_body = build_extra_body(enable_thinking=self.enable_thinking)
-        if extra_body:
-            llm_kwargs["extra_body"] = extra_body
-
-        self.llm = ChatOpenAI(**llm_kwargs)
-
-        # Initialize prompt
-        self.prompt_template = self._get_prompt_template()
-
-    def _get_prompt_template(self) -> str:
-        """Get prompt template based on configuration"""
-        if self.use_cot:
-            return """You are a medical expert assistant. Answer the following question based on the provided context.
-
-Context:
-{context}
-
-Question: {question}
-
-Options:
-{options}
-
-Please think step by step and then provide your answer in the following format:
-Answer: [A/B/C/D/E]
-
-Your response:"""
-        else:
-            return """You are a medical expert assistant. Answer the following question based on the provided context.
-
-Context:
-{context}
-
-Question: {question}
-
-Options:
-{options}
-
-Please provide your answer in the following format:
-Answer: [A/B/C/D/E]
-
-Your response:"""
+        llm_config = EvaluationLLMConfig(
+            provider=self.provider,
+            model=self.model,
+            temperature=self.temperature,
+            base_url=self.base_url,
+            api_key=self.api_key,
+        )
+        self.llm = ChatOpenAI(
+            api_key=self.api_key,
+            base_url=self.base_url,
+            **get_qwen_langchain_kwargs(llm_config),
+        )
 
     def generate(
         self,
@@ -167,28 +147,16 @@ Your response:"""
         contexts: List[str],
         options: Optional[List[str]] = None,
     ) -> str:
-        """Generate answer using enhanced prompt"""
-        # Format context
-        context_text = "\n\n".join([f"[{i+1}] {ctx}" for i, ctx in enumerate(contexts)])
-
-        # Format options
-        if options:
-            options_text = "\n".join(
-                [f"{chr(65+i)}. {opt}" for i, opt in enumerate(options)]
-            )
-        else:
-            options_text = (
-                "A. Not provided\nB. Not provided\nC. Not provided\nD. Not provided"
-            )
-
-        # Build prompt
-        prompt = self.prompt_template.format(
-            context=context_text,
+        """Generate an answer using the shared evaluation prompt."""
+        prompt = build_medical_eval_prompt(
             question=question,
-            options=options_text,
+            options=options or [],
+            context="\n\n".join(
+                f"[{index + 1}] {context}"
+                for index, context in enumerate(contexts)
+            ),
         )
 
-        # Generate response
         try:
             response = self.llm.invoke(prompt)
             return response.content
@@ -196,22 +164,8 @@ Your response:"""
             return f"Error generating answer: {str(e)}"
 
     def extract_answer(self, response: str) -> Optional[str]:
-        """Extract answer choice from LLM response"""
-        import re
-
-        # Try to find answer pattern
-        patterns = [
-            r"Answer:\s*([A-E])",
-            r"answer:\s*([A-E])",
-            r"\b([A-E])\b",
-        ]
-
-        for pattern in patterns:
-            match = re.search(pattern, response, re.IGNORECASE)
-            if match:
-                return match.group(1).upper()
-
-        return None
+        """Extract the final answer using the shared helper."""
+        return extract_answer(response)
 
 
 # ============================================================
@@ -235,17 +189,23 @@ class EnhancedRAGPipeline:
         embedding_model,
         documents: List[Document],
         config: EnhancedEvaluationConfig,
+        vectorstore=None,
+        bm25_cache_path: Optional[str] = None,
     ):
         """Initialize enhanced RAG pipeline"""
         self.config = config
         self.documents = documents
         self.embedding_model = embedding_model
+        self.vectorstore = vectorstore
+        self.bm25_cache_path = bm25_cache_path
 
         # Initialize hybrid retriever
         self.hybrid_retriever = HybridRetriever(
             embedding_model=embedding_model,
             documents=documents,
             dense_weight=0.5,
+            dense_vectorstore=vectorstore,
+            bm25_cache_path=bm25_cache_path,
         )
 
         # Initialize adaptive retriever
@@ -256,10 +216,13 @@ class EnhancedRAGPipeline:
             use_dict=True,
             use_llm=config.USE_QUERY_REWRITE,
             use_expansion=False,
-            llm_provider=config.LLM_PROVIDER,
-            llm_model=config.LLM_MODEL,
-            api_key=config.LLM_API_KEY,
-            base_url=config.LLM_BASE_URL,
+            llm_provider=config.QUERY_REWRITE_PROVIDER,
+            llm_model=config.QUERY_REWRITE_MODEL,
+            api_key=config.QUERY_REWRITE_API_KEY,
+            base_url=config.QUERY_REWRITE_BASE_URL,
+            llm_temperature=config.QUERY_REWRITE_TEMPERATURE,
+            llm_max_tokens=config.QUERY_REWRITE_MAX_TOKENS,
+            llm_enable_thinking=config.QUERY_REWRITE_ENABLE_THINKING,
         )
 
         # Initialize reranker
@@ -275,10 +238,8 @@ class EnhancedRAGPipeline:
             provider=config.LLM_PROVIDER,
             model=config.LLM_MODEL,
             temperature=config.LLM_TEMPERATURE,
-            max_tokens=config.LLM_MAX_TOKENS,
             api_key=config.LLM_API_KEY,
             base_url=config.LLM_BASE_URL,
-            use_cot=config.USE_COT_PROMPT,
         )
 
     def retrieve(
@@ -366,7 +327,6 @@ class EnhancedRAGPipeline:
             "predicted_answer": predicted_answer,
         }
 
-
 # ============================================================
 # Evaluation Functions
 # ============================================================
@@ -394,7 +354,7 @@ def load_vector_store(config: EnhancedEvaluationConfig):
     if not os.path.exists(config.VECTOR_STORE_PATH):
         print(f"ERROR: Vector store not found: {config.VECTOR_STORE_PATH}")
         print("Run build_vector_index.py first")
-        return None, None
+        return None, None, None
 
     # Load embeddings
     print("Loading embedding model...")
@@ -423,7 +383,7 @@ def load_vector_store(config: EnhancedEvaluationConfig):
         # Fallback: create empty list
         documents = []
 
-    return embeddings, documents
+    return embeddings, documents, vectorstore
 
 
 def get_compatible_resume_info(
@@ -460,7 +420,55 @@ def get_compatible_resume_info(
     }
 
 
-def evaluate_with_pipeline(
+def build_bm25_cache_path(
+    config: EnhancedEvaluationConfig,
+    documents: List[Document],
+) -> Path:
+    """Build a stable cache path for the BM25 retriever index."""
+    cache_dir = Path(config.CACHE_DIR)
+    build_metadata_path = Path(config.VECTOR_STORE_PATH) / "build_metadata.json"
+    metadata_fingerprint = ""
+    if build_metadata_path.exists():
+        metadata_fingerprint = build_metadata_path.read_text(encoding="utf-8")
+
+    signature_payload = {
+        "vector_store_path": str(Path(config.VECTOR_STORE_PATH).resolve()),
+        "document_count": len(documents),
+        "metadata_fingerprint": metadata_fingerprint,
+        "bm25_k1": 1.5,
+        "bm25_b": 0.75,
+    }
+    digest = hashlib.sha256(
+        json.dumps(signature_payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    ).hexdigest()[:16]
+    return cache_dir / f"enhanced_bm25_{digest}.pkl"
+
+
+def build_progress_config(
+    pipeline: EnhancedRAGPipeline,
+    top_k: int,
+) -> Dict[str, Any]:
+    """Build the checkpoint/live-results config payload."""
+    reranker_stats = pipeline.reranker.get_stats() if pipeline.reranker else {}
+    return {
+        "top_k": top_k,
+        "llm_provider": pipeline.config.LLM_PROVIDER,
+        "llm_model": pipeline.config.LLM_MODEL,
+        "query_rewrite_provider": pipeline.config.QUERY_REWRITE_PROVIDER,
+        "query_rewrite_model": pipeline.config.QUERY_REWRITE_MODEL,
+        "query_rewrite_temperature": pipeline.config.QUERY_REWRITE_TEMPERATURE,
+        "query_rewrite_max_tokens": pipeline.config.QUERY_REWRITE_MAX_TOKENS,
+        "query_rewrite_enable_thinking": pipeline.config.QUERY_REWRITE_ENABLE_THINKING,
+        "hybrid_retrieval": pipeline.config.USE_HYBRID_RETRIEVAL,
+        "query_rewrite": pipeline.config.USE_QUERY_REWRITE,
+        "reranker": pipeline.config.USE_RERANKER,
+        "reranker_available": reranker_stats.get("cross_encoder_available", False),
+        "max_concurrent": pipeline.config.CONCURRENCY.max_concurrent,
+        "rpm_limit": pipeline.config.CONCURRENCY.rpm_limit,
+    }
+
+
+async def evaluate_with_pipeline_async(
     pipeline: EnhancedRAGPipeline,
     questions: List[Dict],
     top_k: int = 5,
@@ -476,7 +484,7 @@ def evaluate_with_pipeline(
     live_config: Optional[Dict[str, Any]] = None,
     extra_sections: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Evaluate using enhanced pipeline with checkpoint support"""
+    """Evaluate using the enhanced pipeline with batch concurrency."""
     print(f"\n{'=' * 60}")
     if start_from > 0:
         print(f"Resuming {dataset_name} (top-k={top_k}) from question {start_from + 1}")
@@ -485,32 +493,38 @@ def evaluate_with_pipeline(
     print(f"{'=' * 60}")
 
     start_time = time.time() - initial_elapsed
-    results = initial_results if initial_results is not None else []
+    results = list(initial_results or [])
     correct = initial_correct
     total = initial_total
 
     questions_to_process = questions[start_from:]
+    progress_config = build_progress_config(pipeline, top_k=top_k)
+    batch_size = max(1, pipeline.config.CONCURRENCY.max_concurrent)
+    rate_limiter = RateLimiter(
+        requests_per_second=pipeline.config.CONCURRENCY.requests_per_second,
+        burst=batch_size,
+    )
 
-    for i, q in enumerate(questions_to_process, start_from + 1):
+    async def evaluate_item(q: Dict[str, Any]) -> Dict[str, Any]:
         question_text = q.get("question", "")
         options = q.get("options", [])
         correct_answer = q.get("answer", "")
         answer_index = q.get("answer_index", -1)
 
-        # Convert answer_index to letter
         if answer_index >= 0:
             correct_answer_letter = chr(65 + answer_index)
         else:
             correct_answer_letter = correct_answer
 
         try:
-            # Use pipeline
-            result = pipeline.answer(
-                query=question_text,
-                options=options,
-                top_k=top_k,
-                use_rewrite=pipeline.config.USE_QUERY_REWRITE,
-                use_rerank=pipeline.config.USE_RERANKER,
+            await rate_limiter.acquire()
+            result = await asyncio.to_thread(
+                pipeline.answer,
+                question_text,
+                options,
+                top_k,
+                pipeline.config.USE_QUERY_REWRITE,
+                pipeline.config.USE_RERANKER,
             )
 
             is_correct = result["predicted_answer"] == correct_answer_letter.upper()
@@ -523,52 +537,69 @@ def evaluate_with_pipeline(
                 "is_correct": is_correct,
                 "response": result["response"],
                 "retrieved_docs": len(result["retrieved_docs"]),
+                "error": None,
+            }
+            if str(result["response"]).startswith("Error generating answer:"):
+                evaluation_result["error"] = result["response"]
+        except Exception as e:
+            evaluation_result = {
+                "question": question_text,
+                "options": options,
+                "correct_answer": correct_answer_letter,
+                "predicted_answer": None,
+                "is_correct": False,
+                "response": f"Error generating answer: {str(e)}",
+                "retrieved_docs": 0,
+                "error": str(e),
             }
 
-            results.append(evaluation_result)
+        return evaluation_result
 
-            if is_correct:
+    for batch_start in range(0, len(questions_to_process), batch_size):
+        batch = questions_to_process[batch_start : batch_start + batch_size]
+        batch_results = await asyncio.gather(*(evaluate_item(item) for item in batch))
+
+        for offset, evaluation_result in enumerate(batch_results, start=1):
+            processed_questions = start_from + batch_start + offset
+
+            if evaluation_result["is_correct"]:
                 correct += 1
             total += 1
+            results.append(evaluation_result)
 
             elapsed = time.time() - start_time
+
+            if evaluation_result.get("error"):
+                print(f"  ERROR on question {processed_questions}: {evaluation_result['error']}")
 
             if progress_mgr:
                 progress_mgr.print_progress(
                     run_name="ENHANCED_RAG",
                     dataset_name=dataset_name,
-                    processed_questions=i,
+                    processed_questions=processed_questions,
                     total_questions=len(questions),
                     correct_count=correct,
                     elapsed_time=elapsed,
                 )
 
-            # Save checkpoint after each question
-            if progress_mgr:
                 progress_mgr.save_checkpoint(
                     dataset_name=dataset_name,
                     total_questions=len(questions),
-                    processed_questions=i,
+                    processed_questions=processed_questions,
                     current_top_k=top_k,
                     results=results,
                     correct_count=correct,
                     total_count=total,
                     elapsed_time=elapsed,
-                    config={
-                        "top_k": top_k,
-                        "llm_provider": "Qwen3-4B",
-                        "llm_model": "8606056bfe0c49448d92587452d1f2fc",
-                        "hybrid_retrieval": pipeline.config.USE_HYBRID_RETRIEVAL,
-                        "query_rewrite": pipeline.config.USE_QUERY_REWRITE,
-                        "reranker": pipeline.config.USE_RERANKER,
-                    },
+                    config=progress_config,
                     script_name=script_name or "enhanced_eval",
+                    error_message=evaluation_result.get("error"),
                 )
                 if artifact_paths and live_config:
                     stage_result = progress_mgr.build_stage_result(
                         dataset_name=dataset_name,
                         total_questions=len(questions),
-                        processed_questions=i,
+                        processed_questions=processed_questions,
                         correct_count=correct,
                         elapsed_time=elapsed,
                         detailed_results=results,
@@ -584,32 +615,6 @@ def evaluate_with_pipeline(
                         stage_result=stage_result,
                         extra_sections=live_sections,
                     )
-
-        except Exception as e:
-            print(f"  ERROR on question {i}: {e}")
-            if progress_mgr:
-                elapsed = time.time() - start_time
-                progress_mgr.save_checkpoint(
-                    dataset_name=dataset_name,
-                    total_questions=len(questions),
-                    processed_questions=i,
-                    current_top_k=top_k,
-                    results=results,
-                    correct_count=correct,
-                    total_count=total,
-                    elapsed_time=elapsed,
-                    config={
-                        "top_k": top_k,
-                        "llm_provider": "Qwen3-4B",
-                        "llm_model": "8606056bfe0c49448d92587452d1f2fc",
-                        "hybrid_retrieval": pipeline.config.USE_HYBRID_RETRIEVAL,
-                        "query_rewrite": pipeline.config.USE_QUERY_REWRITE,
-                        "reranker": pipeline.config.USE_RERANKER,
-                    },
-                    script_name=script_name or "enhanced_eval",
-                    error_message=f"Error on question {i}: {str(e)}",
-                )
-            continue
 
     elapsed = time.time() - start_time
     accuracy = correct / total if total > 0 else 0
@@ -632,8 +637,8 @@ def evaluate_with_pipeline(
 # ============================================================
 
 
-def main():
-    """Main evaluation function with checkpoint support"""
+async def main_async():
+    """Main evaluation function with checkpoint support."""
     print("=" * 60)
     print("Enhanced Medical RAG System - Complete Evaluation")
     print("Phase 1 + Phase 2 Optimizations")
@@ -644,6 +649,7 @@ def main():
 
     # Create output directory
     os.makedirs(config.OUTPUT_DIR, exist_ok=True)
+    os.makedirs(config.CACHE_DIR, exist_ok=True)
 
     # Initialize progress manager
     progress_mgr = EvaluationProgressManager(output_dir=config.OUTPUT_DIR)
@@ -671,11 +677,13 @@ def main():
     )
 
     # Load vector store
-    embeddings, documents = load_vector_store(config)
+    embeddings, documents, vectorstore = load_vector_store(config)
 
-    if embeddings is None or documents is None:
+    if embeddings is None or documents is None or vectorstore is None:
         print("\nFailed to load vector store. Exiting...")
         return
+
+    bm25_cache_path = build_bm25_cache_path(config, documents)
 
     # Initialize enhanced pipeline
     print("\nInitializing Enhanced RAG Pipeline...")
@@ -684,11 +692,21 @@ def main():
     print(f"  Reranker: {config.USE_RERANKER}")
     print(f"  CoT Prompting: {config.USE_COT_PROMPT}")
     print(f"  Adaptive Retrieval: {config.USE_ADAPTIVE_RETRIEVAL}")
+    print(f"  Max Concurrent: {config.CONCURRENCY.max_concurrent}")
+    if config.USE_QUERY_REWRITE:
+        print(
+            f"  Query Rewrite Model: {config.QUERY_REWRITE_MODEL} "
+            f"(temp={config.QUERY_REWRITE_TEMPERATURE}, "
+            f"max_tokens={config.QUERY_REWRITE_MAX_TOKENS}, "
+            f"thinking={config.QUERY_REWRITE_ENABLE_THINKING})"
+        )
 
     pipeline = EnhancedRAGPipeline(
         embedding_model=embeddings,
         documents=documents,
         config=config,
+        vectorstore=vectorstore,
+        bm25_cache_path=str(bm25_cache_path),
     )
 
     live_config = {
@@ -698,6 +716,11 @@ def main():
         "test_question_end_index": config.DEV_SET_SIZE + len(test_set) - 1,
         "llm_provider": config.LLM_PROVIDER,
         "llm_model": config.LLM_MODEL,
+        "query_rewrite_provider": config.QUERY_REWRITE_PROVIDER,
+        "query_rewrite_model": config.QUERY_REWRITE_MODEL,
+        "query_rewrite_temperature": config.QUERY_REWRITE_TEMPERATURE,
+        "query_rewrite_max_tokens": config.QUERY_REWRITE_MAX_TOKENS,
+        "query_rewrite_enable_thinking": config.QUERY_REWRITE_ENABLE_THINKING,
         "vector_store": config.VECTOR_STORE_PATH,
         "default_top_k": config.DEFAULT_TOP_K,
         "use_hybrid_retrieval": config.USE_HYBRID_RETRIEVAL,
@@ -705,7 +728,14 @@ def main():
         "use_reranker": config.USE_RERANKER,
         "use_cot_prompt": config.USE_COT_PROMPT,
         "use_adaptive_retrieval": config.USE_ADAPTIVE_RETRIEVAL,
+        "max_concurrent": config.CONCURRENCY.max_concurrent,
+        "rpm_limit": config.CONCURRENCY.rpm_limit,
+        "bm25_cache_path": str(bm25_cache_path),
     }
+
+    reranker_stats = pipeline.reranker.get_stats() if pipeline.reranker else {}
+    if config.USE_RERANKER and not reranker_stats.get("cross_encoder_available", False):
+        print("[warn] Cross-Encoder failed to load; reranking is currently bypassed")
 
     print("[OK] Enhanced RAG Pipeline initialized")
 
@@ -729,7 +759,7 @@ def main():
             f"\n🔄 Resuming dev set evaluation from question {resume_info_dev['start_from'] + 1}"
         )
 
-        dev_results = evaluate_with_pipeline(
+        dev_results = await evaluate_with_pipeline_async(
             pipeline,
             dev_set,
             top_k=config.DEFAULT_TOP_K,
@@ -745,7 +775,7 @@ def main():
             live_config=live_config,
         )
     else:
-        dev_results = evaluate_with_pipeline(
+        dev_results = await evaluate_with_pipeline_async(
             pipeline,
             dev_set,
             top_k=config.DEFAULT_TOP_K,
@@ -779,7 +809,7 @@ def main():
             f"\n🔄 Resuming test set evaluation from question {resume_info_test['start_from'] + 1}"
         )
 
-    test_results = evaluate_with_pipeline(
+    test_results = await evaluate_with_pipeline_async(
         pipeline,
         test_set,
         top_k=config.DEFAULT_TOP_K,
@@ -837,6 +867,11 @@ def main():
     print(f"Results JSON: {paths['json']}")
     print(f"Summary TXT: {paths['summary']}")
     print(f"{'=' * 60}")
+
+
+def main():
+    """CLI entrypoint."""
+    asyncio.run(main_async())
 
 
 if __name__ == "__main__":

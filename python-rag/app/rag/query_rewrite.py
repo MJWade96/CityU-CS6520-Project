@@ -12,7 +12,29 @@ import json
 from typing import List, Dict, Any, Optional, Tuple
 from langchain_openai import ChatOpenAI
 
-from app.rag.eval_shared import build_extra_body, parse_optional_bool_env
+from app.rag.eval_shared import (
+    DEFAULT_API_KEY,
+    DEFAULT_BASE_URL,
+    DEFAULT_MODEL,
+    DEFAULT_PROVIDER,
+    EvaluationLLMConfig,
+    get_qwen_langchain_kwargs,
+    parse_optional_bool_env,
+)
+
+
+def _get_env_with_fallback(primary_name: str, fallback_name: str, default: str) -> str:
+    """Read a rewrite-specific env var and fall back to the shared LLM env."""
+    return os.getenv(primary_name, os.getenv(fallback_name, default))
+
+
+def _get_query_rewrite_enable_thinking(default: Optional[bool] = False) -> Optional[bool]:
+    """Resolve query-rewrite thinking config independently from final generation."""
+    shared_default = parse_optional_bool_env("RAG_LLM_ENABLE_THINKING", default=default)
+    return parse_optional_bool_env(
+        "RAG_QUERY_REWRITE_ENABLE_THINKING",
+        default=shared_default,
+    )
 
 
 class MedicalDictionaryRewriter:
@@ -170,12 +192,13 @@ Rewritten question:"""
 
     def __init__(
         self,
-        provider: str = "Qwen3-4B",
-        model: str = "8606056bfe0c49448d92587452d1f2fc",
+        provider: Optional[str] = None,
+        model: Optional[str] = None,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
-        temperature: float = 0.1,
-        max_tokens: int = 200,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        enable_thinking: Optional[bool] = None,
     ):
         """
         Initialize LLM rewriter.
@@ -188,30 +211,64 @@ Rewritten question:"""
             temperature: Sampling temperature
             max_tokens: Max generation tokens
         """
-        self.provider = provider
-        self.model = model
-        self.temperature = temperature
-        self.max_tokens = max_tokens
-        self.enable_thinking = parse_optional_bool_env("RAG_LLM_ENABLE_THINKING")
+        self.provider = provider or _get_env_with_fallback(
+            "RAG_QUERY_REWRITE_PROVIDER",
+            "RAG_LLM_PROVIDER",
+            DEFAULT_PROVIDER,
+        )
+        self.model = model or _get_env_with_fallback(
+            "RAG_QUERY_REWRITE_MODEL",
+            "RAG_LLM_MODEL",
+            DEFAULT_MODEL,
+        )
+        self.temperature = (
+            temperature
+            if temperature is not None
+            else float(
+                _get_env_with_fallback(
+                    "RAG_QUERY_REWRITE_TEMPERATURE",
+                    "RAG_LLM_TEMPERATURE",
+                    "0.1",
+                )
+            )
+        )
+        self.max_tokens = (
+            max_tokens
+            if max_tokens is not None
+            else int(os.getenv("RAG_QUERY_REWRITE_MAX_TOKENS", "200"))
+        )
+        self.enable_thinking = (
+            enable_thinking
+            if enable_thinking is not None
+            else _get_query_rewrite_enable_thinking(default=False)
+        )
 
         # Get API credentials
-        self.api_key = api_key or os.getenv(
-            "DEEPSEEK_API_KEY", "6fcecb364d0647d2883e7f1d3f19d5b9"
+        self.api_key = api_key or _get_env_with_fallback(
+            "RAG_QUERY_REWRITE_API_KEY",
+            "RAG_LLM_API_KEY",
+            DEFAULT_API_KEY,
         )
-        self.base_url = base_url or "https://wishub-x6.ctyun.cn/v1"
+        self.base_url = base_url or _get_env_with_fallback(
+            "RAG_QUERY_REWRITE_BASE_URL",
+            "RAG_LLM_BASE_URL",
+            DEFAULT_BASE_URL,
+        )
 
-        # Initialize LLM
+        llm_config = EvaluationLLMConfig(
+            provider=self.provider,
+            model=self.model,
+            temperature=self.temperature,
+            base_url=self.base_url,
+            api_key=self.api_key,
+            enable_thinking=self.enable_thinking,
+        )
         llm_kwargs = {
-            "model": self.model,
-            "temperature": self.temperature,
             "max_tokens": self.max_tokens,
             "api_key": self.api_key,
             "base_url": self.base_url,
+            **get_qwen_langchain_kwargs(llm_config),
         }
-        extra_body = build_extra_body(enable_thinking=self.enable_thinking)
-        if extra_body:
-            llm_kwargs["extra_body"] = extra_body
-
         self.llm = ChatOpenAI(**llm_kwargs)
 
     def rewrite(self, query: str) -> str:
@@ -256,11 +313,14 @@ Generated questions (3-5):"""
 
     def __init__(
         self,
-        provider: str = "Qwen3-4B",
-        model: str = "8606056bfe0c49448d92587452d1f2fc",
+        provider: Optional[str] = None,
+        model: Optional[str] = None,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         num_expansions: int = 3,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        enable_thinking: Optional[bool] = None,
     ):
         """
         Initialize query expander.
@@ -272,29 +332,59 @@ Generated questions (3-5):"""
             base_url: API base URL
             num_expansions: Number of expanded queries to generate
         """
-        self.provider = provider
-        self.model = model
+        self.provider = provider or _get_env_with_fallback(
+            "RAG_QUERY_REWRITE_PROVIDER",
+            "RAG_LLM_PROVIDER",
+            DEFAULT_PROVIDER,
+        )
+        self.model = model or _get_env_with_fallback(
+            "RAG_QUERY_REWRITE_MODEL",
+            "RAG_LLM_MODEL",
+            DEFAULT_MODEL,
+        )
         self.num_expansions = num_expansions
-        self.enable_thinking = parse_optional_bool_env("RAG_LLM_ENABLE_THINKING")
+        self.temperature = (
+            temperature
+            if temperature is not None
+            else float(os.getenv("RAG_QUERY_EXPANSION_TEMPERATURE", "0.3"))
+        )
+        self.max_tokens = (
+            max_tokens
+            if max_tokens is not None
+            else int(os.getenv("RAG_QUERY_EXPANSION_MAX_TOKENS", "300"))
+        )
+        self.enable_thinking = (
+            enable_thinking
+            if enable_thinking is not None
+            else _get_query_rewrite_enable_thinking(default=False)
+        )
 
         # Get API credentials
-        self.api_key = api_key or os.getenv(
-            "DEEPSEEK_API_KEY", "6fcecb364d0647d2883e7f1d3f19d5b9"
+        self.api_key = api_key or _get_env_with_fallback(
+            "RAG_QUERY_REWRITE_API_KEY",
+            "RAG_LLM_API_KEY",
+            DEFAULT_API_KEY,
         )
-        self.base_url = base_url or "https://wishub-x6.ctyun.cn/v1"
+        self.base_url = base_url or _get_env_with_fallback(
+            "RAG_QUERY_REWRITE_BASE_URL",
+            "RAG_LLM_BASE_URL",
+            DEFAULT_BASE_URL,
+        )
 
-        # Initialize LLM
+        llm_config = EvaluationLLMConfig(
+            provider=self.provider,
+            model=self.model,
+            temperature=self.temperature,
+            base_url=self.base_url,
+            api_key=self.api_key,
+            enable_thinking=self.enable_thinking,
+        )
         llm_kwargs = {
-            "model": self.model,
-            "temperature": 0.3,
-            "max_tokens": 300,
+            "max_tokens": self.max_tokens,
             "api_key": self.api_key,
             "base_url": self.base_url,
+            **get_qwen_langchain_kwargs(llm_config),
         }
-        extra_body = build_extra_body(enable_thinking=self.enable_thinking)
-        if extra_body:
-            llm_kwargs["extra_body"] = extra_body
-
         self.llm = ChatOpenAI(**llm_kwargs)
 
     def expand(self, query: str) -> List[str]:
@@ -349,10 +439,16 @@ class QueryRewritePipeline:
         use_dict: bool = True,
         use_llm: bool = True,
         use_expansion: bool = False,
-        llm_provider: str = "deepseek",
-        llm_model: str = "2656053fa69c4c2d89c5a691d9d737c3",
+        llm_provider: Optional[str] = None,
+        llm_model: Optional[str] = None,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
+        llm_temperature: Optional[float] = None,
+        llm_max_tokens: Optional[int] = None,
+        llm_enable_thinking: Optional[bool] = None,
+        expansion_temperature: Optional[float] = None,
+        expansion_max_tokens: Optional[int] = None,
+        expansion_enable_thinking: Optional[bool] = None,
     ):
         """
         Initialize rewrite pipeline.
@@ -382,6 +478,9 @@ class QueryRewritePipeline:
                 model=llm_model,
                 api_key=api_key,
                 base_url=base_url,
+                temperature=llm_temperature,
+                max_tokens=llm_max_tokens,
+                enable_thinking=llm_enable_thinking,
             )
         else:
             self.llm_rewriter = None
@@ -392,6 +491,9 @@ class QueryRewritePipeline:
                 model=llm_model,
                 api_key=api_key,
                 base_url=base_url,
+                temperature=expansion_temperature,
+                max_tokens=expansion_max_tokens,
+                enable_thinking=expansion_enable_thinking,
             )
         else:
             self.expander = None

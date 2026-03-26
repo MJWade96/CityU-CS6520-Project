@@ -40,6 +40,7 @@ class CrossEncoderReranker:
         
         # Try to import sentence-transformers
         try:
+            print(f"[Reranker] Loading Cross-Encoder model: {model_name} on {device}...")
             from sentence_transformers import CrossEncoder
             self.model = CrossEncoder(
                 model_name=model_name,
