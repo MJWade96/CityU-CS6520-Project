@@ -11,6 +11,8 @@ import os
 from typing import List, Dict, Any, Tuple, Optional
 from langchain_core.documents import Document
 
+from .embeddings import resolve_torch_device
+
 
 class CrossEncoderReranker:
     """
@@ -23,7 +25,7 @@ class CrossEncoderReranker:
     def __init__(
         self,
         model_name: str = "BAAI/bge-reranker-large",
-        device: str = "cpu",
+        device: str = "auto",
         top_k: int = 5,
     ):
         """
@@ -35,16 +37,16 @@ class CrossEncoderReranker:
             top_k: Number of documents to return after reranking
         """
         self.model_name = model_name
-        self.device = device
+        self.device = resolve_torch_device(device, env_var="RAG_RERANKER_DEVICE")
         self.top_k = top_k
         
         # Try to import sentence-transformers
         try:
-            print(f"[Reranker] Loading Cross-Encoder model: {model_name} on {device}...")
+            print(f"[Reranker] Loading Cross-Encoder model: {model_name} on {self.device}...")
             from sentence_transformers import CrossEncoder
             self.model = CrossEncoder(
                 model_name=model_name,
-                device=device,
+                device=self.device,
             )
             self.available = True
             print(f"Cross-Encoder loaded: {model_name}")
@@ -276,6 +278,7 @@ class RerankerPipeline:
         use_mmr: bool = False,
         use_lost_in_middle: bool = False,
         cross_encoder_model: str = "BAAI/bge-reranker-large",
+        cross_encoder_device: str = "auto",
         mmr_lambda: float = 0.5,
         top_k: int = 5,
     ):
@@ -287,6 +290,7 @@ class RerankerPipeline:
             use_mmr: Use MMR for diversity
             use_lost_in_middle: Use LostInTheMiddle ordering
             cross_encoder_model: Cross-Encoder model name
+            cross_encoder_device: Device for the Cross-Encoder model
             mmr_lambda: MMR lambda parameter
             top_k: Final number of documents to return
         """
@@ -296,6 +300,7 @@ class RerankerPipeline:
         if use_cross_encoder:
             self.cross_encoder = CrossEncoderReranker(
                 model_name=cross_encoder_model,
+                device=cross_encoder_device,
                 top_k=top_k * 2  # Get more for final selection
             )
         else:
@@ -364,6 +369,8 @@ class RerankerPipeline:
         return {
             'use_cross_encoder': self.cross_encoder is not None,
             'cross_encoder_available': self.cross_encoder.available if self.cross_encoder else False,
+            'cross_encoder_model': self.cross_encoder.model_name if self.cross_encoder else None,
+            'cross_encoder_device': self.cross_encoder.device if self.cross_encoder else None,
             'use_mmr': self.mmr is not None,
             'use_lost_in_middle': self.lost_in_middle is not None,
             'top_k': self.top_k,

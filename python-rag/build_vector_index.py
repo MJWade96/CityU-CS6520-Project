@@ -18,7 +18,7 @@ from langchain_core.documents import Document
 from tqdm import tqdm
 
 from app.rag.data_paths import COMBINED_CORPUS_FILE, FAISS_INDEX_DIR, ensure_data_directories
-from app.rag.embeddings import get_langchain_embeddings
+from app.rag.embeddings import get_langchain_embeddings, resolve_embedding_runtime
 from app.rag.vector_store import MedicalVectorStore
 
 
@@ -48,13 +48,15 @@ def load_documents(corpus_file: Path) -> List[Document]:
 def build_index(
     documents: List[Document],
     output_dir: Path,
+    embedding_model_name: str,
+    embedding_device: str,
     batch_size: int = 1000,
 ) -> Dict[str, object]:
     """Embed documents and persist a FAISS index."""
     embeddings = get_langchain_embeddings(
         model_type="huggingface",
-        model_name="sentence-transformers/all-MiniLM-L6-v2",
-        model_kwargs={"device": "cpu"},
+        model_name=embedding_model_name,
+        model_kwargs={"device": embedding_device},
         encode_kwargs={"normalize_embeddings": True},
     )
     vectorstore = MedicalVectorStore(
@@ -85,7 +87,8 @@ def build_index(
 
     metadata = {
         "document_count": len(documents),
-        "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+        "embedding_model": embedding_model_name,
+        "embedding_device": embedding_device,
         "store_type": "faiss",
         "sources": source_counts,
         "build_time_seconds": elapsed,
@@ -97,12 +100,17 @@ def build_index(
     return metadata
 
 
-def test_retrieval(index_dir: Path, k: int = 5) -> None:
+def test_retrieval(
+    index_dir: Path,
+    embedding_model_name: str,
+    embedding_device: str,
+    k: int = 5,
+) -> None:
     """Run a small smoke test against the persisted index."""
     embeddings = get_langchain_embeddings(
         model_type="huggingface",
-        model_name="sentence-transformers/all-MiniLM-L6-v2",
-        model_kwargs={"device": "cpu"},
+        model_name=embedding_model_name,
+        model_kwargs={"device": embedding_device},
         encode_kwargs={"normalize_embeddings": True},
     )
     vectorstore = MedicalVectorStore(
@@ -132,18 +140,33 @@ def main() -> None:
     args = parse_args()
     ensure_data_directories()
     documents = load_documents(Path(args.corpus))
-    metadata = build_index(documents, Path(args.output), batch_size=args.batch_size)
+    embedding_runtime = resolve_embedding_runtime(
+        default_model="sentence-transformers/all-MiniLM-L6-v2",
+    )
+    metadata = build_index(
+        documents,
+        Path(args.output),
+        embedding_model_name=embedding_runtime["model_name"],
+        embedding_device=embedding_runtime["device"],
+        batch_size=args.batch_size,
+    )
 
     print("=" * 60)
     print("Vector Index Build Complete")
     print("=" * 60)
     print(f"Documents indexed: {metadata['document_count']:,}")
+    print(f"Embedding model: {metadata['embedding_model']}")
+    print(f"Embedding device: {metadata['embedding_device']}")
     print(f"Sources: {metadata['sources']}")
     print(f"Build time: {metadata['build_time_seconds']:.1f}s")
     print(f"Index location: {Path(args.output).resolve()}")
 
     if not args.no_test:
-        test_retrieval(Path(args.output))
+        test_retrieval(
+            Path(args.output),
+            embedding_model_name=metadata["embedding_model"],
+            embedding_device=metadata["embedding_device"],
+        )
 
 
 if __name__ == "__main__":

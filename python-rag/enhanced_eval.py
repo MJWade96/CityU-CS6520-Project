@@ -41,7 +41,12 @@ from app.rag.reranker import RerankerPipeline
 from app.rag.chunking import SemanticChunker, ParentChildChunker
 from app.rag.metadata_enhancement import MetadataGenerator, RuleBasedMetadataGenerator
 from app.rag.progress_manager import EvaluationProgressManager
-from app.rag.data_paths import EVALUATION_DIR, EVALUATION_RESULTS_DIR, FAISS_INDEX_DIR
+from app.rag.data_paths import (
+    EVALUATION_DIR,
+    EVALUATION_RESULTS_DIR,
+    FAISS_INDEX_DIR,
+)
+from app.rag.embeddings import resolve_embedding_runtime
 from app.rag.eval_shared import (
     ConcurrencyConfig,
     EvaluationLLMConfig,
@@ -96,6 +101,8 @@ class EnhancedEvaluationConfig:
         "RAG_QUERY_REWRITE_ENABLE_THINKING",
         default=False,
     )
+    EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+    EMBEDDING_DEVICE = os.getenv("RAG_EMBEDDING_DEVICE", "auto")
 
     # Retrieval configuration
     TOP_K_VALUES = [1, 3, 5, 10]
@@ -118,6 +125,8 @@ class EnhancedEvaluationConfig:
         int(os.getenv("RAG_ENHANCED_LLM_QUERY_REWRITE_AUTO_MAX_WORDS", "24")),
     )
     USE_RERANKER = True
+    RERANKER_MODEL = os.getenv("RAG_RERANKER_MODEL", "BAAI/bge-reranker-large")
+    RERANKER_DEVICE = os.getenv("RAG_RERANKER_DEVICE", "auto")
     USE_COT_PROMPT = False
     USE_ADAPTIVE_RETRIEVAL = False
     CONCURRENCY = ConcurrencyConfig(
@@ -326,6 +335,8 @@ class EnhancedRAGPipeline:
             use_cross_encoder=config.USE_RERANKER,
             use_mmr=False,
             use_lost_in_middle=False,
+            cross_encoder_model=config.RERANKER_MODEL,
+            cross_encoder_device=config.RERANKER_DEVICE,
             top_k=config.DEFAULT_TOP_K,
         )
 
@@ -576,11 +587,29 @@ def load_vector_store(config: EnhancedEvaluationConfig):
 
     # Load embeddings
     print("Loading embedding model...")
+    embedding_runtime = resolve_embedding_runtime(
+        config.VECTOR_STORE_PATH,
+        default_model=config.EMBEDDING_MODEL,
+        preferred_device=config.EMBEDDING_DEVICE,
+    )
+    recorded_model = embedding_runtime["recorded_model"]
+    if recorded_model:
+        print(f"  Index embedding model: {recorded_model}")
+    if recorded_model and recorded_model != embedding_runtime["model_name"]:
+        print(
+            f"[warn] Runtime embedding model '{embedding_runtime['model_name']}' "
+            f"differs from index metadata '{recorded_model}'"
+        )
+    print(f"  Runtime embedding model: {embedding_runtime['model_name']}")
+    print(f"  Runtime embedding device: {embedding_runtime['device']}")
     embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2",
-        model_kwargs={"device": "cpu"},
+        model_name=embedding_runtime["model_name"],
+        model_kwargs={"device": embedding_runtime["device"]},
         encode_kwargs={"normalize_embeddings": True},
     )
+    config.RESOLVED_EMBEDDING_MODEL = embedding_runtime["model_name"]
+    config.RESOLVED_EMBEDDING_DEVICE = embedding_runtime["device"]
+    config.INDEX_EMBEDDING_MODEL = recorded_model
 
     # Load vector store using MedicalVectorStore
     from app.rag.vector_store import MedicalVectorStore
@@ -672,6 +701,16 @@ def build_progress_config(
         "top_k": top_k,
         "llm_provider": pipeline.config.LLM_PROVIDER,
         "llm_model": pipeline.config.LLM_MODEL,
+        "embedding_model": getattr(
+            pipeline.config,
+            "RESOLVED_EMBEDDING_MODEL",
+            pipeline.config.EMBEDDING_MODEL,
+        ),
+        "embedding_device": getattr(
+            pipeline.config,
+            "RESOLVED_EMBEDDING_DEVICE",
+            pipeline.config.EMBEDDING_DEVICE,
+        ),
         "query_rewrite_provider": pipeline.config.QUERY_REWRITE_PROVIDER,
         "query_rewrite_model": pipeline.config.QUERY_REWRITE_MODEL,
         "query_rewrite_temperature": pipeline.config.QUERY_REWRITE_TEMPERATURE,
@@ -681,6 +720,8 @@ def build_progress_config(
         "hybrid_retrieval": pipeline.config.USE_HYBRID_RETRIEVAL,
         "query_rewrite": pipeline.config.USE_QUERY_REWRITE,
         "reranker": pipeline.config.USE_RERANKER,
+        "reranker_model": pipeline.config.RERANKER_MODEL,
+        "reranker_device": reranker_stats.get("cross_encoder_device"),
         "reranker_available": reranker_stats.get("cross_encoder_available", False),
         "max_concurrent": pipeline.config.CONCURRENCY.max_concurrent,
         "rpm_limit": pipeline.config.CONCURRENCY.rpm_limit,
@@ -975,11 +1016,18 @@ async def main_async():
 
     # Initialize enhanced pipeline
     print("\nInitializing Enhanced RAG Pipeline...")
+    print(
+        f"  Embedding: "
+        f"{getattr(config, 'RESOLVED_EMBEDDING_MODEL', config.EMBEDDING_MODEL)} "
+        f"on {getattr(config, 'RESOLVED_EMBEDDING_DEVICE', config.EMBEDDING_DEVICE)}"
+    )
     print(f"  Hybrid Retrieval: {config.USE_HYBRID_RETRIEVAL}")
     print(f"  Query Rewrite: {config.USE_QUERY_REWRITE}")
     print(f"  LLM Query Rewrite: {config.USE_LLM_QUERY_REWRITE}")
     print(f"  LLM Query Rewrite Mode: {config.LLM_QUERY_REWRITE_MODE}")
     print(f"  Reranker: {config.USE_RERANKER}")
+    print(f"  Reranker Model: {config.RERANKER_MODEL}")
+    print(f"  Reranker Device: {config.RERANKER_DEVICE}")
     print(f"  CoT Prompting: {config.USE_COT_PROMPT}")
     print(f"  Adaptive Retrieval: {config.USE_ADAPTIVE_RETRIEVAL}")
     print(f"  Max Concurrent: {config.CONCURRENCY.max_concurrent}")
@@ -1007,6 +1055,17 @@ async def main_async():
         "test_set_size": len(test_set),
         "test_question_start_index": test_start_index,
         "test_question_end_index": test_start_index + len(test_set) - 1,
+        "embedding_model": getattr(
+            config,
+            "RESOLVED_EMBEDDING_MODEL",
+            config.EMBEDDING_MODEL,
+        ),
+        "embedding_device": getattr(
+            config,
+            "RESOLVED_EMBEDDING_DEVICE",
+            config.EMBEDDING_DEVICE,
+        ),
+        "index_embedding_model": getattr(config, "INDEX_EMBEDDING_MODEL", None),
         "llm_provider": config.LLM_PROVIDER,
         "llm_model": config.LLM_MODEL,
         "query_rewrite_provider": config.QUERY_REWRITE_PROVIDER,
@@ -1021,6 +1080,8 @@ async def main_async():
         "use_hybrid_retrieval": config.USE_HYBRID_RETRIEVAL,
         "use_query_rewrite": config.USE_QUERY_REWRITE,
         "use_reranker": config.USE_RERANKER,
+        "reranker_model": config.RERANKER_MODEL,
+        "reranker_device": config.RERANKER_DEVICE,
         "use_cot_prompt": config.USE_COT_PROMPT,
         "use_adaptive_retrieval": config.USE_ADAPTIVE_RETRIEVAL,
         "max_concurrent": config.CONCURRENCY.max_concurrent,
