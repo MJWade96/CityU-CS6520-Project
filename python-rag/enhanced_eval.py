@@ -662,19 +662,21 @@ async def main_async():
         print("\nNo questions loaded. Exiting...")
         return
 
-    # Split dataset
-    dev_set = questions[: config.DEV_SET_SIZE]
-    test_set = questions[
-        config.DEV_SET_SIZE : config.DEV_SET_SIZE + config.TEST_SET_SIZE
-    ]
+    # Evaluate only the legacy test slice questions[50:100].
+    test_start_index = config.DEV_SET_SIZE
+    test_set = questions[test_start_index : test_start_index + config.TEST_SET_SIZE]
 
-    print(f"\nDataset Split:")
-    print(f"  Development set: {len(dev_set)} questions")
+    print(f"\nEvaluation Scope:")
+    print(f"  Only evaluating test set")
     print(f"  Test set: {len(test_set)} questions")
     print(
         f"  Test question range: "
-        f"[{config.DEV_SET_SIZE}:{config.DEV_SET_SIZE + config.TEST_SET_SIZE}]"
+        f"[{test_start_index}:{test_start_index + len(test_set)}]"
     )
+
+    if not test_set:
+        print("\nNo test questions available. Exiting...")
+        return
 
     # Load vector store
     embeddings, documents, vectorstore = load_vector_store(config)
@@ -710,10 +712,9 @@ async def main_async():
     )
 
     live_config = {
-        "dev_set_size": len(dev_set),
         "test_set_size": len(test_set),
-        "test_question_start_index": config.DEV_SET_SIZE,
-        "test_question_end_index": config.DEV_SET_SIZE + len(test_set) - 1,
+        "test_question_start_index": test_start_index,
+        "test_question_end_index": test_start_index + len(test_set) - 1,
         "llm_provider": config.LLM_PROVIDER,
         "llm_model": config.LLM_MODEL,
         "query_rewrite_provider": config.QUERY_REWRITE_PROVIDER,
@@ -739,54 +740,7 @@ async def main_async():
 
     print("[OK] Enhanced RAG Pipeline initialized")
 
-    # ============================================================
-    # Evaluate on Development Set
-    # ============================================================
-
-    print(f"\n{'=' * 60}")
-    print("Evaluating on Development Set")
-    print(f"{'=' * 60}")
-
-    # Check if we need to resume dev set evaluation
-    resume_info_dev = get_compatible_resume_info(
-        progress_mgr,
-        "enhanced_eval_dev",
-        len(dev_set),
-    )
-
-    if resume_info_dev:
-        print(
-            f"\n🔄 Resuming dev set evaluation from question {resume_info_dev['start_from'] + 1}"
-        )
-
-        dev_results = await evaluate_with_pipeline_async(
-            pipeline,
-            dev_set,
-            top_k=config.DEFAULT_TOP_K,
-            dataset_name="Development Set",
-            progress_mgr=progress_mgr,
-            start_from=resume_info_dev["start_from"],
-            initial_results=resume_info_dev["results"],
-            initial_correct=resume_info_dev["correct_count"],
-            initial_total=resume_info_dev["total_count"],
-            initial_elapsed=resume_info_dev["elapsed_time"],
-            script_name="enhanced_eval_dev",
-            artifact_paths=artifact_paths,
-            live_config=live_config,
-        )
-    else:
-        dev_results = await evaluate_with_pipeline_async(
-            pipeline,
-            dev_set,
-            top_k=config.DEFAULT_TOP_K,
-            dataset_name="Development Set",
-            progress_mgr=progress_mgr,
-            script_name="enhanced_eval_dev",
-            artifact_paths=artifact_paths,
-            live_config=live_config,
-        )
-
-    # Clear dev set checkpoint after successful completion
+    # We no longer evaluate the development set in this script.
     progress_mgr.clear_checkpoint(script_name="enhanced_eval_dev")
 
     # ============================================================
@@ -823,7 +777,6 @@ async def main_async():
         script_name="enhanced_eval_test",
         artifact_paths=artifact_paths,
         live_config=live_config,
-        extra_sections={"development_set_evaluation": dev_results},
     )
 
     # Clear checkpoint after successful completion
@@ -838,10 +791,7 @@ async def main_async():
         run_name="ENHANCED_RAG",
         evaluation_type="ENHANCED_RAG",
         config=live_config,
-        stage_results={
-            "development_set_evaluation": dev_results,
-            "test_set_evaluation": test_results,
-        },
+        stage_results={"test_set_evaluation": test_results},
     )
 
     # ============================================================
@@ -852,7 +802,6 @@ async def main_async():
     print("EVALUATION COMPLETE")
     print(f"{'=' * 60}")
     print(f"\n📊 Final Results:")
-    print(f"  Development Set Accuracy: {dev_results['accuracy']:.4f}")
     print(f"  Test Set Accuracy: {test_results['accuracy']:.4f}")
     print(
         f"\n⏱️  Evaluation Time: {test_results['elapsed_time']:.1f}s "
