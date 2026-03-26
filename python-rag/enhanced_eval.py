@@ -51,7 +51,10 @@ class EnhancedEvaluationConfig:
     """Enhanced evaluation configuration"""
 
     # Dataset split
-    DEV_SET_SIZE = 300
+    # Match the legacy no-RAG benchmark: dev uses questions[0:50],
+    # test uses questions[50:100].
+    DEV_SET_SIZE = 50
+    TEST_SET_SIZE = 50
 
     # LLM Configuration (联通云 DeepSeek V3.2)
     LLM_PROVIDER = "Qwen3-4B"
@@ -423,6 +426,40 @@ def load_vector_store(config: EnhancedEvaluationConfig):
     return embeddings, documents
 
 
+def get_compatible_resume_info(
+    progress_mgr: EvaluationProgressManager,
+    script_name: str,
+    expected_total_questions: int,
+) -> Optional[Dict[str, Any]]:
+    """Return resume info only when the checkpoint matches the current dataset size."""
+    checkpoint = progress_mgr.load_checkpoint(script_name)
+    if not checkpoint:
+        return None
+
+    if checkpoint.total_questions != expected_total_questions:
+        print(
+            f"[resume][{script_name}] ignoring stale checkpoint "
+            f"({checkpoint.total_questions} questions) for current dataset "
+            f"({expected_total_questions} questions)"
+        )
+        progress_mgr.clear_checkpoint(script_name)
+        return None
+
+    if checkpoint.processed_questions >= checkpoint.total_questions:
+        progress_mgr.clear_checkpoint(script_name)
+        return None
+
+    return {
+        "start_from": checkpoint.processed_questions,
+        "results": checkpoint.results,
+        "correct_count": checkpoint.correct_count,
+        "total_count": checkpoint.total_count,
+        "elapsed_time": checkpoint.elapsed_time,
+        "current_top_k": checkpoint.current_top_k,
+        "config": checkpoint.config,
+    }
+
+
 def evaluate_with_pipeline(
     pipeline: EnhancedRAGPipeline,
     questions: List[Dict],
@@ -621,11 +658,17 @@ def main():
 
     # Split dataset
     dev_set = questions[: config.DEV_SET_SIZE]
-    test_set = questions[config.DEV_SET_SIZE :]
+    test_set = questions[
+        config.DEV_SET_SIZE : config.DEV_SET_SIZE + config.TEST_SET_SIZE
+    ]
 
     print(f"\nDataset Split:")
     print(f"  Development set: {len(dev_set)} questions")
     print(f"  Test set: {len(test_set)} questions")
+    print(
+        f"  Test question range: "
+        f"[{config.DEV_SET_SIZE}:{config.DEV_SET_SIZE + config.TEST_SET_SIZE}]"
+    )
 
     # Load vector store
     embeddings, documents = load_vector_store(config)
@@ -651,6 +694,8 @@ def main():
     live_config = {
         "dev_set_size": len(dev_set),
         "test_set_size": len(test_set),
+        "test_question_start_index": config.DEV_SET_SIZE,
+        "test_question_end_index": config.DEV_SET_SIZE + len(test_set) - 1,
         "llm_provider": config.LLM_PROVIDER,
         "llm_model": config.LLM_MODEL,
         "vector_store": config.VECTOR_STORE_PATH,
@@ -673,11 +718,13 @@ def main():
     print(f"{'=' * 60}")
 
     # Check if we need to resume dev set evaluation
-    resume_dev = progress_mgr.should_resume(script_name="enhanced_eval_dev")
-    resume_info_dev = None
+    resume_info_dev = get_compatible_resume_info(
+        progress_mgr,
+        "enhanced_eval_dev",
+        len(dev_set),
+    )
 
-    if resume_dev:
-        resume_info_dev = progress_mgr.get_resume_info(script_name="enhanced_eval_dev")
+    if resume_info_dev:
         print(
             f"\n🔄 Resuming dev set evaluation from question {resume_info_dev['start_from'] + 1}"
         )
@@ -721,13 +768,13 @@ def main():
     print(f"{'=' * 60}")
 
     # Check if we need to resume test set evaluation
-    resume_test = progress_mgr.should_resume(script_name="enhanced_eval_test")
-    resume_info_test = None
+    resume_info_test = get_compatible_resume_info(
+        progress_mgr,
+        "enhanced_eval_test",
+        len(test_set),
+    )
 
-    if resume_test:
-        resume_info_test = progress_mgr.get_resume_info(
-            script_name="enhanced_eval_test"
-        )
+    if resume_info_test:
         print(
             f"\n🔄 Resuming test set evaluation from question {resume_info_test['start_from'] + 1}"
         )
