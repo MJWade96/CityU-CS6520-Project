@@ -148,6 +148,19 @@ class EnhancedEvaluationConfig:
         1,
         int(os.getenv("RAG_ENHANCED_EVAL_PRINT_EVERY", "5")),
     )
+    HEARTBEAT_ENABLED = _env_flag("RAG_ENHANCED_EVAL_HEARTBEAT_ENABLED", True)
+    HEARTBEAT_INTERVAL_SECONDS = max(
+        1.0,
+        float(os.getenv("RAG_ENHANCED_EVAL_HEARTBEAT_INTERVAL_SECONDS", "15")),
+    )
+    QUESTION_START_LOG_ENABLED = _env_flag(
+        "RAG_ENHANCED_EVAL_QUESTION_START_LOG_ENABLED",
+        True,
+    )
+    QUESTION_START_LOG_PREVIEW_CHARS = max(
+        20,
+        int(os.getenv("RAG_ENHANCED_EVAL_QUESTION_START_LOG_PREVIEW_CHARS", "120")),
+    )
     IN_FLIGHT_MULTIPLIER = max(
         1,
         int(os.getenv("RAG_ENHANCED_EVAL_IN_FLIGHT_MULTIPLIER", "2")),
@@ -727,6 +740,12 @@ def build_progress_config(
         "rpm_limit": pipeline.config.CONCURRENCY.rpm_limit,
         "progress_save_every": pipeline.config.PROGRESS_SAVE_EVERY,
         "progress_print_every": pipeline.config.PROGRESS_PRINT_EVERY,
+        "heartbeat_enabled": pipeline.config.HEARTBEAT_ENABLED,
+        "heartbeat_interval_seconds": pipeline.config.HEARTBEAT_INTERVAL_SECONDS,
+        "question_start_log_enabled": pipeline.config.QUESTION_START_LOG_ENABLED,
+        "question_start_log_preview_chars": (
+            pipeline.config.QUESTION_START_LOG_PREVIEW_CHARS
+        ),
         "in_flight_multiplier": pipeline.config.IN_FLIGHT_MULTIPLIER,
         "llm_query_rewrite_mode": pipeline.config.LLM_QUERY_REWRITE_MODE,
     }
@@ -767,16 +786,83 @@ async def evaluate_with_pipeline_async(
     max_in_flight = max(1, batch_size * pipeline.config.IN_FLIGHT_MULTIPLIER)
     persist_every = max(1, pipeline.config.PROGRESS_SAVE_EVERY)
     print_every = max(1, pipeline.config.PROGRESS_PRINT_EVERY)
+    heartbeat_enabled = pipeline.config.HEARTBEAT_ENABLED
+    heartbeat_interval = max(1.0, pipeline.config.HEARTBEAT_INTERVAL_SECONDS)
+    question_start_log_enabled = pipeline.config.QUESTION_START_LOG_ENABLED
+    question_start_log_preview_chars = max(
+        20,
+        pipeline.config.QUESTION_START_LOG_PREVIEW_CHARS,
+    )
     api_semaphore = asyncio.Semaphore(batch_size)
     rate_limiter = RateLimiter(
         requests_per_second=pipeline.config.CONCURRENCY.requests_per_second,
         burst=batch_size,
     )
+    last_heartbeat_at = time.time()
 
-    async def evaluate_item(q: Dict[str, Any]) -> Dict[str, Any]:
+    if heartbeat_enabled:
+        print(
+            f"Heartbeat enabled: every {heartbeat_interval:.0f}s "
+            f"(shows activity even when ordered progress is waiting)"
+        )
+
+    def emit_heartbeat(reason: str) -> None:
+        """Print a lightweight status line when long-running work looks stalled."""
+        nonlocal last_heartbeat_at
+
+        if not heartbeat_enabled:
+            return
+
+        now = time.time()
+        committed = total
+        completed_any = total + len(buffered_results)
+        buffered = len(buffered_results)
+        waiting_on = next_commit_index + 1 if buffered else None
+        waiting_suffix = f", waiting_on_q={waiting_on}" if waiting_on else ""
+        print(
+            "  heartbeat: "
+            f"committed={committed}/{len(questions)}, "
+            f"completed={completed_any}/{len(questions)}, "
+            f"in_flight={len(in_flight)}, "
+            f"buffered={buffered}, "
+            f"elapsed={now - start_time:.1f}s, "
+            f"reason={reason}{waiting_suffix}"
+        )
+        last_heartbeat_at = now
+
+    def format_question_preview(text: str) -> str:
+        """Collapse whitespace so start logs stay readable on long prompts."""
+        preview = re.sub(r"\s+", " ", (text or "")).strip()
+        if len(preview) <= question_start_log_preview_chars:
+            return preview
+        return preview[: question_start_log_preview_chars - 3].rstrip() + "..."
+
+    async def evaluate_item(
+        question_index: int,
+        q: Dict[str, Any],
+    ) -> Dict[str, Any]:
         question_text = q.get("question", "")
         options = q.get("options", [])
         correct_answer_letter = get_correct_answer_letter(q)
+        uses_llm_rewrite = (
+            pipeline.config.USE_QUERY_REWRITE
+            and pipeline.config.USE_LLM_QUERY_REWRITE
+            and pipeline._should_use_llm_query_rewrite(question_text)
+        )
+
+        if question_start_log_enabled:
+            print(
+                "  start: "
+                f"q={question_index + 1}/{len(questions)}, "
+                f"chars={len(question_text)}, "
+                f"options={len(options)}, "
+                f"hybrid={pipeline.config.USE_HYBRID_RETRIEVAL}, "
+                f"rewrite={pipeline.config.USE_QUERY_REWRITE}, "
+                f"llm_rewrite={uses_llm_rewrite}, "
+                f"reranker={pipeline.config.USE_RERANKER}, "
+                f"top_k={top_k}, "
+                f"preview=\"{format_question_preview(question_text)}\""
+            )
 
         try:
             result = await pipeline.answer_async(
@@ -826,7 +912,7 @@ async def evaluate_with_pipeline_async(
         question_index: int,
         item: Dict[str, Any],
     ) -> Tuple[int, Dict[str, Any]]:
-        return question_index, await evaluate_item(item)
+        return question_index, await evaluate_item(question_index, item)
 
     def schedule_next() -> bool:
         try:
@@ -845,8 +931,13 @@ async def evaluate_with_pipeline_async(
     while in_flight:
         done, _ = await asyncio.wait(
             tuple(in_flight.keys()),
+            timeout=heartbeat_interval if heartbeat_enabled else None,
             return_when=asyncio.FIRST_COMPLETED,
         )
+
+        if not done:
+            emit_heartbeat("awaiting_completion")
+            continue
 
         for task in done:
             question_index, item = in_flight.pop(task)
@@ -867,6 +958,8 @@ async def evaluate_with_pipeline_async(
                 }
             buffered_results[completed_index] = evaluation_result
             schedule_next()
+
+        committed_before = total
 
         while next_commit_index in buffered_results:
             evaluation_result = buffered_results.pop(next_commit_index)
@@ -938,6 +1031,14 @@ async def evaluate_with_pipeline_async(
                             stage_result=stage_result,
                             extra_sections=live_sections,
                         )
+
+        if (
+            heartbeat_enabled
+            and buffered_results
+            and total == committed_before
+            and time.time() - last_heartbeat_at >= heartbeat_interval
+        ):
+            emit_heartbeat("waiting_for_ordered_commit")
 
     elapsed = time.time() - start_time
     accuracy = correct / total if total > 0 else 0
@@ -1034,6 +1135,13 @@ async def main_async():
     print(f"  In-Flight Multiplier: {config.IN_FLIGHT_MULTIPLIER}")
     print(f"  Progress Save Every: {config.PROGRESS_SAVE_EVERY} questions")
     print(f"  Progress Print Every: {config.PROGRESS_PRINT_EVERY} questions")
+    print(f"  Heartbeat Enabled: {config.HEARTBEAT_ENABLED}")
+    print(f"  Heartbeat Interval: {config.HEARTBEAT_INTERVAL_SECONDS:.0f}s")
+    print(f"  Question Start Logs: {config.QUESTION_START_LOG_ENABLED}")
+    print(
+        f"  Question Start Preview Chars: "
+        f"{config.QUESTION_START_LOG_PREVIEW_CHARS}"
+    )
     if config.USE_QUERY_REWRITE:
         print(
             f"  Query Rewrite Model: {config.QUERY_REWRITE_MODEL} "
@@ -1089,6 +1197,12 @@ async def main_async():
         "rpm_limit": config.CONCURRENCY.rpm_limit,
         "progress_save_every": config.PROGRESS_SAVE_EVERY,
         "progress_print_every": config.PROGRESS_PRINT_EVERY,
+        "heartbeat_enabled": config.HEARTBEAT_ENABLED,
+        "heartbeat_interval_seconds": config.HEARTBEAT_INTERVAL_SECONDS,
+        "question_start_log_enabled": config.QUESTION_START_LOG_ENABLED,
+        "question_start_log_preview_chars": (
+            config.QUESTION_START_LOG_PREVIEW_CHARS
+        ),
         "bm25_cache_path": str(bm25_cache_path),
     }
 
