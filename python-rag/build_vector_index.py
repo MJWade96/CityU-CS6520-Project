@@ -17,7 +17,11 @@ from typing import Dict, List
 from langchain_core.documents import Document
 from tqdm import tqdm
 
-from app.rag.data_paths import COMBINED_CORPUS_FILE, FAISS_INDEX_DIR, ensure_data_directories
+from app.rag.data_paths import (
+    COMBINED_CORPUS_FILE,
+    FAISS_INDEX_DIR,
+    ensure_data_directories,
+)
 from app.rag.embeddings import get_langchain_embeddings, resolve_embedding_runtime
 from app.rag.vector_store import MedicalVectorStore
 
@@ -54,7 +58,7 @@ def build_index(
 ) -> Dict[str, object]:
     """Embed documents and persist a FAISS index."""
     embeddings = get_langchain_embeddings(
-        model_type="huggingface",
+        model_type="bge-m3",
         model_name=embedding_model_name,
         model_kwargs={"device": embedding_device},
         encode_kwargs={"normalize_embeddings": True},
@@ -108,7 +112,7 @@ def test_retrieval(
 ) -> None:
     """Run a small smoke test against the persisted index."""
     embeddings = get_langchain_embeddings(
-        model_type="huggingface",
+        model_type="bge-m3",
         model_name=embedding_model_name,
         model_kwargs={"device": embedding_device},
         encode_kwargs={"normalize_embeddings": True},
@@ -120,10 +124,18 @@ def test_retrieval(
     )
     vectorstore.load(str(index_dir))
 
-    for query in ("hypertension treatment", "diabetes diagnosis", "pneumonia antibiotics"):
+    for query in (
+        "hypertension treatment",
+        "diabetes diagnosis",
+        "pneumonia antibiotics",
+    ):
         print(f"\nQuery: {query}")
-        for rank, (doc, score) in enumerate(vectorstore.similarity_search_with_score(query, k=k), start=1):
-            print(f"{rank}. [{doc.metadata.get('source', 'unknown')}] {doc.metadata.get('title', '')[:60]}")
+        for rank, (doc, score) in enumerate(
+            vectorstore.similarity_search_with_score(query, k=k), start=1
+        ):
+            print(
+                f"{rank}. [{doc.metadata.get('source', 'unknown')}] {doc.metadata.get('title', '')[:60]}"
+            )
             print(f"   score={score:.4f}")
 
 
@@ -132,7 +144,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--corpus", type=Path, default=COMBINED_CORPUS_FILE)
     parser.add_argument("--output", type=Path, default=FAISS_INDEX_DIR)
     parser.add_argument("--batch-size", type=int, default=1000)
-    parser.add_argument("--no-test", action="store_true", help="Skip retrieval smoke test")
+    parser.add_argument(
+        "--no-test", action="store_true", help="Skip retrieval smoke test"
+    )
     return parser.parse_args()
 
 
@@ -141,7 +155,7 @@ def main() -> None:
     ensure_data_directories()
     documents = load_documents(Path(args.corpus))
     embedding_runtime = resolve_embedding_runtime(
-        default_model="sentence-transformers/all-MiniLM-L6-v2",
+        default_model="BAAI/bge-m3",
     )
     metadata = build_index(
         documents,

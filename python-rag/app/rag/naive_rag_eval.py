@@ -71,8 +71,8 @@ class MedicalLLMGenerator:
 def load_vector_store(index_path: Path) -> MedicalVectorStore:
     """Load the persisted FAISS store."""
     embeddings = get_langchain_embeddings(
-        model_type="huggingface",
-        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        model_type="bge-m3",
+        model_name="BAAI/bge-m3",
         model_kwargs={"device": "cpu"},
         encode_kwargs={"normalize_embeddings": True},
     )

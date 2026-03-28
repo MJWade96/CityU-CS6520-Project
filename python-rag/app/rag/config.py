@@ -9,12 +9,14 @@ from enum import Enum
 
 from .data_paths import MEDICAL_KNOWLEDGE_DIR, VECTOR_STORE_DIR
 
+
 class EmbeddingModelType(str, Enum):
     """Supported embedding model types"""
 
     HUGGINGFACE = "huggingface"
     SENTENCE_TRANSFORMER = "sentence-transformer"
     BGE = "bge"
+    BGE_M3 = "bge-m3"
 
 
 class VectorStoreType(str, Enum):
@@ -40,9 +42,9 @@ class RAGConfig:
     chunk_overlap: int = 50
     separators: List[str] = field(default_factory=lambda: ["\n\n", "\n", ". ", " ", ""])
 
-    embedding_model: EmbeddingModelType = EmbeddingModelType.BGE
-    embedding_model_name: str = "BAAI/bge-small-en-v1.5"
-    embedding_dimension: int = 384
+    embedding_model: EmbeddingModelType = EmbeddingModelType.BGE_M3
+    embedding_model_name: str = "BAAI/bge-m3"
+    embedding_dimension: int = 1024
 
     vector_store: VectorStoreType = VectorStoreType.FAISS
     persist_directory: Optional[str] = str(VECTOR_STORE_DIR)
