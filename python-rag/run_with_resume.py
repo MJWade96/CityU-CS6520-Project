@@ -6,23 +6,21 @@ Features:
 - Auto-resume from last checkpoint
 - Handle multiple evaluation scripts
 - Clean up checkpoints after successful completion
-
-Usage:
-    python run_with_resume.py complete_eval
-    python run_with_resume.py enhanced_eval
-    python run_with_resume.py evaluate_no_rag
-    python run_with_resume.py --auto  # Auto-detect and run
 """
 
 import os
 import sys
 import json
 import asyncio
-import argparse
 import inspect
 import traceback
 from pathlib import Path
 from typing import Optional, Dict, Any, List
+
+
+SCRIPT_NAME = "sample_validation"
+AUTO_RESUME = True
+AUTO_DETECT = False
 
 
 def get_script_path(script_name: str) -> Path:
@@ -136,6 +134,7 @@ def run_script(script_name: str, auto_resume: bool = True):
     if not script_path.exists():
         print(f"❌ ERROR: Script not found: {script_path}")
         print("\nAvailable scripts:")
+        print("  - sample_validation")
         print("  - complete_eval")
         print("  - enhanced_eval")
         print("  - evaluate_no_rag")
@@ -147,15 +146,8 @@ def run_script(script_name: str, auto_resume: bool = True):
     print(f"\n📜 Script: {script_path.name}")
     print(f"📂 Location: {script_path.parent}")
     
-    # Determine output directory based on script
-    if "complete" in script_name:
-        output_dir = script_path.parent / "results" / "evaluation"
-    elif "enhanced" in script_name:
-        output_dir = script_path.parent / "results" / "evaluation"
-    else:
-        output_dir = script_path.parent / "results" / "evaluation"
+    output_dir = script_path.parent / "results" / "evaluation"
     
-    # Check for interrupted evaluations
     if auto_resume:
         status = check_checkpoint_status(str(output_dir), script_name)
         
@@ -180,13 +172,11 @@ def run_script(script_name: str, auto_resume: bool = True):
 
     sanitize_runtime_env()
 
-    # Import and run the script
     script_dir = str(script_path.parent)
     if script_dir not in sys.path:
         sys.path.insert(0, script_dir)
     
     try:
-        # Import the module using importlib for better error handling
         import importlib.util
         spec = importlib.util.spec_from_file_location(script_name, str(script_path))
         if spec is None or spec.loader is None:
@@ -197,7 +187,6 @@ def run_script(script_name: str, auto_resume: bool = True):
         sys.modules[script_name] = module
         spec.loader.exec_module(module)
         
-        # Check if module has main function
         if hasattr(module, "main"):
             original_argv = sys.argv[:]
             try:
@@ -219,8 +208,7 @@ def run_script(script_name: str, auto_resume: bool = True):
         print(f"\n\n{'=' * 60}")
         print("⚠️  Evaluation interrupted by user")
         print(f"{'=' * 60}")
-        print("\n💡 Progress has been saved. Run again to resume:")
-        print(f"   python run_with_resume.py {script_name}")
+        print("\n💡 Progress has been saved. Run again to resume.")
         return False
         
     except Exception as e:
@@ -231,8 +219,6 @@ def run_script(script_name: str, auto_resume: bool = True):
         print(f"Error details: {e}")
         print("\nFull traceback:")
         traceback.print_exc()
-        print(f"\n💡 If progress was saved, you can resume by running again:")
-        print(f"   python run_with_resume.py {script_name}")
         return False
 
 
@@ -242,8 +228,8 @@ def auto_detect_and_run():
     print("Auto-Detect Mode")
     print("=" * 60)
     
-    # List of evaluation scripts to check
     scripts = [
+        "sample_validation",
         "complete_eval",
         "enhanced_eval",
         "evaluate_no_rag",
@@ -263,10 +249,6 @@ def auto_detect_and_run():
     
     if not interrupted_scripts:
         print("\n✓ No interrupted evaluations found")
-        print("\nAvailable scripts:")
-        for script in scripts:
-            print(f"  - {script}")
-        print("\nRun with: python run_with_resume.py <script_name>")
         return
     
     print(f"\n📋 Found {len(interrupted_scripts)} interrupted evaluation(s):\n")
@@ -280,70 +262,20 @@ def auto_detect_and_run():
         print(f"   Timestamp: {status.get('timestamp', 'unknown')}")
         print()
     
-    # Ask user which one to resume
-    print("Which evaluation to resume?")
-    print(f"Enter number (1-{len(interrupted_scripts)}) or 'all' to resume all:")
-    
-    try:
-        choice = input("> ").strip()
-        
-        if choice.lower() == "all":
-            for item in interrupted_scripts:
-                print(f"\n{'=' * 60}")
-                print(f"Resuming: {item['script']}")
-                print(f"{'=' * 60}")
-                run_script(item["script"], auto_resume=True)
-        elif choice.isdigit():
-            idx = int(choice) - 1
-            if 0 <= idx < len(interrupted_scripts):
-                run_script(interrupted_scripts[idx]["script"], auto_resume=True)
-            else:
-                print("❌ Invalid choice")
-        else:
-            print("❌ Invalid input")
-            
-    except Exception as e:
-        print(f"❌ Error: {e}")
+    for item in interrupted_scripts:
+        print(f"\n{'=' * 60}")
+        print(f"Resuming: {item['script']}")
+        print(f"{'=' * 60}")
+        run_script(item["script"], auto_resume=True)
 
 
 def main():
     """Main entry point"""
-    parser = argparse.ArgumentParser(
-        description="Smart runner for Medical RAG evaluation scripts with resume support"
-    )
-    parser.add_argument(
-        "script",
-        nargs="?",
-        default=None,
-        help="Script name to run (e.g., complete_eval, enhanced_eval)"
-    )
-    parser.add_argument(
-        "--auto",
-        action="store_true",
-        help="Auto-detect and resume interrupted evaluations"
-    )
-    parser.add_argument(
-        "--no-resume",
-        action="store_true",
-        help="Disable auto-resume (start fresh)"
-    )
-    
-    args = parser.parse_args()
-    
-    if args.auto:
+    if AUTO_DETECT:
         auto_detect_and_run()
-    elif args.script:
-        auto_resume = not args.no_resume
-        success = run_script(args.script, auto_resume=auto_resume)
-        sys.exit(0 if success else 1)
     else:
-        parser.print_help()
-        print("\nExamples:")
-        print("  python run_with_resume.py complete_eval")
-        print("  python run_with_resume.py enhanced_eval")
-        print("  python run_with_resume.py evaluate_no_rag")
-        print("  python run_with_resume.py --auto")
-        print("  python run_with_resume.py complete_eval --no-resume")
+        success = run_script(SCRIPT_NAME, auto_resume=AUTO_RESUME)
+        sys.exit(0 if success else 1)
 
 
 if __name__ == "__main__":

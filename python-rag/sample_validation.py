@@ -8,16 +8,16 @@ to the full 973-question evaluation.
 
 from __future__ import annotations
 
-import argparse
 import asyncio
 import json
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from app.rag.data_paths import EVALUATION_DIR, EVALUATION_RESULTS_DIR, FAISS_INDEX_DIR
-from app.rag.embeddings import get_langchain_embeddings
+from app.rag.naive_rag_eval import load_vector_store
+from app.rag.no_rag_eval import NoRAGEvalConfig
 from app.rag.eval_shared import (
     ConcurrencyConfig,
     EvaluationLLMConfig,
@@ -28,43 +28,36 @@ from app.rag.eval_shared import (
     get_qwen_completion_kwargs,
     get_correct_answer_letter,
     load_questions,
+    split_questions,
 )
-from app.rag.vector_store import MedicalVectorStore
+from app.rag.progress_manager import EvaluationProgressManager
+
+
+SAMPLE_SIZE = 50
+TOP_K = 3
+DEV_SIZE = 0
+QUESTION_FILE = EVALUATION_DIR / "medqa.json"
+OUTPUT_DIR = EVALUATION_RESULTS_DIR
+VECTOR_STORE_PATH = FAISS_INDEX_DIR
 
 
 @dataclass
 class SampleEvalConfig:
-    sample_size: int = 50
-    question_file: Path = EVALUATION_DIR / "medqa.json"
-    output_dir: Path = EVALUATION_RESULTS_DIR
-    vector_store_path: Path = FAISS_INDEX_DIR
-    top_k: int = 3
+    sample_size: int = SAMPLE_SIZE
+    top_k: int = TOP_K
+    dev_size: int = DEV_SIZE
+    question_file: Path = QUESTION_FILE
+    output_dir: Path = OUTPUT_DIR
+    vector_store_path: Path = VECTOR_STORE_PATH
     llm: EvaluationLLMConfig = field(default_factory=EvaluationLLMConfig)
     concurrency: ConcurrencyConfig = field(default_factory=ConcurrencyConfig)
-
-
-def load_vector_store_for_eval(index_path: Path) -> MedicalVectorStore:
-    """Load the persisted FAISS store with BGE-M3 embeddings."""
-    embeddings = get_langchain_embeddings(
-        model_type="bge-m3",
-        model_name="BAAI/bge-m3",
-        model_kwargs={"device": "cpu"},
-        encode_kwargs={"normalize_embeddings": True},
-    )
-    vectorstore = MedicalVectorStore(
-        embedding_model=embeddings,
-        store_type="faiss",
-        persist_directory=str(index_path),
-    )
-    vectorstore.load(str(index_path))
-    return vectorstore
 
 
 async def evaluate_no_rag_sample(
     questions: List[Dict[str, Any]],
     config: SampleEvalConfig,
 ) -> Dict[str, Any]:
-    """Evaluate without retrieval on a small sample."""
+    """Evaluate without retrieval on a small sample - reuses no_rag_eval patterns."""
     client = create_async_client(config.llm)
     semaphore = asyncio.Semaphore(config.concurrency.max_concurrent)
     rate_limiter = RateLimiter(
@@ -120,10 +113,10 @@ async def evaluate_no_rag_sample(
 
 async def evaluate_naive_rag_sample(
     questions: List[Dict[str, Any]],
-    vectorstore: MedicalVectorStore,
+    vectorstore,
     config: SampleEvalConfig,
 ) -> Dict[str, Any]:
-    """Evaluate with naive RAG on a small sample."""
+    """Evaluate with naive RAG on a small sample - reuses naive_rag_eval patterns."""
     client = create_async_client(config.llm)
     semaphore = asyncio.Semaphore(config.concurrency.max_concurrent)
     rate_limiter = RateLimiter(
@@ -142,7 +135,9 @@ async def evaluate_naive_rag_sample(
         prompt = build_medical_eval_prompt(
             question=item["question"],
             options=item.get("options", []),
-            context="\n\n".join(f"[{index + 1}] {context[:200]}..." for index, context in enumerate(contexts)),
+            context="\n\n".join(
+                f"[{idx + 1}] {ctx[:200]}..." for idx, ctx in enumerate(contexts)
+            ),
         )
 
         async with semaphore:
@@ -187,7 +182,8 @@ async def evaluate_naive_rag_sample(
 async def run_sample_comparison(config: SampleEvalConfig) -> Dict[str, Any]:
     """Run comparison between no-RAG and naive-RAG on a small sample."""
     all_questions = load_questions(str(config.question_file))
-    sample_questions = all_questions[: config.sample_size]
+    _, test_questions = split_questions(all_questions, config.dev_size, None)
+    sample_questions = test_questions[: config.sample_size]
 
     print("=" * 60)
     print("Small-Sample Validation: NO_RAG vs NAIVE_RAG")
@@ -199,13 +195,16 @@ async def run_sample_comparison(config: SampleEvalConfig) -> Dict[str, Any]:
 
     print("Running NO_RAG evaluation...")
     no_rag_results = await evaluate_no_rag_sample(sample_questions, config)
-    print(f"  Accuracy: {no_rag_results['accuracy']:.4f} ({no_rag_results['correct']}/{no_rag_results['total_questions']})")
+    print(
+        f"  Accuracy: {no_rag_results['accuracy']:.4f} "
+        f"({no_rag_results['correct']}/{no_rag_results['total_questions']})"
+    )
     print(f"  Time: {no_rag_results['elapsed_time']:.1f}s")
     print()
 
     print("Loading vector store for NAIVE_RAG...")
     try:
-        vectorstore = load_vector_store_for_eval(config.vector_store_path)
+        vectorstore = load_vector_store(config.vector_store_path)
         print("  Vector store loaded successfully")
     except Exception as e:
         print(f"  ERROR: Failed to load vector store: {e}")
@@ -217,19 +216,34 @@ async def run_sample_comparison(config: SampleEvalConfig) -> Dict[str, Any]:
         }
 
     print("Running NAIVE_RAG evaluation...")
-    naive_rag_results = await evaluate_naive_rag_sample(sample_questions, vectorstore, config)
-    print(f"  Accuracy: {naive_rag_results['accuracy']:.4f} ({naive_rag_results['correct']}/{naive_rag_results['total_questions']})")
+    naive_rag_results = await evaluate_naive_rag_sample(
+        sample_questions, vectorstore, config
+    )
+    print(
+        f"  Accuracy: {naive_rag_results['accuracy']:.4f} "
+        f"({naive_rag_results['correct']}/{naive_rag_results['total_questions']})"
+    )
     print(f"  Time: {naive_rag_results['elapsed_time']:.1f}s")
     print()
 
     improvement = naive_rag_results["accuracy"] - no_rag_results["accuracy"]
-    improvement_pct = (improvement / no_rag_results["accuracy"] * 100) if no_rag_results["accuracy"] > 0 else 0
+    improvement_pct = (
+        (improvement / no_rag_results["accuracy"] * 100)
+        if no_rag_results["accuracy"] > 0
+        else 0
+    )
 
     print("=" * 60)
     print("Comparison Summary")
     print("=" * 60)
-    print(f"NO_RAG accuracy:    {no_rag_results['accuracy']:.4f} ({no_rag_results['correct']}/{no_rag_results['total_questions']})")
-    print(f"NAIVE_RAG accuracy: {naive_rag_results['accuracy']:.4f} ({naive_rag_results['correct']}/{naive_rag_results['total_questions']})")
+    print(
+        f"NO_RAG accuracy:    {no_rag_results['accuracy']:.4f} "
+        f"({no_rag_results['correct']}/{no_rag_results['total_questions']})"
+    )
+    print(
+        f"NAIVE_RAG accuracy: {naive_rag_results['accuracy']:.4f} "
+        f"({naive_rag_results['correct']}/{naive_rag_results['total_questions']})"
+    )
     print(f"Improvement:        {improvement:+.4f} ({improvement_pct:+.1f}%)")
     print()
 
@@ -241,7 +255,9 @@ async def run_sample_comparison(config: SampleEvalConfig) -> Dict[str, Any]:
         print("Recommendation: Review retrieval quality and prompt design.")
     else:
         print("Result: NAIVE_RAG performs worse than NO_RAG baseline.")
-        print("Recommendation: Investigate retrieval relevance and context integration.")
+        print(
+            "Recommendation: Investigate retrieval relevance and context integration."
+        )
 
     config.output_dir.mkdir(parents=True, exist_ok=True)
     timestamp = time.strftime("%Y%m%d_%H%M%S")
@@ -268,26 +284,8 @@ async def run_sample_comparison(config: SampleEvalConfig) -> Dict[str, Any]:
     return comparison_result
 
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Small-sample validation for RAG comparison")
-    parser.add_argument("--sample-size", type=int, default=50, help="Number of questions to evaluate")
-    parser.add_argument("--top-k", type=int, default=3, help="Top-k documents to retrieve for RAG")
-    parser.add_argument("--question-file", type=Path, help="Override MedQA file")
-    parser.add_argument("--output-dir", type=Path, help="Override output directory")
-    parser.add_argument("--vector-store", type=Path, help="Override vector store path")
-    return parser.parse_args()
-
-
 async def main() -> None:
-    args = parse_args()
-    defaults = SampleEvalConfig()
-    config = SampleEvalConfig(
-        sample_size=args.sample_size,
-        top_k=args.top_k,
-        question_file=args.question_file or defaults.question_file,
-        output_dir=args.output_dir or defaults.output_dir,
-        vector_store_path=args.vector_store or defaults.vector_store_path,
-    )
+    config = SampleEvalConfig()
     await run_sample_comparison(config)
 
 

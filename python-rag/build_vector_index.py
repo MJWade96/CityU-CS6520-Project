@@ -7,7 +7,6 @@ stays aligned with the rest of the project.
 
 from __future__ import annotations
 
-import argparse
 import json
 import time
 from math import ceil
@@ -24,6 +23,12 @@ from app.rag.data_paths import (
 )
 from app.rag.embeddings import get_langchain_embeddings, resolve_embedding_runtime
 from app.rag.vector_store import MedicalVectorStore
+
+
+CORPUS_FILE = COMBINED_CORPUS_FILE
+OUTPUT_DIR = FAISS_INDEX_DIR
+BATCH_SIZE = 1000
+SKIP_TEST = False
 
 
 def load_documents(corpus_file: Path) -> List[Document]:
@@ -139,30 +144,18 @@ def test_retrieval(
             print(f"   score={score:.4f}")
 
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Build vector index for Medical RAG")
-    parser.add_argument("--corpus", type=Path, default=COMBINED_CORPUS_FILE)
-    parser.add_argument("--output", type=Path, default=FAISS_INDEX_DIR)
-    parser.add_argument("--batch-size", type=int, default=1000)
-    parser.add_argument(
-        "--no-test", action="store_true", help="Skip retrieval smoke test"
-    )
-    return parser.parse_args()
-
-
 def main() -> None:
-    args = parse_args()
     ensure_data_directories()
-    documents = load_documents(Path(args.corpus))
+    documents = load_documents(Path(CORPUS_FILE))
     embedding_runtime = resolve_embedding_runtime(
         default_model="BAAI/bge-m3",
     )
     metadata = build_index(
         documents,
-        Path(args.output),
+        Path(OUTPUT_DIR),
         embedding_model_name=embedding_runtime["model_name"],
         embedding_device=embedding_runtime["device"],
-        batch_size=args.batch_size,
+        batch_size=BATCH_SIZE,
     )
 
     print("=" * 60)
@@ -173,11 +166,11 @@ def main() -> None:
     print(f"Embedding device: {metadata['embedding_device']}")
     print(f"Sources: {metadata['sources']}")
     print(f"Build time: {metadata['build_time_seconds']:.1f}s")
-    print(f"Index location: {Path(args.output).resolve()}")
+    print(f"Index location: {Path(OUTPUT_DIR).resolve()}")
 
-    if not args.no_test:
+    if not SKIP_TEST:
         test_retrieval(
-            Path(args.output),
+            Path(OUTPUT_DIR),
             embedding_model_name=metadata["embedding_model"],
             embedding_device=metadata["embedding_device"],
         )

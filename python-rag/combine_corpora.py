@@ -8,13 +8,19 @@ duplicated across scripts.
 
 from __future__ import annotations
 
-import argparse
 import json
 from pathlib import Path
 from typing import Dict, Iterable, Optional
 
 from app.rag.corpus_registry import CORPUS_REGISTRY, combine_registered_corpora
 from app.rag.data_paths import COMBINED_CORPUS_FILE, ensure_data_directories
+
+
+OUTPUT_FILE = COMBINED_CORPUS_FILE
+SELECTED_SOURCES = list(CORPUS_REGISTRY.keys())
+TEXTBOOKS_FILE = None
+PUBMED_FILE = None
+STATPEARLS_FILE = None
 
 
 def save_combined_corpus(
@@ -31,7 +37,9 @@ def save_combined_corpus(
     records = result["records"]
 
     if not records:
-        raise FileNotFoundError("No corpus records were loaded from the selected sources.")
+        raise FileNotFoundError(
+            "No corpus records were loaded from the selected sources."
+        )
 
     output_file.parent.mkdir(parents=True, exist_ok=True)
     with output_file.open("w", encoding="utf-8") as handle:
@@ -51,7 +59,9 @@ def print_summary(result: Dict[str, object]) -> None:
     print("=" * 60)
     for source_name, source_stats in stats.items():
         if source_stats["loaded"]:
-            print(f"{source_name:12} {source_stats['count']:>8,}  {source_stats['path']}")
+            print(
+                f"{source_name:12} {source_stats['count']:>8,}  {source_stats['path']}"
+            )
         else:
             print(f"{source_name:12} {'missing':>8}  not found")
 
@@ -60,38 +70,16 @@ def print_summary(result: Dict[str, object]) -> None:
     print(f"Saved to: {result['output_file']}")
 
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Combine medical corpora")
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=COMBINED_CORPUS_FILE,
-        help="Output file path for the combined corpus",
-    )
-    parser.add_argument(
-        "--sources",
-        nargs="+",
-        choices=sorted(CORPUS_REGISTRY.keys()),
-        default=list(CORPUS_REGISTRY.keys()),
-        help="Corpus sources to merge",
-    )
-    parser.add_argument("--textbooks", type=str, help="Optional textbooks JSON override")
-    parser.add_argument("--pubmed", type=str, help="Optional PubMed JSON override")
-    parser.add_argument("--statpearls", type=str, help="Optional StatPearls JSON override")
-    return parser.parse_args()
-
-
 def main() -> None:
-    args = parse_args()
     source_overrides = {
-        "textbooks": args.textbooks,
-        "pubmed": args.pubmed,
-        "statpearls": args.statpearls,
+        "textbooks": TEXTBOOKS_FILE,
+        "pubmed": PUBMED_FILE,
+        "statpearls": STATPEARLS_FILE,
     }
     result = save_combined_corpus(
-        output_file=Path(args.output),
+        output_file=Path(OUTPUT_FILE),
         source_files={k: v for k, v in source_overrides.items() if v},
-        selected_sources=args.sources,
+        selected_sources=SELECTED_SOURCES,
     )
     print_summary(result)
 

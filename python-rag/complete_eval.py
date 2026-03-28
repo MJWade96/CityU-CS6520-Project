@@ -2,49 +2,36 @@
 CLI entrypoint for naive RAG evaluation.
 
 The implementation lives in ``app.rag.naive_rag_eval`` so this file stays
-small and focused on argument parsing.
+small and focused on configuration.
 """
 
 from __future__ import annotations
 
-import argparse
 import asyncio
 from pathlib import Path
 
 from app.rag.naive_rag_eval import NaiveRAGEvalConfig, run_complete_evaluation
+from app.rag.data_paths import EVALUATION_DIR, EVALUATION_RESULTS_DIR, FAISS_INDEX_DIR
 
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run naive RAG evaluation")
-    parser.add_argument("--dev-size", type=int, default=300, help="Development set size")
-    parser.add_argument(
-        "--test-size",
-        type=int,
-        default=None,
-        help="Test set size (default: evaluate all remaining questions)",
-    )
-    parser.add_argument("--top-k", type=int, default=3, help="Manual top-k value")
-    parser.add_argument(
-        "--auto-top-k",
-        action="store_true",
-        help="Search the configured top-k values on the dev set",
-    )
-    parser.add_argument("--vector-store", type=Path, help="Override FAISS index path")
-    parser.add_argument("--question-file", type=Path, help="Override MedQA file")
-    parser.add_argument("--output-dir", type=Path, help="Override output directory")
-    return parser.parse_args()
+DEV_SIZE = 300
+TEST_SIZE = None
+TOP_K = 3
+AUTO_TOP_K = False
+VECTOR_STORE_PATH = FAISS_INDEX_DIR
+QUESTION_FILE = EVALUATION_DIR / "medqa.json"
+OUTPUT_DIR = EVALUATION_RESULTS_DIR
 
 
 async def main() -> None:
-    args = parse_args()
     defaults = NaiveRAGEvalConfig()
     config = NaiveRAGEvalConfig(
-        dev_size=args.dev_size,
-        test_size=args.test_size,
-        manual_top_k=None if args.auto_top_k else args.top_k,
-        vector_store_path=args.vector_store or defaults.vector_store_path,
-        question_file=args.question_file or defaults.question_file,
-        output_dir=args.output_dir or defaults.output_dir,
+        dev_size=DEV_SIZE,
+        test_size=TEST_SIZE,
+        manual_top_k=None if AUTO_TOP_K else TOP_K,
+        vector_store_path=VECTOR_STORE_PATH,
+        question_file=QUESTION_FILE,
+        output_dir=OUTPUT_DIR,
     )
     result = await run_complete_evaluation(config)
 

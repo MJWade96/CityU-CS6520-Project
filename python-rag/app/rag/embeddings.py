@@ -313,10 +313,10 @@ def get_embedding_model(model_type: str = "bge-m3", **kwargs) -> BaseEmbeddingMo
         BaseEmbeddingModel instance
     """
     if model_type == "bge-m3":
-        model_name = kwargs.get("model_name", "BAAI/bge-m3")
+        model_name = kwargs.pop("model_name", "BAAI/bge-m3")
         return HuggingFaceEmbeddingModel(model_name=model_name, **kwargs)
     elif model_type == "bge":
-        model_name = kwargs.get("model_name", "BAAI/bge-small-en-v1.5")
+        model_name = kwargs.pop("model_name", "BAAI/bge-small-en-v1.5")
         return HuggingFaceEmbeddingModel(model_name=model_name, **kwargs)
     elif model_type == "huggingface":
         return HuggingFaceEmbeddingModel(**kwargs)
