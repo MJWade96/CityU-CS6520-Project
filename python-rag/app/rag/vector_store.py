@@ -82,11 +82,7 @@ class MedicalVectorStore:
                 self.vectorstore.add_documents(documents)
             elif self.store_type == "chroma":
                 self.vectorstore.add_documents(documents)
-        
-        # Persist if directory is specified
-        if self.persist_directory and self.store_type == "faiss":
-            self.save(self.persist_directory)
-    
+
     def similarity_search(
         self,
         query: str,

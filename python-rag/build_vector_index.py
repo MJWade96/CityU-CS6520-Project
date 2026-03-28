@@ -59,14 +59,14 @@ def build_index(
     output_dir: Path,
     embedding_model_name: str,
     embedding_device: str,
-    batch_size: int = 1000,
+    batch_size: int = 256,
 ) -> Dict[str, object]:
     """Embed documents and persist a FAISS index."""
     embeddings = get_langchain_embeddings(
         model_type="bge-m3",
         model_name=embedding_model_name,
         model_kwargs={"device": embedding_device},
-        encode_kwargs={"normalize_embeddings": True},
+        encode_kwargs={"normalize_embeddings": True, "batch_size": 256},
     )
     vectorstore = MedicalVectorStore(
         embedding_model=embeddings,
@@ -120,7 +120,7 @@ def test_retrieval(
         model_type="bge-m3",
         model_name=embedding_model_name,
         model_kwargs={"device": embedding_device},
-        encode_kwargs={"normalize_embeddings": True},
+        encode_kwargs={"normalize_embeddings": True, "batch_size": 256},
     )
     vectorstore = MedicalVectorStore(
         embedding_model=embeddings,
