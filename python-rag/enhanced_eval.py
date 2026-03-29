@@ -188,6 +188,7 @@ class EnhancedMedicalLLMGenerator:
         temperature: float = 0.1,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
+        enable_thinking: bool = True,
     ):
         """Initialize the shared-eval-style LLM generator."""
         self.provider = provider
@@ -203,6 +204,7 @@ class EnhancedMedicalLLMGenerator:
             temperature=self.temperature,
             base_url=self.base_url,
             api_key=self.api_key,
+            enable_thinking=enable_thinking,
         )
         self.llm_config = llm_config
         self.completion_kwargs = get_qwen_completion_kwargs(llm_config)
