@@ -47,7 +47,9 @@ class SampleEvalConfig:
     question_file: Path = QUESTION_FILE
     output_dir: Path = OUTPUT_DIR
     vector_store_path: Path = VECTOR_STORE_PATH
-    llm: EvaluationLLMConfig = field(default_factory=EvaluationLLMConfig)
+    llm: EvaluationLLMConfig = field(
+        default_factory=lambda: EvaluationLLMConfig(enable_thinking=None)
+    )
     concurrency: ConcurrencyConfig = field(default_factory=ConcurrencyConfig)
 
 
