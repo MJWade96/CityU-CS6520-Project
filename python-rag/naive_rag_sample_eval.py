@@ -61,26 +61,23 @@ async def evaluate_naive_rag_sample(
     start_time = time.time()
 
     # 使用队列实现动态补充：一旦有任务完成就立即处理下一道题
-    queue: asyncio.Queue[Dict[str, Any]] = asyncio.Queue()
+    queue: asyncio.Queue[Dict[str, Any] | None] = asyncio.Queue()
     for item in questions:
         await queue.put(item)
 
     # 用于保护 results 和 correct_count 的线程锁
     lock = asyncio.Lock()
-    # 信号量控制最大并发数
-    semaphore = asyncio.Semaphore(concurrency.max_concurrent)
     processed = 0
 
     async def worker() -> None:
         nonlocal correct_count, processed
         while True:
             item = await queue.get()
-            if item is None:  # 收到结束信号
-                queue.task_done()
+            if item is None:  # 收到结束信号，直接退出
                 break
 
-            async with semaphore:
-                result = await evaluate_single_item(ctx, item, vectorstore, top_k)
+            # 直接使用 ctx.semaphore 控制并发（call_llm 内部也会使用这个 semaphore）
+            result = await evaluate_single_item(ctx, item, vectorstore, top_k)
 
             async with lock:
                 results.append(result)
@@ -123,13 +120,14 @@ async def evaluate_naive_rag_sample(
     # 启动 worker 数量等于并发数
     workers = [asyncio.create_task(worker()) for _ in range(concurrency.max_concurrent)]
 
-    # 等待所有问题处理完成
+    # 等待队列中所有任务完成（每个 get 必须对应一个 task_done）
     await queue.join()
 
     # 发送结束信号给所有 worker
     for _ in range(concurrency.max_concurrent):
         await queue.put(None)
 
+    # 等待所有 worker 退出
     await asyncio.gather(*workers)
 
     elapsed = time.time() - start_time
