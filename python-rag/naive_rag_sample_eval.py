@@ -53,23 +53,34 @@ async def evaluate_naive_rag_sample(
     live_config: Dict[str, Any],
     vectorstore,
     top_k: int,
+    concurrency: ConcurrencyConfig,
 ) -> Dict[str, Any]:
-    """Evaluate a sample of questions using naive RAG."""
+    """Evaluate a sample of questions using naive RAG with concurrent execution."""
     results: List[Dict[str, Any]] = []
     correct_count = 0
     start_time = time.time()
 
-    for idx, item in enumerate(questions):
-        result = await evaluate_single_item(ctx, item, vectorstore, top_k)
-        results.append(result)
-        if result["is_correct"]:
-            correct_count += 1
+    # Use concurrency config for batch size
+    batch_size = max(1, concurrency.max_concurrent)
 
+    async def evaluate_item(item: Dict[str, Any]) -> Dict[str, Any]:
+        return await evaluate_single_item(ctx, item, vectorstore, top_k)
+
+    for batch_start in range(0, len(questions), batch_size):
+        batch = questions[batch_start : batch_start + batch_size]
+        batch_results = await asyncio.gather(*(evaluate_item(item) for item in batch))
+
+        for result in batch_results:
+            results.append(result)
+            if result["is_correct"]:
+                correct_count += 1
+
+        processed = len(results)
         elapsed = time.time() - start_time
         progress_mgr.print_progress(
             run_name="NAIVE_RAG",
             dataset_name="Sample",
-            processed_questions=idx + 1,
+            processed_questions=processed,
             total_questions=len(questions),
             correct_count=correct_count,
             elapsed_time=elapsed,
@@ -77,7 +88,7 @@ async def evaluate_naive_rag_sample(
         stage_result = progress_mgr.build_stage_result(
             dataset_name="Sample",
             total_questions=len(questions),
-            processed_questions=idx + 1,
+            processed_questions=processed,
             correct_count=correct_count,
             elapsed_time=elapsed,
             detailed_results=results,
@@ -153,6 +164,7 @@ async def run_naive_rag_sample(config: NaiveRAGSevalConfig) -> Dict[str, Any]:
         live_config,
         vectorstore,
         config.top_k,
+        config.concurrency,
     )
     print(
         f"  Accuracy: {results['accuracy']:.4f} ({results['correct']}/{results['total_questions']})"
