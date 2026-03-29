@@ -18,17 +18,17 @@ from langchain_openai import ChatOpenAI
 from .data_paths import EVALUATION_DIR, EVALUATION_RESULTS_DIR, FAISS_INDEX_DIR
 from .embeddings import get_langchain_embeddings
 from .eval_shared import (
-    ConcurrencyConfig,
-    EvaluationLLMConfig,
-    RateLimiter,
     build_medical_eval_prompt,
-    create_async_client,
+    ConcurrencyConfig,
+    create_eval_context,
+    evaluate_single_item,
+    EvaluationLLMConfig,
     extract_answer,
-    get_qwen_completion_kwargs,
-    get_qwen_langchain_kwargs,
     get_correct_answer_letter,
+    get_qwen_langchain_kwargs,
     load_questions,
     split_questions,
+    update_progress,
 )
 from .progress_manager import EvaluationProgressManager
 from .vector_store import MedicalVectorStore
@@ -48,10 +48,9 @@ class NaiveRAGEvalConfig:
 
 
 class MedicalLLMGenerator:
-    """Shared sync generator for dev-set evaluation."""
+    """Sync generator for dev-set evaluation using LangChain."""
 
     def __init__(self, config: EvaluationLLMConfig):
-        self.config = config
         self.llm = ChatOpenAI(
             api_key=config.api_key,
             base_url=config.base_url,
@@ -62,10 +61,9 @@ class MedicalLLMGenerator:
         prompt = build_medical_eval_prompt(
             question=question,
             options=options,
-            context="\n\n".join(f"[{index + 1}] {context}" for index, context in enumerate(contexts)),
+            context="\n\n".join(f"[{i + 1}] {c}" for i, c in enumerate(contexts)),
         )
-        response = self.llm.invoke(prompt)
-        return response.content
+        return self.llm.invoke(prompt).content
 
 
 def load_vector_store(index_path: Path) -> MedicalVectorStore:
@@ -85,34 +83,6 @@ def load_vector_store(index_path: Path) -> MedicalVectorStore:
     return vectorstore
 
 
-def evaluate_single_question(
-    vectorstore: MedicalVectorStore,
-    generator: MedicalLLMGenerator,
-    item: Dict[str, Any],
-    top_k: int,
-) -> Dict[str, Any]:
-    """Run retrieval and generation for one question."""
-    search_results = vectorstore.similarity_search_with_score(item["question"], k=top_k)
-    docs = [doc for doc, _ in search_results]
-    contexts = [doc.page_content for doc in docs]
-    scores = [float(score) for _, score in search_results]
-    response = generator.generate(item["question"], contexts, item.get("options", []))
-    predicted_answer = extract_answer(response)
-    correct_answer = get_correct_answer_letter(item)
-
-    return {
-        "question": item["question"],
-        "options": item.get("options", []),
-        "correct_answer": correct_answer,
-        "predicted_answer": predicted_answer,
-        "is_correct": predicted_answer == correct_answer,
-        "response": response,
-        "retrieved_docs": len(docs),
-        "scores": scores,
-        "contexts": contexts,
-    }
-
-
 def evaluate_sync_dataset(
     vectorstore: MedicalVectorStore,
     generator: MedicalLLMGenerator,
@@ -125,59 +95,59 @@ def evaluate_sync_dataset(
     dataset_name: str = "Development Set",
     script_name: str = "complete_eval_dev",
 ) -> Dict[str, Any]:
-    """Evaluate a dataset synchronously."""
+    """Evaluate a dataset synchronously (for dev-set hyperparameter search)."""
     start_time = time.time()
     results: List[Dict[str, Any]] = []
     correct = 0
 
     for index, item in enumerate(questions, start=1):
-        result = evaluate_single_question(vectorstore, generator, item, top_k=top_k)
-        results.append(result)
-        if result["is_correct"]:
+        search_results = vectorstore.similarity_search_with_score(
+            item["question"], k=top_k
+        )
+        docs = [doc for doc, _ in search_results]
+        contexts = [doc.page_content for doc in docs]
+        scores = [float(score) for _, score in search_results]
+        response = generator.generate(
+            item["question"], contexts, item.get("options", [])
+        )
+        predicted_answer = extract_answer(response)
+        correct_answer = get_correct_answer_letter(item)
+        is_correct = predicted_answer == correct_answer
+        if is_correct:
             correct += 1
 
+        results.append(
+            {
+                "question": item["question"],
+                "options": item.get("options", []),
+                "correct_answer": correct_answer,
+                "predicted_answer": predicted_answer,
+                "is_correct": is_correct,
+                "response": response,
+                "retrieved_docs": len(docs),
+                "scores": scores,
+                "contexts": contexts,
+            }
+        )
+
         if progress_mgr:
-            elapsed = time.time() - start_time
-            progress_mgr.save_checkpoint(
+            update_progress(
+                progress_mgr=progress_mgr,
+                artifact_paths=artifact_paths,
+                live_config=live_config,
+                extra_sections=extra_sections,
                 dataset_name=dataset_name,
                 total_questions=len(questions),
                 processed_questions=index,
-                current_top_k=top_k,
+                correct_count=correct,
+                elapsed=time.time() - start_time,
                 results=results,
-                correct_count=correct,
-                total_count=index,
-                elapsed_time=elapsed,
-                config={"top_k": top_k},
+                run_name="NAIVE_RAG",
+                evaluation_type="NAIVE_RAG",
+                config_payload={"top_k": top_k},
                 script_name=script_name,
-            )
-            stage_result = progress_mgr.build_stage_result(
-                dataset_name=dataset_name,
-                total_questions=len(questions),
-                processed_questions=index,
-                correct_count=correct,
-                elapsed_time=elapsed,
-                detailed_results=results,
                 top_k=top_k,
             )
-            progress_mgr.print_progress(
-                run_name="NAIVE_RAG",
-                dataset_name=dataset_name,
-                processed_questions=index,
-                total_questions=len(questions),
-                correct_count=correct,
-                elapsed_time=elapsed,
-            )
-            if artifact_paths and live_config:
-                live_sections = dict(extra_sections or {})
-                live_sections["current_stage"] = stage_result
-                progress_mgr.write_live_results(
-                    artifact_paths=artifact_paths,
-                    run_name="NAIVE_RAG",
-                    evaluation_type="NAIVE_RAG",
-                    config=live_config,
-                    stage_result=stage_result,
-                    extra_sections=live_sections,
-                )
 
     elapsed = time.time() - start_time
     return {
@@ -210,60 +180,16 @@ async def evaluate_async_dataset(
     initial_elapsed: float = 0.0,
 ) -> Dict[str, Any]:
     """Evaluate a dataset asynchronously with resume-safe ordered batching."""
-    client = create_async_client(config.llm)
-    semaphore = asyncio.Semaphore(config.concurrency.max_concurrent)
-    rate_limiter = RateLimiter(
-        requests_per_second=config.concurrency.requests_per_second,
-        burst=config.concurrency.max_concurrent,
-    )
-
-    async def evaluate_item(item: Dict[str, Any]) -> Dict[str, Any]:
-        search_results = await asyncio.to_thread(
-            vectorstore.similarity_search_with_score,
-            item["question"],
-            top_k,
-        )
-        docs = [doc for doc, _ in search_results]
-        contexts = [doc.page_content for doc in docs]
-        scores = [float(score) for _, score in search_results]
-        prompt = build_medical_eval_prompt(
-            question=item["question"],
-            options=item.get("options", []),
-            context="\n\n".join(f"[{index + 1}] {context}" for index, context in enumerate(contexts)),
-        )
-
-        async with semaphore:
-            await rate_limiter.acquire()
-            completion = await client.chat.completions.create(
-                messages=[{"role": "user", "content": prompt}],
-                **get_qwen_completion_kwargs(config.llm),
-            )
-
-        response_content = (
-            completion.choices[0].message.content
-            or completion.choices[0].message.reasoning_content
-            or ""
-        )
-        predicted_answer = extract_answer(response_content)
-        correct_answer = get_correct_answer_letter(item)
-        return {
-            "question": item["question"],
-            "options": item.get("options", []),
-            "correct_answer": correct_answer,
-            "predicted_answer": predicted_answer,
-            "is_correct": predicted_answer == correct_answer,
-            "response": response_content,
-            "retrieved_docs": len(docs),
-            "scores": scores,
-            "contexts": contexts,
-        }
-
+    ctx = create_eval_context(config.llm, config.concurrency)
     start_time = time.time() - initial_elapsed
     results: List[Dict[str, Any]] = list(initial_results or [])
     correct = initial_correct
     remaining_questions = questions[start_from:]
-
     batch_size = max(1, config.concurrency.max_concurrent)
+
+    async def evaluate_item(item: Dict[str, Any]) -> Dict[str, Any]:
+        return await evaluate_single_item(ctx, item, vectorstore, top_k)
+
     for batch_start in range(0, len(remaining_questions), batch_size):
         batch = remaining_questions[batch_start : batch_start + batch_size]
         batch_results = await asyncio.gather(*(evaluate_item(item) for item in batch))
@@ -275,47 +201,23 @@ async def evaluate_async_dataset(
                 correct += 1
 
             if progress_mgr:
-                elapsed = time.time() - start_time
-                progress_mgr.save_checkpoint(
+                update_progress(
+                    progress_mgr=progress_mgr,
+                    artifact_paths=artifact_paths,
+                    live_config=live_config,
+                    extra_sections=extra_sections,
                     dataset_name=dataset_name,
                     total_questions=len(questions),
                     processed_questions=processed_questions,
-                    current_top_k=top_k,
+                    correct_count=correct,
+                    elapsed=time.time() - start_time,
                     results=results,
-                    correct_count=correct,
-                    total_count=processed_questions,
-                    elapsed_time=elapsed,
-                    config={"top_k": top_k},
+                    run_name="NAIVE_RAG",
+                    evaluation_type="NAIVE_RAG",
+                    config_payload={"top_k": top_k},
                     script_name=script_name,
-                )
-                stage_result = progress_mgr.build_stage_result(
-                    dataset_name=dataset_name,
-                    total_questions=len(questions),
-                    processed_questions=processed_questions,
-                    correct_count=correct,
-                    elapsed_time=elapsed,
-                    detailed_results=results,
                     top_k=top_k,
                 )
-                progress_mgr.print_progress(
-                    run_name="NAIVE_RAG",
-                    dataset_name=dataset_name,
-                    processed_questions=processed_questions,
-                    total_questions=len(questions),
-                    correct_count=correct,
-                    elapsed_time=elapsed,
-                )
-                if artifact_paths and live_config:
-                    live_sections = dict(extra_sections or {})
-                    live_sections["current_stage"] = stage_result
-                    progress_mgr.write_live_results(
-                        artifact_paths=artifact_paths,
-                        run_name="NAIVE_RAG",
-                        evaluation_type="NAIVE_RAG",
-                        config=live_config,
-                        stage_result=stage_result,
-                        extra_sections=live_sections,
-                    )
 
     elapsed = time.time() - start_time
     return {
@@ -379,9 +281,14 @@ def calculate_recall_at_k(
     for k in k_values:
         hits = 0
         for item in questions:
-            search_results = vectorstore.similarity_search_with_score(item["question"], k=k)
+            search_results = vectorstore.similarity_search_with_score(
+                item["question"], k=k
+            )
             answer = str(item.get("answer", "")).lower()
-            if any(answer and answer in doc.page_content.lower() for doc, _ in search_results):
+            if any(
+                answer and answer in doc.page_content.lower()
+                for doc, _ in search_results
+            ):
                 hits += 1
         recall_scores[k] = hits / len(questions) if questions else 0.0
     return recall_scores
@@ -444,7 +351,9 @@ async def run_complete_evaluation(config: NaiveRAGEvalConfig) -> Dict[str, Any]:
         extra_sections={
             "development_set_evaluation": dev_results,
             "hyperparameter_search": {
-                "k_values_tested": config.top_k_values if config.manual_top_k is None else "manual",
+                "k_values_tested": (
+                    config.top_k_values if config.manual_top_k is None else "manual"
+                ),
                 "development_set_accuracy": dev_scores,
                 "best_k": best_k,
                 "used_manual_top_k": config.manual_top_k is not None,
@@ -468,7 +377,9 @@ async def run_complete_evaluation(config: NaiveRAGEvalConfig) -> Dict[str, Any]:
         },
         extra_sections={
             "hyperparameter_search": {
-                "k_values_tested": config.top_k_values if config.manual_top_k is None else "manual",
+                "k_values_tested": (
+                    config.top_k_values if config.manual_top_k is None else "manual"
+                ),
                 "development_set_accuracy": dev_scores,
                 "best_k": best_k,
                 "used_manual_top_k": config.manual_top_k is not None,

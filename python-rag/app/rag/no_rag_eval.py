@@ -16,15 +16,12 @@ from typing import Any, Dict, List, Optional
 from .data_paths import EVALUATION_DIR, EVALUATION_RESULTS_DIR
 from .eval_shared import (
     ConcurrencyConfig,
+    create_eval_context,
+    evaluate_single_item,
     EvaluationLLMConfig,
-    RateLimiter,
-    build_medical_eval_prompt,
-    create_async_client,
-    extract_answer,
-    get_qwen_completion_kwargs,
-    get_correct_answer_letter,
     load_questions,
     split_questions,
+    update_progress,
 )
 from .progress_manager import EvaluationProgressManager
 
@@ -53,46 +50,7 @@ async def evaluate_without_rag(
     questions = load_questions(str(config.question_file))
     _, test_set = split_questions(questions, config.dev_size, config.test_size)
 
-    client = create_async_client(config.llm)
-    semaphore = asyncio.Semaphore(config.concurrency.max_concurrent)
-    rate_limiter = RateLimiter(
-        requests_per_second=config.concurrency.requests_per_second,
-        burst=config.concurrency.max_concurrent,
-    )
-
-    async def evaluate_item(item: Dict[str, Any]) -> Dict[str, Any]:
-        async with semaphore:
-            await rate_limiter.acquire()
-            completion = await client.chat.completions.create(
-                messages=[
-                    {
-                        "role": "user",
-                        "content": build_medical_eval_prompt(
-                            question=item["question"],
-                            options=item.get("options", []),
-                        ),
-                    }
-                ],
-                **get_qwen_completion_kwargs(config.llm),
-            )
-
-        response_content = (
-            completion.choices[0].message.content
-            or completion.choices[0].message.reasoning_content
-            or ""
-        )
-        predicted_answer = extract_answer(response_content)
-        correct_answer = get_correct_answer_letter(item)
-        return {
-            "question": item["question"],
-            "options": item.get("options", []),
-            "correct_answer": correct_answer,
-            "predicted_answer": predicted_answer,
-            "is_correct": predicted_answer == correct_answer,
-            "response": response_content,
-            "error": None,
-        }
-
+    ctx = create_eval_context(config.llm, config.concurrency)
     start_time = time.time() - initial_elapsed
     results: List[Dict[str, Any]] = list(initial_results or [])
     correct = initial_correct
@@ -106,6 +64,9 @@ async def evaluate_without_rag(
     remaining_questions = test_set[start_from:]
     batch_size = max(1, config.concurrency.max_concurrent)
 
+    async def evaluate_item(item: Dict[str, Any]) -> Dict[str, Any]:
+        return await evaluate_single_item(ctx, item)
+
     for batch_start in range(0, len(remaining_questions), batch_size):
         batch = remaining_questions[batch_start : batch_start + batch_size]
         batch_results = await asyncio.gather(*(evaluate_item(item) for item in batch))
@@ -116,46 +77,25 @@ async def evaluate_without_rag(
             if result["is_correct"]:
                 correct += 1
 
-            elapsed = time.time() - start_time
-            progress_mgr.save_checkpoint(
-                dataset_name="Test Set",
-                total_questions=len(test_set),
-                processed_questions=processed_questions,
-                current_top_k=0,
-                results=results,
-                correct_count=correct,
-                total_count=processed_questions,
-                elapsed_time=elapsed,
-                config=config_payload,
-                script_name=script_name,
-            )
-            stage_result = progress_mgr.build_stage_result(
-                dataset_name="Test Set",
-                total_questions=len(test_set),
-                processed_questions=processed_questions,
-                correct_count=correct,
-                elapsed_time=elapsed,
-                detailed_results=results,
-            )
-            progress_mgr.print_progress(
-                run_name="NO_RAG",
-                dataset_name="Test Set",
-                processed_questions=processed_questions,
-                total_questions=len(test_set),
-                correct_count=correct,
-                elapsed_time=elapsed,
-            )
-            progress_mgr.write_live_results(
+            update_progress(
+                progress_mgr=progress_mgr,
                 artifact_paths=artifact_paths,
+                live_config=config_payload,
+                extra_sections={"evaluation_results": {}},
+                dataset_name="Test Set",
+                total_questions=len(test_set),
+                processed_questions=processed_questions,
+                correct_count=correct,
+                elapsed=time.time() - start_time,
+                results=results,
                 run_name="NO_RAG",
                 evaluation_type="NO_RAG",
-                config=config_payload,
-                stage_result=stage_result,
-                extra_sections={"evaluation_results": stage_result},
+                config_payload=config_payload,
+                script_name=script_name,
             )
 
     elapsed = time.time() - start_time
-    payload = {
+    return {
         "dataset_name": "Test Set",
         "total_questions": len(test_set),
         "processed_questions": len(test_set),
@@ -165,7 +105,7 @@ async def evaluate_without_rag(
         "questions_per_second": len(test_set) / elapsed if elapsed > 0 else 0.0,
         "detailed_results": results,
     }
-    return payload
+
 
 async def run_no_rag_evaluation(config: NoRAGEvalConfig) -> Dict[str, Any]:
     progress_mgr = EvaluationProgressManager(output_dir=str(config.output_dir))

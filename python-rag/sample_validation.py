@@ -1,9 +1,5 @@
 """
 Small-sample validation script to compare naive-RAG vs no-RAG before full evaluation.
-
-This script runs a quick comparison on a small subset of questions to verify
-that naive-RAG provides improvement over the no-RAG baseline before committing
-to the full 973-question evaluation.
 """
 
 from __future__ import annotations
@@ -12,18 +8,15 @@ import asyncio
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from app.rag.data_paths import EVALUATION_DIR, EVALUATION_RESULTS_DIR, FAISS_INDEX_DIR
 from app.rag.eval_shared import (
     ConcurrencyConfig,
+    create_eval_context,
+    EvalContext,
+    evaluate_single_item,
     EvaluationLLMConfig,
-    RateLimiter,
-    build_medical_eval_prompt,
-    create_async_client,
-    extract_answer,
-    get_qwen_completion_kwargs,
-    get_correct_answer_letter,
     load_questions,
     split_questions,
 )
@@ -53,73 +46,36 @@ class SampleEvalConfig:
     concurrency: ConcurrencyConfig = field(default_factory=ConcurrencyConfig)
 
 
-async def evaluate_no_rag_sample(
+async def evaluate_sample(
     questions: List[Dict[str, Any]],
+    ctx: EvalContext,
     config: SampleEvalConfig,
     progress_mgr: EvaluationProgressManager,
     artifact_paths: Dict[str, Path],
     live_config: Dict[str, Any],
+    run_name: str,
+    vectorstore: Optional[Any] = None,
 ) -> Dict[str, Any]:
-    """Evaluate without retrieval on a small sample."""
-    client = create_async_client(config.llm)
-    semaphore = asyncio.Semaphore(config.concurrency.max_concurrent)
-    rate_limiter = RateLimiter(
-        requests_per_second=config.concurrency.requests_per_second,
-        burst=config.concurrency.max_concurrent,
-    )
-
+    """Evaluate a sample of questions using shared evaluation context."""
     results: List[Dict[str, Any]] = []
     correct_count = 0
     start_time = time.time()
 
     for idx, item in enumerate(questions):
-        async with semaphore:
-            await rate_limiter.acquire()
-            completion = await client.chat.completions.create(
-                messages=[
-                    {
-                        "role": "user",
-                        "content": build_medical_eval_prompt(
-                            question=item["question"],
-                            options=item.get("options", []),
-                        ),
-                    }
-                ],
-                **get_qwen_completion_kwargs(config.llm),
-            )
-
-        response_content = (
-            completion.choices[0].message.content
-            or completion.choices[0].message.reasoning_content
-            or ""
-        )
-        predicted_answer = extract_answer(response_content)
-        correct_answer = get_correct_answer_letter(item)
-        is_correct = predicted_answer == correct_answer
-        if is_correct:
+        result = await evaluate_single_item(ctx, item, vectorstore, config.top_k)
+        results.append(result)
+        if result["is_correct"]:
             correct_count += 1
-
-        results.append(
-            {
-                "question": item["question"],
-                "options": item.get("options", []),
-                "correct_answer": correct_answer,
-                "predicted_answer": predicted_answer,
-                "is_correct": is_correct,
-                "response": response_content,
-            }
-        )
 
         elapsed = time.time() - start_time
         progress_mgr.print_progress(
-            run_name="NO_RAG",
+            run_name=run_name,
             dataset_name="Sample",
             processed_questions=idx + 1,
             total_questions=len(questions),
             correct_count=correct_count,
             elapsed_time=elapsed,
         )
-
         stage_result = progress_mgr.build_stage_result(
             dataset_name="Sample",
             total_questions=len(questions),
@@ -127,11 +83,12 @@ async def evaluate_no_rag_sample(
             correct_count=correct_count,
             elapsed_time=elapsed,
             detailed_results=results,
+            top_k=config.top_k if vectorstore else None,
         )
         progress_mgr.write_live_results(
             artifact_paths=artifact_paths,
             run_name="SAMPLE_VALIDATION",
-            evaluation_type="NO_RAG",
+            evaluation_type=run_name,
             config=live_config,
             stage_result=stage_result,
             status="running",
@@ -145,113 +102,7 @@ async def evaluate_no_rag_sample(
         correct_count=correct_count,
         elapsed_time=elapsed,
         detailed_results=results,
-    )
-
-
-async def evaluate_naive_rag_sample(
-    questions: List[Dict[str, Any]],
-    vectorstore,
-    config: SampleEvalConfig,
-    progress_mgr: EvaluationProgressManager,
-    artifact_paths: Dict[str, Path],
-    live_config: Dict[str, Any],
-) -> Dict[str, Any]:
-    """Evaluate with naive RAG on a small sample."""
-    client = create_async_client(config.llm)
-    semaphore = asyncio.Semaphore(config.concurrency.max_concurrent)
-    rate_limiter = RateLimiter(
-        requests_per_second=config.concurrency.requests_per_second,
-        burst=config.concurrency.max_concurrent,
-    )
-
-    results: List[Dict[str, Any]] = []
-    correct_count = 0
-    start_time = time.time()
-
-    for idx, item in enumerate(questions):
-        search_results = await asyncio.to_thread(
-            vectorstore.similarity_search_with_score,
-            item["question"],
-            config.top_k,
-        )
-        docs = [doc for doc, _ in search_results]
-        scores = [float(score) for _, score in search_results]
-        contexts = [doc.page_content for doc in docs]
-        prompt = build_medical_eval_prompt(
-            question=item["question"],
-            options=item.get("options", []),
-            context="\n\n".join(f"[{i + 1}] {ctx}" for i, ctx in enumerate(contexts)),
-        )
-
-        async with semaphore:
-            await rate_limiter.acquire()
-            completion = await client.chat.completions.create(
-                messages=[{"role": "user", "content": prompt}],
-                **get_qwen_completion_kwargs(config.llm),
-            )
-
-        response_content = (
-            completion.choices[0].message.content
-            or completion.choices[0].message.reasoning_content
-            or ""
-        )
-        predicted_answer = extract_answer(response_content)
-        correct_answer = get_correct_answer_letter(item)
-        is_correct = predicted_answer == correct_answer
-        if is_correct:
-            correct_count += 1
-
-        results.append(
-            {
-                "question": item["question"],
-                "options": item.get("options", []),
-                "correct_answer": correct_answer,
-                "predicted_answer": predicted_answer,
-                "is_correct": is_correct,
-                "response": response_content,
-                "retrieved_docs": len(docs),
-                "scores": scores,
-                "contexts": contexts,
-            }
-        )
-
-        elapsed = time.time() - start_time
-        progress_mgr.print_progress(
-            run_name="NAIVE_RAG",
-            dataset_name="Sample",
-            processed_questions=idx + 1,
-            total_questions=len(questions),
-            correct_count=correct_count,
-            elapsed_time=elapsed,
-        )
-
-        stage_result = progress_mgr.build_stage_result(
-            dataset_name="Sample",
-            total_questions=len(questions),
-            processed_questions=idx + 1,
-            correct_count=correct_count,
-            elapsed_time=elapsed,
-            detailed_results=results,
-            top_k=config.top_k,
-        )
-        progress_mgr.write_live_results(
-            artifact_paths=artifact_paths,
-            run_name="SAMPLE_VALIDATION",
-            evaluation_type="NAIVE_RAG",
-            config=live_config,
-            stage_result=stage_result,
-            status="running",
-        )
-
-    elapsed = time.time() - start_time
-    return progress_mgr.build_stage_result(
-        dataset_name="Sample",
-        total_questions=len(questions),
-        processed_questions=len(questions),
-        correct_count=correct_count,
-        elapsed_time=elapsed,
-        detailed_results=results,
-        top_k=config.top_k,
+        top_k=config.top_k if vectorstore else None,
     )
 
 
@@ -263,7 +114,6 @@ async def run_sample_comparison(config: SampleEvalConfig) -> Dict[str, Any]:
 
     progress_mgr = EvaluationProgressManager(output_dir=str(config.output_dir))
     artifact_paths = progress_mgr.create_run_artifacts("sample_validation")
-
     live_config = {
         "sample_size": config.sample_size,
         "top_k": config.top_k,
@@ -272,24 +122,27 @@ async def run_sample_comparison(config: SampleEvalConfig) -> Dict[str, Any]:
         "vector_store": str(config.vector_store_path),
     }
 
-    print("=" * 60)
-    print("Small-Sample Validation: NO_RAG vs NAIVE_RAG")
-    print("=" * 60)
-    print(f"Sample size: {config.sample_size}")
-    print(f"Top-k for RAG: {config.top_k}")
-    print(f"LLM model: {config.llm.model}")
-    print()
+    ctx = create_eval_context(config.llm, config.concurrency)
+
+    print("=" * 60 + "\nSmall-Sample Validation: NO_RAG vs NAIVE_RAG\n" + "=" * 60)
+    print(
+        f"Sample size: {config.sample_size}\nTop-k for RAG: {config.top_k}\nLLM model: {config.llm.model}\n"
+    )
 
     print("Running NO_RAG evaluation...")
-    no_rag_results = await evaluate_no_rag_sample(
-        sample_questions, config, progress_mgr, artifact_paths, live_config
+    no_rag_results = await evaluate_sample(
+        sample_questions,
+        ctx,
+        config,
+        progress_mgr,
+        artifact_paths,
+        live_config,
+        "NO_RAG",
     )
     print(
-        f"  Accuracy: {no_rag_results['accuracy']:.4f} "
-        f"({no_rag_results['correct']}/{no_rag_results['total_questions']})"
+        f"  Accuracy: {no_rag_results['accuracy']:.4f} ({no_rag_results['correct']}/{no_rag_results['total_questions']})"
     )
-    print(f"  Time: {no_rag_results['elapsed_time']:.1f}s")
-    print()
+    print(f"  Time: {no_rag_results['elapsed_time']:.1f}s\n")
 
     print("Loading vector store for NAIVE_RAG...")
     try:
@@ -297,7 +150,6 @@ async def run_sample_comparison(config: SampleEvalConfig) -> Dict[str, Any]:
         print("  Vector store loaded successfully")
     except Exception as e:
         print(f"  ERROR: Failed to load vector store: {e}")
-        print("  Skipping NAIVE_RAG evaluation")
         progress_mgr.write_final_results(
             artifact_paths=artifact_paths,
             run_name="SAMPLE_VALIDATION",
@@ -309,15 +161,20 @@ async def run_sample_comparison(config: SampleEvalConfig) -> Dict[str, Any]:
         return {"error": str(e), "no_rag_results": no_rag_results}
 
     print("Running NAIVE_RAG evaluation...")
-    naive_rag_results = await evaluate_naive_rag_sample(
-        sample_questions, vectorstore, config, progress_mgr, artifact_paths, live_config
+    naive_rag_results = await evaluate_sample(
+        sample_questions,
+        ctx,
+        config,
+        progress_mgr,
+        artifact_paths,
+        live_config,
+        "NAIVE_RAG",
+        vectorstore,
     )
     print(
-        f"  Accuracy: {naive_rag_results['accuracy']:.4f} "
-        f"({naive_rag_results['correct']}/{naive_rag_results['total_questions']})"
+        f"  Accuracy: {naive_rag_results['accuracy']:.4f} ({naive_rag_results['correct']}/{naive_rag_results['total_questions']})"
     )
-    print(f"  Time: {naive_rag_results['elapsed_time']:.1f}s")
-    print()
+    print(f"  Time: {naive_rag_results['elapsed_time']:.1f}s\n")
 
     improvement = naive_rag_results["accuracy"] - no_rag_results["accuracy"]
     improvement_pct = (
@@ -326,30 +183,26 @@ async def run_sample_comparison(config: SampleEvalConfig) -> Dict[str, Any]:
         else 0
     )
 
-    print("=" * 60)
-    print("Comparison Summary")
-    print("=" * 60)
+    print("=" * 60 + "\nComparison Summary\n" + "=" * 60)
     print(
-        f"NO_RAG accuracy:    {no_rag_results['accuracy']:.4f} "
-        f"({no_rag_results['correct']}/{no_rag_results['total_questions']})"
+        f"NO_RAG accuracy:    {no_rag_results['accuracy']:.4f} ({no_rag_results['correct']}/{no_rag_results['total_questions']})"
     )
     print(
-        f"NAIVE_RAG accuracy: {naive_rag_results['accuracy']:.4f} "
-        f"({naive_rag_results['correct']}/{naive_rag_results['total_questions']})"
+        f"NAIVE_RAG accuracy: {naive_rag_results['accuracy']:.4f} ({naive_rag_results['correct']}/{naive_rag_results['total_questions']})"
     )
-    print(f"Improvement:        {improvement:+.4f} ({improvement_pct:+.1f}%)")
-    print()
+    print(f"Improvement:        {improvement:+.4f} ({improvement_pct:+.1f}%)\n")
 
     if improvement > 0:
-        print("Result: NAIVE_RAG shows improvement over NO_RAG baseline.")
-        print("Recommendation: Proceed with full evaluation.")
-    elif improvement == 0:
-        print("Result: NAIVE_RAG shows no improvement over NO_RAG baseline.")
-        print("Recommendation: Review retrieval quality and prompt design.")
-    else:
-        print("Result: NAIVE_RAG performs worse than NO_RAG baseline.")
         print(
-            "Recommendation: Investigate retrieval relevance and context integration."
+            "Result: NAIVE_RAG shows improvement over NO_RAG baseline.\nRecommendation: Proceed with full evaluation."
+        )
+    elif improvement == 0:
+        print(
+            "Result: NAIVE_RAG shows no improvement over NO_RAG baseline.\nRecommendation: Review retrieval quality and prompt design."
+        )
+    else:
+        print(
+            "Result: NAIVE_RAG performs worse than NO_RAG baseline.\nRecommendation: Investigate retrieval relevance and context integration."
         )
 
     paths = progress_mgr.write_final_results(
@@ -369,9 +222,7 @@ async def run_sample_comparison(config: SampleEvalConfig) -> Dict[str, Any]:
             }
         },
     )
-
     print(f"\nResults saved to: {paths['json']}")
-
     return {
         "no_rag_results": no_rag_results,
         "naive_rag_results": naive_rag_results,
