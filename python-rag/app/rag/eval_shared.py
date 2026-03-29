@@ -12,6 +12,8 @@ import json
 import os
 import re
 import time
+import openai
+import httpx
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -278,7 +280,6 @@ async def call_llm(
     prompt: str,
 ) -> str:
     """Call LLM with rate limiting and return response content."""
-    import httpx
     import asyncio
 
     max_retries = int(os.getenv("RAG_LLM_MAX_RETRIES", "5"))
@@ -299,14 +300,19 @@ async def call_llm(
                 or ""
             )
         except (
-            httpx.RemoteProtocolError,
-            httpx.ConnectError,
-            httpx.ConnectTimeout,
-            httpx.ReadTimeout,
+            # 捕获 OpenAI SDK 抛出的主要异常
+            openai.RateLimitError,  # 429 限流
+            openai.InternalServerError,  # 500 服务器错误
+            openai.APIConnectionError,  # 网络连接中断
+            openai.APIStatusError,  # 其他非 200 状态码
+            # 兼容底层 httpx 请求错误
+            httpx.RequestError,
         ) as e:
             last_exception = e
             if attempt < max_retries - 1:
-                delay = base_delay * (2 ** attempt)  # Exponential backoff
+                delay = base_delay * (2**attempt)  # Exponential backoff
+                # 建议加一行日志，方便观察重试状态
+                # print(f"API Warning: {type(e).__name__} encountered. Retrying in {delay}s...")
                 await asyncio.sleep(delay)
             continue
 

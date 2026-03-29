@@ -60,12 +60,10 @@ async def evaluate_naive_rag_sample(
     correct_count = 0
     start_time = time.time()
 
-    # 使用队列实现动态补充：一旦有任务完成就立即处理下一道题
     queue: asyncio.Queue[Dict[str, Any] | None] = asyncio.Queue()
     for item in questions:
         await queue.put(item)
 
-    # 用于保护 results 和 correct_count 的线程锁
     lock = asyncio.Lock()
     processed = 0
 
@@ -73,62 +71,87 @@ async def evaluate_naive_rag_sample(
         nonlocal correct_count, processed
         while True:
             item = await queue.get()
-            if item is None:  # 收到结束信号，直接退出
+            if item is None:  # 收到结束信号
+                queue.task_done()
                 break
 
-            # 直接使用 ctx.semaphore 控制并发（call_llm 内部也会使用这个 semaphore）
-            result = await evaluate_single_item(ctx, item, vectorstore, top_k)
+            try:
+                # 1. 评估逻辑
+                try:
+                    result = await evaluate_single_item(ctx, item, vectorstore, top_k)
+                except Exception as e:
+                    print(f"  Warning: Failed to evaluate question: {e}")
+                    result = {
+                        "question": item.get("question", ""),
+                        "options": item.get("options", []),
+                        "correct_answer": "",
+                        "predicted_answer": "",
+                        "is_correct": False,
+                        "error": str(e),
+                    }
 
-            async with lock:
-                results.append(result)
-                if result["is_correct"]:
-                    correct_count += 1
-                processed += 1
-                current_processed = processed
-                current_correct = correct_count
+                # 2. 状态更新 (严格控制锁的范围)
+                async with lock:
+                    results.append(result)
+                    if result["is_correct"]:
+                        correct_count += 1
+                    processed += 1
+                    current_processed = processed
+                    current_correct = correct_count
 
-            elapsed = time.time() - start_time
-            progress_mgr.print_progress(
-                run_name="NAIVE_RAG",
-                dataset_name="Sample",
-                processed_questions=current_processed,
-                total_questions=len(questions),
-                correct_count=current_correct,
-                elapsed_time=elapsed,
-            )
+                # 3. 进度输出与写入 (包裹在全面的 try-except 中，防止 IO 错误杀死 Worker)
+                elapsed = time.time() - start_time
+                try:
+                    progress_mgr.print_progress(
+                        run_name="NAIVE_RAG",
+                        dataset_name="Sample",
+                        processed_questions=current_processed,
+                        total_questions=len(questions),
+                        correct_count=current_correct,
+                        elapsed_time=elapsed,
+                    )
 
-            # 动态写入中间结果（每完成一道题都写入）
-            stage_result = progress_mgr.build_stage_result(
-                dataset_name="Sample",
-                total_questions=len(questions),
-                processed_questions=current_processed,
-                correct_count=current_correct,
-                elapsed_time=elapsed,
-                detailed_results=results,
-                top_k=top_k,
-            )
-            progress_mgr.write_live_results(
-                artifact_paths=artifact_paths,
-                run_name="NAIVE_RAG_SAMPLE",
-                evaluation_type="NAIVE_RAG",
-                config=live_config,
-                stage_result=stage_result,
-                status="running",
-            )
-            queue.task_done()
+                    stage_result = progress_mgr.build_stage_result(
+                        dataset_name="Sample",
+                        total_questions=len(questions),
+                        processed_questions=current_processed,
+                        correct_count=current_correct,
+                        elapsed_time=elapsed,
+                        detailed_results=results,  # 注意：在高并发下直接传递 results 引用可能是安全的，因为 JSON 序列化时是瞬间的，但严格来说存在微小的数据竞争风险
+                        top_k=top_k,
+                    )
+                    progress_mgr.write_live_results(
+                        artifact_paths=artifact_paths,
+                        run_name="NAIVE_RAG_SAMPLE",
+                        evaluation_type="NAIVE_RAG",
+                        config=live_config,
+                        stage_result=stage_result,
+                        status="running",
+                    )
+                except Exception as io_err:
+                    print(f"  Warning: Failed to save progress/artifacts: {io_err}")
 
-    # 启动 worker 数量等于并发数
+            except Exception as critical_err:
+                # 终极兜底：确保没有任何未捕获的异常能逃逸出这个 while 循环
+                print(
+                    f"  CRITICAL: Worker encountered unexpected error: {critical_err}"
+                )
+            finally:
+                # 确保每次 get() 都有明确的 task_done()，彻底杜绝 queue.join() 死锁
+                queue.task_done()
+
+    # 启动 worker
     workers = [asyncio.create_task(worker()) for _ in range(concurrency.max_concurrent)]
 
-    # 等待队列中所有任务完成（每个 get 必须对应一个 task_done）
+    # 等待所有任务完成
     await queue.join()
 
-    # 发送结束信号给所有 worker
+    # 安全的退出机制
     for _ in range(concurrency.max_concurrent):
         await queue.put(None)
 
-    # 等待所有 worker 退出
-    await asyncio.gather(*workers)
+    # 允许 worker 协程优雅清理并退出
+    await asyncio.gather(*workers, return_exceptions=True)
 
     elapsed = time.time() - start_time
     return progress_mgr.build_stage_result(
