@@ -120,19 +120,31 @@ async def run_sample_comparison(config: SampleEvalConfig) -> Dict[str, Any]:
         "llm_provider": config.llm.provider,
         "llm_model": config.llm.model,
         "vector_store": str(config.vector_store_path),
+        "no_rag_enable_thinking": False,
+        "naive_rag_enable_thinking": True,
     }
 
-    ctx = create_eval_context(config.llm, config.concurrency)
+    base_llm_config = {
+        "provider": config.llm.provider,
+        "model": config.llm.model,
+        "temperature": config.llm.temperature,
+        "base_url": config.llm.base_url,
+        "api_key": config.llm.api_key,
+    }
+    no_rag_llm = EvaluationLLMConfig(**base_llm_config, enable_thinking=False)
+    naive_rag_llm = EvaluationLLMConfig(**base_llm_config, enable_thinking=True)
+    no_rag_ctx = create_eval_context(no_rag_llm, config.concurrency)
+    naive_rag_ctx = create_eval_context(naive_rag_llm, config.concurrency)
 
     print("=" * 60 + "\nSmall-Sample Validation: NO_RAG vs NAIVE_RAG\n" + "=" * 60)
     print(
         f"Sample size: {config.sample_size}\nTop-k for RAG: {config.top_k}\nLLM model: {config.llm.model}\n"
     )
 
-    print("Running NO_RAG evaluation...")
+    print("Running NO_RAG evaluation (thinking disabled)...")
     no_rag_results = await evaluate_sample(
         sample_questions,
-        ctx,
+        no_rag_ctx,
         config,
         progress_mgr,
         artifact_paths,
@@ -160,10 +172,10 @@ async def run_sample_comparison(config: SampleEvalConfig) -> Dict[str, Any]:
         )
         return {"error": str(e), "no_rag_results": no_rag_results}
 
-    print("Running NAIVE_RAG evaluation...")
+    print("Running NAIVE_RAG evaluation (thinking enabled)...")
     naive_rag_results = await evaluate_sample(
         sample_questions,
-        ctx,
+        naive_rag_ctx,
         config,
         progress_mgr,
         artifact_paths,

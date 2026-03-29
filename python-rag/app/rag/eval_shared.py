@@ -214,11 +214,13 @@ class RateLimiter:
 
 def create_async_client(config: EvaluationLLMConfig) -> AsyncOpenAI:
     """Create the shared async OpenAI-compatible client."""
+    timeout = float(os.getenv("RAG_LLM_TIMEOUT", "60.0"))
+    max_retries = int(os.getenv("RAG_LLM_MAX_RETRIES", "5"))
     return AsyncOpenAI(
         api_key=config.api_key,
         base_url=config.base_url,
-        timeout=30.0,
-        max_retries=2,
+        timeout=timeout,
+        max_retries=max_retries,
     )
 
 
