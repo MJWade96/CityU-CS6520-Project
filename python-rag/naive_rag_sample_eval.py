@@ -3,7 +3,7 @@ Naive RAG sample validation script - evaluates a small sample of questions using
 """
 
 from __future__ import annotations
-
+import traceback
 import asyncio
 import time
 from dataclasses import dataclass, field
@@ -81,6 +81,7 @@ async def evaluate_naive_rag_sample(
                     result = await evaluate_single_item(ctx, item, vectorstore, top_k)
                 except Exception as e:
                     print(f"  Warning: Failed to evaluate question: {e}")
+                    traceback.print_exc()  # 打印完整的报错调用链
                     result = {
                         "question": item.get("question", ""),
                         "options": item.get("options", []),
