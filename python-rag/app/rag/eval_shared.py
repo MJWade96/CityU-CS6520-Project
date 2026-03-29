@@ -278,17 +278,39 @@ async def call_llm(
     prompt: str,
 ) -> str:
     """Call LLM with rate limiting and return response content."""
-    async with ctx.semaphore:
-        await ctx.rate_limiter.acquire()
-        completion = await ctx.client.chat.completions.create(
-            messages=[{"role": "user", "content": prompt}],
-            **get_qwen_completion_kwargs(ctx.llm_config),
-        )
-    return (
-        completion.choices[0].message.content
-        or completion.choices[0].message.reasoning_content
-        or ""
-    )
+    import httpx
+    import asyncio
+
+    max_retries = int(os.getenv("RAG_LLM_MAX_RETRIES", "5"))
+    base_delay = 1.0
+    last_exception = None
+
+    for attempt in range(max_retries):
+        try:
+            async with ctx.semaphore:
+                await ctx.rate_limiter.acquire()
+                completion = await ctx.client.chat.completions.create(
+                    messages=[{"role": "user", "content": prompt}],
+                    **get_qwen_completion_kwargs(ctx.llm_config),
+                )
+            return (
+                completion.choices[0].message.content
+                or completion.choices[0].message.reasoning_content
+                or ""
+            )
+        except (
+            httpx.RemoteProtocolError,
+            httpx.ConnectError,
+            httpx.ConnectTimeout,
+            httpx.ReadTimeout,
+        ) as e:
+            last_exception = e
+            if attempt < max_retries - 1:
+                delay = base_delay * (2 ** attempt)  # Exponential backoff
+                await asyncio.sleep(delay)
+            continue
+
+    raise last_exception
 
 
 def build_eval_result(

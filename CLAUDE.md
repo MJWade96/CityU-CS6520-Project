@@ -25,6 +25,10 @@
 - 在脚本中使用命令行参数（正确做法：在脚本中设置变量存储参数值）
 - 使用回退机制
 
+# 最佳实践
+
+- 并发机制采用流水线模式：任一任务完成后立即补充一个新任务。
+
 # 项目信息
 
 libgomp: Invalid value for environment variable OMP_NUM_THREADS

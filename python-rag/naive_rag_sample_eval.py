@@ -60,48 +60,77 @@ async def evaluate_naive_rag_sample(
     correct_count = 0
     start_time = time.time()
 
-    # Use concurrency config for batch size
-    batch_size = max(1, concurrency.max_concurrent)
+    # 使用队列实现动态补充：一旦有任务完成就立即处理下一道题
+    queue: asyncio.Queue[Dict[str, Any]] = asyncio.Queue()
+    for item in questions:
+        await queue.put(item)
 
-    async def evaluate_item(item: Dict[str, Any]) -> Dict[str, Any]:
-        return await evaluate_single_item(ctx, item, vectorstore, top_k)
+    # 用于保护 results 和 correct_count 的线程锁
+    lock = asyncio.Lock()
+    # 信号量控制最大并发数
+    semaphore = asyncio.Semaphore(concurrency.max_concurrent)
+    processed = 0
 
-    for batch_start in range(0, len(questions), batch_size):
-        batch = questions[batch_start : batch_start + batch_size]
-        batch_results = await asyncio.gather(*(evaluate_item(item) for item in batch))
+    async def worker() -> None:
+        nonlocal correct_count, processed
+        while True:
+            item = await queue.get()
+            if item is None:  # 收到结束信号
+                queue.task_done()
+                break
 
-        for result in batch_results:
-            results.append(result)
-            if result["is_correct"]:
-                correct_count += 1
+            async with semaphore:
+                result = await evaluate_single_item(ctx, item, vectorstore, top_k)
 
-        processed = len(results)
-        elapsed = time.time() - start_time
-        progress_mgr.print_progress(
-            run_name="NAIVE_RAG",
-            dataset_name="Sample",
-            processed_questions=processed,
-            total_questions=len(questions),
-            correct_count=correct_count,
-            elapsed_time=elapsed,
-        )
-        stage_result = progress_mgr.build_stage_result(
-            dataset_name="Sample",
-            total_questions=len(questions),
-            processed_questions=processed,
-            correct_count=correct_count,
-            elapsed_time=elapsed,
-            detailed_results=results,
-            top_k=top_k,
-        )
-        progress_mgr.write_live_results(
-            artifact_paths=artifact_paths,
-            run_name="NAIVE_RAG_SAMPLE",
-            evaluation_type="NAIVE_RAG",
-            config=live_config,
-            stage_result=stage_result,
-            status="running",
-        )
+            async with lock:
+                results.append(result)
+                if result["is_correct"]:
+                    correct_count += 1
+                processed += 1
+                current_processed = processed
+                current_correct = correct_count
+
+            elapsed = time.time() - start_time
+            progress_mgr.print_progress(
+                run_name="NAIVE_RAG",
+                dataset_name="Sample",
+                processed_questions=current_processed,
+                total_questions=len(questions),
+                correct_count=current_correct,
+                elapsed_time=elapsed,
+            )
+
+            # 动态写入中间结果（每完成一道题都写入）
+            stage_result = progress_mgr.build_stage_result(
+                dataset_name="Sample",
+                total_questions=len(questions),
+                processed_questions=current_processed,
+                correct_count=current_correct,
+                elapsed_time=elapsed,
+                detailed_results=results,
+                top_k=top_k,
+            )
+            progress_mgr.write_live_results(
+                artifact_paths=artifact_paths,
+                run_name="NAIVE_RAG_SAMPLE",
+                evaluation_type="NAIVE_RAG",
+                config=live_config,
+                stage_result=stage_result,
+                status="running",
+            )
+            queue.task_done()
+
+    # 启动 worker 数量等于并发数
+    workers = [asyncio.create_task(worker()) for _ in range(concurrency.max_concurrent)]
+
+    # 等待所有问题处理完成
+    await queue.join()
+
+    # 发送结束信号给所有 worker
+    for _ in range(concurrency.max_concurrent):
+        await queue.put(None)
+
+    await asyncio.gather(*workers)
 
     elapsed = time.time() - start_time
     return progress_mgr.build_stage_result(
