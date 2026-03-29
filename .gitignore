@@ -1,6 +1,7 @@
 /Med-R2/
 /Zignored/
-.trae
+.trae/
+.claude/
 .DS_Store
 __pycache__/
 *.pyc

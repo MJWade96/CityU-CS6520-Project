@@ -9,15 +9,12 @@ to the full 973-question evaluation.
 from __future__ import annotations
 
 import asyncio
-import json
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List
 
 from app.rag.data_paths import EVALUATION_DIR, EVALUATION_RESULTS_DIR, FAISS_INDEX_DIR
-from app.rag.naive_rag_eval import load_vector_store
-from app.rag.no_rag_eval import NoRAGEvalConfig
 from app.rag.eval_shared import (
     ConcurrencyConfig,
     EvaluationLLMConfig,
@@ -30,6 +27,7 @@ from app.rag.eval_shared import (
     load_questions,
     split_questions,
 )
+from app.rag.naive_rag_eval import load_vector_store
 from app.rag.progress_manager import EvaluationProgressManager
 
 
@@ -56,8 +54,11 @@ class SampleEvalConfig:
 async def evaluate_no_rag_sample(
     questions: List[Dict[str, Any]],
     config: SampleEvalConfig,
+    progress_mgr: EvaluationProgressManager,
+    artifact_paths: Dict[str, Path],
+    live_config: Dict[str, Any],
 ) -> Dict[str, Any]:
-    """Evaluate without retrieval on a small sample - reuses no_rag_eval patterns."""
+    """Evaluate without retrieval on a small sample."""
     client = create_async_client(config.llm)
     semaphore = asyncio.Semaphore(config.concurrency.max_concurrent)
     rate_limiter = RateLimiter(
@@ -65,7 +66,11 @@ async def evaluate_no_rag_sample(
         burst=config.concurrency.max_concurrent,
     )
 
-    async def evaluate_item(item: Dict[str, Any]) -> Dict[str, Any]:
+    results: List[Dict[str, Any]] = []
+    correct_count = 0
+    start_time = time.time()
+
+    for idx, item in enumerate(questions):
         async with semaphore:
             await rate_limiter.acquire()
             completion = await client.chat.completions.create(
@@ -88,35 +93,68 @@ async def evaluate_no_rag_sample(
         )
         predicted_answer = extract_answer(response_content)
         correct_answer = get_correct_answer_letter(item)
-        return {
-            "question": item["question"][:100] + "...",
-            "correct_answer": correct_answer,
-            "predicted_answer": predicted_answer,
-            "is_correct": predicted_answer == correct_answer,
-        }
+        is_correct = predicted_answer == correct_answer
+        if is_correct:
+            correct_count += 1
 
-    start_time = time.time()
-    results = await asyncio.gather(*(evaluate_item(item) for item in questions))
+        results.append(
+            {
+                "question": item["question"],
+                "options": item.get("options", []),
+                "correct_answer": correct_answer,
+                "predicted_answer": predicted_answer,
+                "is_correct": is_correct,
+                "response": response_content,
+            }
+        )
+
+        elapsed = time.time() - start_time
+        progress_mgr.print_progress(
+            run_name="NO_RAG",
+            dataset_name="Sample",
+            processed_questions=idx + 1,
+            total_questions=len(questions),
+            correct_count=correct_count,
+            elapsed_time=elapsed,
+        )
+
+        stage_result = progress_mgr.build_stage_result(
+            dataset_name="Sample",
+            total_questions=len(questions),
+            processed_questions=idx + 1,
+            correct_count=correct_count,
+            elapsed_time=elapsed,
+            detailed_results=results,
+        )
+        progress_mgr.write_live_results(
+            artifact_paths=artifact_paths,
+            run_name="SAMPLE_VALIDATION",
+            evaluation_type="NO_RAG",
+            config=live_config,
+            stage_result=stage_result,
+            status="running",
+        )
+
     elapsed = time.time() - start_time
-
-    correct = sum(1 for r in results if r["is_correct"])
-    return {
-        "mode": "NO_RAG",
-        "total_questions": len(questions),
-        "correct": correct,
-        "accuracy": correct / len(questions) if questions else 0.0,
-        "elapsed_time": elapsed,
-        "questions_per_second": len(questions) / elapsed if elapsed > 0 else 0.0,
-        "detailed_results": results,
-    }
+    return progress_mgr.build_stage_result(
+        dataset_name="Sample",
+        total_questions=len(questions),
+        processed_questions=len(questions),
+        correct_count=correct_count,
+        elapsed_time=elapsed,
+        detailed_results=results,
+    )
 
 
 async def evaluate_naive_rag_sample(
     questions: List[Dict[str, Any]],
     vectorstore,
     config: SampleEvalConfig,
+    progress_mgr: EvaluationProgressManager,
+    artifact_paths: Dict[str, Path],
+    live_config: Dict[str, Any],
 ) -> Dict[str, Any]:
-    """Evaluate with naive RAG on a small sample - reuses naive_rag_eval patterns."""
+    """Evaluate with naive RAG on a small sample."""
     client = create_async_client(config.llm)
     semaphore = asyncio.Semaphore(config.concurrency.max_concurrent)
     rate_limiter = RateLimiter(
@@ -124,20 +162,23 @@ async def evaluate_naive_rag_sample(
         burst=config.concurrency.max_concurrent,
     )
 
-    async def evaluate_item(item: Dict[str, Any]) -> Dict[str, Any]:
+    results: List[Dict[str, Any]] = []
+    correct_count = 0
+    start_time = time.time()
+
+    for idx, item in enumerate(questions):
         search_results = await asyncio.to_thread(
             vectorstore.similarity_search_with_score,
             item["question"],
             config.top_k,
         )
         docs = [doc for doc, _ in search_results]
+        scores = [float(score) for _, score in search_results]
         contexts = [doc.page_content for doc in docs]
         prompt = build_medical_eval_prompt(
             question=item["question"],
             options=item.get("options", []),
-            context="\n\n".join(
-                f"[{idx + 1}] {ctx[:200]}..." for idx, ctx in enumerate(contexts)
-            ),
+            context="\n\n".join(f"[{i + 1}] {ctx}" for i, ctx in enumerate(contexts)),
         )
 
         async with semaphore:
@@ -154,29 +195,62 @@ async def evaluate_naive_rag_sample(
         )
         predicted_answer = extract_answer(response_content)
         correct_answer = get_correct_answer_letter(item)
-        return {
-            "question": item["question"][:100] + "...",
-            "correct_answer": correct_answer,
-            "predicted_answer": predicted_answer,
-            "is_correct": predicted_answer == correct_answer,
-            "retrieved_docs": len(docs),
-        }
+        is_correct = predicted_answer == correct_answer
+        if is_correct:
+            correct_count += 1
 
-    start_time = time.time()
-    results = await asyncio.gather(*(evaluate_item(item) for item in questions))
+        results.append(
+            {
+                "question": item["question"],
+                "options": item.get("options", []),
+                "correct_answer": correct_answer,
+                "predicted_answer": predicted_answer,
+                "is_correct": is_correct,
+                "response": response_content,
+                "retrieved_docs": len(docs),
+                "scores": scores,
+                "contexts": contexts,
+            }
+        )
+
+        elapsed = time.time() - start_time
+        progress_mgr.print_progress(
+            run_name="NAIVE_RAG",
+            dataset_name="Sample",
+            processed_questions=idx + 1,
+            total_questions=len(questions),
+            correct_count=correct_count,
+            elapsed_time=elapsed,
+        )
+
+        stage_result = progress_mgr.build_stage_result(
+            dataset_name="Sample",
+            total_questions=len(questions),
+            processed_questions=idx + 1,
+            correct_count=correct_count,
+            elapsed_time=elapsed,
+            detailed_results=results,
+            top_k=config.top_k,
+        )
+        progress_mgr.write_live_results(
+            artifact_paths=artifact_paths,
+            run_name="SAMPLE_VALIDATION",
+            evaluation_type="NAIVE_RAG",
+            config=live_config,
+            stage_result=stage_result,
+            status="running",
+        )
+
     elapsed = time.time() - start_time
-
-    correct = sum(1 for r in results if r["is_correct"])
-    return {
-        "mode": "NAIVE_RAG",
-        "top_k": config.top_k,
-        "total_questions": len(questions),
-        "correct": correct,
-        "accuracy": correct / len(questions) if questions else 0.0,
-        "elapsed_time": elapsed,
-        "questions_per_second": len(questions) / elapsed if elapsed > 0 else 0.0,
-        "detailed_results": results,
-    }
+    return progress_mgr.build_stage_result(
+        dataset_name="Sample",
+        total_questions=len(questions),
+        processed_questions=len(questions),
+        correct_count=correct_count,
+        elapsed_time=elapsed,
+        detailed_results=results,
+        top_k=config.top_k,
+    )
 
 
 async def run_sample_comparison(config: SampleEvalConfig) -> Dict[str, Any]:
@@ -184,6 +258,17 @@ async def run_sample_comparison(config: SampleEvalConfig) -> Dict[str, Any]:
     all_questions = load_questions(str(config.question_file))
     _, test_questions = split_questions(all_questions, config.dev_size, None)
     sample_questions = test_questions[: config.sample_size]
+
+    progress_mgr = EvaluationProgressManager(output_dir=str(config.output_dir))
+    artifact_paths = progress_mgr.create_run_artifacts("sample_validation")
+
+    live_config = {
+        "sample_size": config.sample_size,
+        "top_k": config.top_k,
+        "llm_provider": config.llm.provider,
+        "llm_model": config.llm.model,
+        "vector_store": str(config.vector_store_path),
+    }
 
     print("=" * 60)
     print("Small-Sample Validation: NO_RAG vs NAIVE_RAG")
@@ -194,7 +279,9 @@ async def run_sample_comparison(config: SampleEvalConfig) -> Dict[str, Any]:
     print()
 
     print("Running NO_RAG evaluation...")
-    no_rag_results = await evaluate_no_rag_sample(sample_questions, config)
+    no_rag_results = await evaluate_no_rag_sample(
+        sample_questions, config, progress_mgr, artifact_paths, live_config
+    )
     print(
         f"  Accuracy: {no_rag_results['accuracy']:.4f} "
         f"({no_rag_results['correct']}/{no_rag_results['total_questions']})"
@@ -209,15 +296,19 @@ async def run_sample_comparison(config: SampleEvalConfig) -> Dict[str, Any]:
     except Exception as e:
         print(f"  ERROR: Failed to load vector store: {e}")
         print("  Skipping NAIVE_RAG evaluation")
-        return {
-            "error": str(e),
-            "no_rag_results": no_rag_results,
-            "naive_rag_results": None,
-        }
+        progress_mgr.write_final_results(
+            artifact_paths=artifact_paths,
+            run_name="SAMPLE_VALIDATION",
+            evaluation_type="COMPARISON",
+            config=live_config,
+            stage_results={"no_rag_evaluation": no_rag_results},
+            extra_sections={"error": str(e), "naive_rag_evaluation": None},
+        )
+        return {"error": str(e), "no_rag_results": no_rag_results}
 
     print("Running NAIVE_RAG evaluation...")
     naive_rag_results = await evaluate_naive_rag_sample(
-        sample_questions, vectorstore, config
+        sample_questions, vectorstore, config, progress_mgr, artifact_paths, live_config
     )
     print(
         f"  Accuracy: {naive_rag_results['accuracy']:.4f} "
@@ -259,29 +350,35 @@ async def run_sample_comparison(config: SampleEvalConfig) -> Dict[str, Any]:
             "Recommendation: Investigate retrieval relevance and context integration."
         )
 
-    config.output_dir.mkdir(parents=True, exist_ok=True)
-    timestamp = time.strftime("%Y%m%d_%H%M%S")
-    output_file = config.output_dir / f"sample_comparison_{timestamp}.json"
-    comparison_result = {
-        "config": {
-            "sample_size": config.sample_size,
-            "top_k": config.top_k,
-            "llm_model": config.llm.model,
-            "vector_store_path": str(config.vector_store_path),
+    paths = progress_mgr.write_final_results(
+        artifact_paths=artifact_paths,
+        run_name="SAMPLE_VALIDATION",
+        evaluation_type="COMPARISON",
+        config=live_config,
+        stage_results={
+            "no_rag_evaluation": no_rag_results,
+            "naive_rag_evaluation": naive_rag_results,
         },
+        extra_sections={
+            "comparison": {
+                "improvement": improvement,
+                "improvement_percent": improvement_pct,
+                "naive_rag_better": improvement > 0,
+            }
+        },
+    )
+
+    print(f"\nResults saved to: {paths['json']}")
+
+    return {
         "no_rag_results": no_rag_results,
         "naive_rag_results": naive_rag_results,
         "comparison": {
             "improvement": improvement,
             "improvement_percent": improvement_pct,
-            "naive_rag_better": improvement > 0,
         },
+        "output_paths": paths,
     }
-    with output_file.open("w", encoding="utf-8") as f:
-        json.dump(comparison_result, f, indent=2, ensure_ascii=False)
-    print(f"\nResults saved to: {output_file}")
-
-    return comparison_result
 
 
 async def main() -> None:
