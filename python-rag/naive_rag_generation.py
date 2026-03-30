@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List
@@ -125,7 +126,22 @@ async def run_generation(config: GenerationConfig) -> Dict[str, Any]:
                 break
 
             try:
-                result = await process_item(item)
+                # 1. 生成逻辑
+                try:
+                    result = await process_item(item)
+                except Exception as e:
+                    print(f"  Warning: Failed to generate answer: {e}")
+                    traceback.print_exc()
+                    result = {
+                        "question": item.get("question", ""),
+                        "options": item.get("options", []),
+                        "correct_answer": get_correct_answer_letter(item),
+                        "predicted_answer": "",
+                        "is_correct": False,
+                        "error": str(e),
+                    }
+
+                # 2. 状态更新 (严格控制锁的范围)
                 async with lock:
                     results.append(result)
                     if result["is_correct"]:
@@ -134,36 +150,43 @@ async def run_generation(config: GenerationConfig) -> Dict[str, Any]:
                     current_processed = processed
                     current_correct = correct_count
 
+                # 3. 进度输出与写入 (包裹在全面的 try-except 中，防止 IO 错误杀死 Worker)
                 elapsed = time.time() - start_time
-                progress_mgr.print_progress(
-                    run_name="GENERATION",
-                    dataset_name="Sample",
-                    processed_questions=current_processed,
-                    total_questions=len(sample_questions),
-                    correct_count=current_correct,
-                    elapsed_time=elapsed,
-                )
+                try:
+                    progress_mgr.print_progress(
+                        run_name="NAIVE_RAG",
+                        dataset_name="Sample",
+                        processed_questions=current_processed,
+                        total_questions=len(sample_questions),
+                        correct_count=current_correct,
+                        elapsed_time=elapsed,
+                    )
 
-                stage_result = progress_mgr.build_stage_result(
-                    dataset_name="Sample",
-                    total_questions=len(sample_questions),
-                    processed_questions=current_processed,
-                    correct_count=current_correct,
-                    elapsed_time=elapsed,
-                    detailed_results=results,
-                    top_k=config.top_k,
-                )
-                progress_mgr.write_live_results(
-                    artifact_paths=artifact_paths,
-                    run_name="NAIVE_RAG_GENERATION",
-                    evaluation_type="NAIVE_RAG",
-                    config=live_config,
-                    stage_result=stage_result,
-                    status="running",
-                )
-            except Exception as e:
-                print(f"  Error generating answer: {e}")
+                    stage_result = progress_mgr.build_stage_result(
+                        dataset_name="Sample",
+                        total_questions=len(sample_questions),
+                        processed_questions=current_processed,
+                        correct_count=current_correct,
+                        elapsed_time=elapsed,
+                        detailed_results=results,
+                        top_k=config.top_k,
+                    )
+                    progress_mgr.write_live_results(
+                        artifact_paths=artifact_paths,
+                        run_name="NAIVE_RAG_GENERATION",
+                        evaluation_type="NAIVE_RAG",
+                        config=live_config,
+                        stage_result=stage_result,
+                        status="running",
+                    )
+                except Exception as io_err:
+                    print(f"  Warning: Failed to save progress/artifacts: {io_err}")
+
+            except Exception as critical_err:
+                # 终极兜底：确保没有任何未捕获的异常能逃逸出这个 while 循环
+                print(f"  CRITICAL: Worker encountered unexpected error: {critical_err}")
             finally:
+                # 确保每次 get() 都有明确的 task_done()，彻底杜绝 queue.join() 死锁
                 queue.task_done()
 
     workers = [
