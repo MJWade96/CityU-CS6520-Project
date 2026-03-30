@@ -23,9 +23,9 @@ from app.rag.naive_rag_eval import load_vector_store
 from app.rag.progress_manager import EvaluationProgressManager
 
 
-SAMPLE_SIZE = 50
+SAMPLE_SIZE = 973
 TOP_K = 3
-DEV_SIZE = 0
+DEV_SIZE = 300
 QUESTION_FILE = EVALUATION_DIR / "medqa.json"
 OUTPUT_DIR = EVALUATION_RESULTS_DIR
 VECTOR_STORE_PATH = FAISS_INDEX_DIR
