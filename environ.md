@@ -1,0 +1,7 @@
+export RAG_LLM_TIMEOUT=120 # 超时时长 120 秒
+export RAG_LLM_MAX_RETRIES=5 # 最大重试次数 5 次
+export RAG_EVAL_MAX_CONCURRENT=4 # 并发数为 4
+
+$env:RAG_LLM_TIMEOUT=120        
+$env:RAG_LLM_MAX_RETRIES=5
+$env:RAG_EVAL_MAX_CONCURRENT=4

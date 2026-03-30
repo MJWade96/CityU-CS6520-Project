@@ -74,7 +74,7 @@ def build_extra_body(
 @dataclass
 class ConcurrencyConfig:
     rpm_limit: int = int(os.getenv("RAG_EVAL_RPM_LIMIT", "60"))
-    max_concurrent: int = int(os.getenv("RAG_EVAL_MAX_CONCURRENT", "2"))
+    max_concurrent: int = int(os.getenv("RAG_EVAL_MAX_CONCURRENT", "4"))
 
     @property
     def requests_per_second(self) -> float:
@@ -216,7 +216,7 @@ class RateLimiter:
 
 def create_async_client(config: EvaluationLLMConfig) -> AsyncOpenAI:
     """Create the shared async OpenAI-compatible client."""
-    timeout = float(os.getenv("RAG_LLM_TIMEOUT", "60.0"))
+    timeout = float(os.getenv("RAG_LLM_TIMEOUT", "120.0"))
     max_retries = int(os.getenv("RAG_LLM_MAX_RETRIES", "5"))
     return AsyncOpenAI(
         api_key=config.api_key,
