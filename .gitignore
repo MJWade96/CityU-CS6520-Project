@@ -14,4 +14,8 @@ data/
 AutoDL-SSH-Tools/
 RAG_Medical_Data/
 
+phase1_interim/
 reporting/
+CLAUDE.md
+CODEBUDDY.md
+.codebuddy/
