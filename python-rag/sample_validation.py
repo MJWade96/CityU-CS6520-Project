@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from app.rag.data_paths import EVALUATION_DIR, EVALUATION_RESULTS_DIR, FAISS_INDEX_DIR
+from app.rag.data_paths import EVALUATION_RESULTS_DIR, FAISS_INDEX_DIR, MEDQA_FILE
 from app.rag.eval_shared import (
     ConcurrencyConfig,
     create_eval_context,
@@ -27,7 +27,7 @@ from app.rag.progress_manager import EvaluationProgressManager
 SAMPLE_SIZE = 50
 TOP_K = 3
 DEV_SIZE = 0
-QUESTION_FILE = EVALUATION_DIR / "medqa.json"
+QUESTION_FILE = MEDQA_FILE
 OUTPUT_DIR = EVALUATION_RESULTS_DIR
 VECTOR_STORE_PATH = FAISS_INDEX_DIR
 

@@ -7,7 +7,6 @@ stays aligned with the rest of the project.
 
 from __future__ import annotations
 
-import json
 import time
 from math import ceil
 from pathlib import Path
@@ -22,6 +21,7 @@ from app.rag.data_paths import (
     ensure_data_directories,
 )
 from app.rag.embeddings import get_langchain_embeddings, resolve_embedding_runtime
+from app.rag.json_utils import load_json_safe, save_json_atomic
 from app.rag.vector_store import MedicalVectorStore
 
 
@@ -36,8 +36,7 @@ def load_documents(corpus_file: Path) -> List[Document]:
     if not corpus_file.exists():
         raise FileNotFoundError(f"Corpus file not found: {corpus_file}")
 
-    with corpus_file.open("r", encoding="utf-8") as handle:
-        chunks = json.load(handle)
+    chunks = load_json_safe(corpus_file)
 
     documents: List[Document] = []
     for chunk in tqdm(chunks, desc="Loading corpus", unit="doc"):
@@ -103,8 +102,7 @@ def build_index(
         "build_time_seconds": elapsed,
     }
 
-    with (output_dir / "build_metadata.json").open("w", encoding="utf-8") as handle:
-        json.dump(metadata, handle, indent=2, ensure_ascii=False)
+    save_json_atomic(output_dir / "build_metadata.json", metadata)
 
     return metadata
 

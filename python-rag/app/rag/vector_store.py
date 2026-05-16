@@ -4,7 +4,6 @@ Handles document storage and retrieval using LangChain vector stores
 """
 
 import os
-import json
 from typing import List, Optional, Dict, Any, Tuple
 from pathlib import Path
 
@@ -12,6 +11,8 @@ from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_community.vectorstores import FAISS, Chroma
 from langchain_community.vectorstores.utils import DistanceStrategy
+
+from .json_utils import load_json_safe, save_json_atomic
 
 
 class MedicalVectorStore:
@@ -185,8 +186,7 @@ class MedicalVectorStore:
             'store_type': self.store_type,
             'document_count': len(self.documents),
         }
-        with open(path / "metadata.json", 'w') as f:
-            json.dump(metadata, f)
+        save_json_atomic(path / "metadata.json", metadata, indent=2, ensure_ascii=False)
     
     def load(self, path: str) -> None:
         """Load the vector store from disk"""
@@ -205,9 +205,8 @@ class MedicalVectorStore:
         # Load metadata
         metadata_path = path / "metadata.json"
         if metadata_path.exists():
-            with open(metadata_path, 'r') as f:
-                metadata = json.load(f)
-                print(f"Loaded vector store with {metadata.get('document_count', 0)} documents")
+            metadata = load_json_safe(metadata_path)
+            print(f"Loaded vector store with {metadata.get('document_count', 0)} documents")
     
     def get_stats(self) -> Dict[str, Any]:
         """Get vector store statistics"""

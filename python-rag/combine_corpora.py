@@ -8,12 +8,12 @@ duplicated across scripts.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Dict, Iterable, Optional
 
 from app.rag.corpus_registry import CORPUS_REGISTRY, combine_registered_corpora
 from app.rag.data_paths import COMBINED_CORPUS_FILE, ensure_data_directories
+from app.rag.json_utils import save_json_atomic
 
 
 OUTPUT_FILE = COMBINED_CORPUS_FILE
@@ -41,9 +41,7 @@ def save_combined_corpus(
             "No corpus records were loaded from the selected sources."
         )
 
-    output_file.parent.mkdir(parents=True, exist_ok=True)
-    with output_file.open("w", encoding="utf-8") as handle:
-        json.dump(records, handle, ensure_ascii=False, indent=2)
+    save_json_atomic(output_file, records)
 
     result["output_file"] = str(output_file)
     return result

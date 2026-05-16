@@ -8,12 +8,12 @@ do not duplicate file-name or normalization logic.
 from __future__ import annotations
 
 import hashlib
-import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 
 from .data_paths import CORPUS_DIR
+from .json_utils import load_json_safe
 
 
 @dataclass(frozen=True)
@@ -90,8 +90,7 @@ def normalize_record(record: Dict, source_name: str, default_id_prefix: str) -> 
 
 def load_corpus_records(source_name: str, path: Path) -> List[Dict]:
     """Load and normalize records from a JSON corpus file."""
-    with path.open("r", encoding="utf-8") as handle:
-        raw_data = json.load(handle)
+    raw_data = load_json_safe(path)
 
     if isinstance(raw_data, dict) and "records" in raw_data:
         raw_items = raw_data["records"]

@@ -11,7 +11,7 @@ import asyncio
 from pathlib import Path
 
 from app.rag.naive_rag_eval import NaiveRAGEvalConfig, run_complete_evaluation
-from app.rag.data_paths import EVALUATION_DIR, EVALUATION_RESULTS_DIR, FAISS_INDEX_DIR
+from app.rag.data_paths import EVALUATION_RESULTS_DIR, FAISS_INDEX_DIR, MEDQA_FILE
 
 
 DEV_SIZE = 300
@@ -19,7 +19,7 @@ TEST_SIZE = None
 TOP_K = 3
 AUTO_TOP_K = False
 VECTOR_STORE_PATH = FAISS_INDEX_DIR
-QUESTION_FILE = EVALUATION_DIR / "medqa.json"
+QUESTION_FILE = MEDQA_FILE
 OUTPUT_DIR = EVALUATION_RESULTS_DIR
 
 

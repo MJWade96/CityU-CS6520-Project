@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from langchain_openai import ChatOpenAI
 
-from .data_paths import EVALUATION_DIR, EVALUATION_RESULTS_DIR, FAISS_INDEX_DIR
+from .data_paths import EVALUATION_RESULTS_DIR, FAISS_INDEX_DIR, MEDQA_FILE
 from .embeddings import get_langchain_embeddings
 from .eval_shared import (
     build_medical_eval_prompt,
@@ -41,7 +41,7 @@ class NaiveRAGEvalConfig:
     top_k_values: List[int] = field(default_factory=lambda: [1, 3, 5, 10])
     manual_top_k: Optional[int] = 3
     vector_store_path: Path = FAISS_INDEX_DIR
-    question_file: Path = EVALUATION_DIR / "medqa.json"
+    question_file: Path = MEDQA_FILE
     output_dir: Path = EVALUATION_RESULTS_DIR
     llm: EvaluationLLMConfig = field(default_factory=EvaluationLLMConfig)
     concurrency: ConcurrencyConfig = field(default_factory=ConcurrencyConfig)

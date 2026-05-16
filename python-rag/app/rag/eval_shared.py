@@ -8,7 +8,6 @@ dataset splitting, and rate limiting consistent across evaluation modes.
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 import re
 import time
@@ -20,7 +19,8 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from openai import AsyncOpenAI
 
-from .data_paths import EVALUATION_DIR
+from .data_paths import MEDQA_FILE
+from .json_utils import load_json_safe
 
 
 DEFAULT_BASE_URL = "https://wishub-x6.ctyun.cn/v1"
@@ -83,12 +83,11 @@ class ConcurrencyConfig:
 
 def load_questions(question_file: Optional[str] = None) -> List[Dict]:
     """Load MedQA questions from JSON."""
-    question_path = Path(question_file or EVALUATION_DIR / "medqa.json")
+    question_path = Path(question_file or MEDQA_FILE)
     if not question_path.exists():
         raise FileNotFoundError(f"Question file not found: {question_path}")
 
-    with question_path.open("r", encoding="utf-8") as handle:
-        return json.load(handle)
+    return load_json_safe(question_path)
 
 
 def split_questions(

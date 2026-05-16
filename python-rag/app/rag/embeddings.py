@@ -3,7 +3,6 @@ Embeddings Module
 Handles text embedding generation using LangChain and various embedding providers
 """
 
-import json
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -14,6 +13,8 @@ from langchain_community.embeddings import (
     HuggingFaceEmbeddings,
     SentenceTransformerEmbeddings,
 )
+
+from .json_utils import load_json_safe
 
 # Try to import OpenAI embeddings if available
 try:
@@ -84,7 +85,7 @@ def load_embedding_metadata(index_dir: Optional[str]) -> Dict[str, Any]:
         return {}
 
     try:
-        return json.loads(metadata_path.read_text(encoding="utf-8"))
+        return load_json_safe(metadata_path)
     except Exception as exc:
         print(f"[Embeddings] Failed to read {metadata_path}: {exc}")
         return {}

@@ -28,10 +28,12 @@ TEXTBOOKS_DIR = CORPUS_DIR / "textbooks"
 PUBMED_DIR = CORPUS_DIR / "pubmed"
 STATPEARLS_DIR = CORPUS_DIR / "statpearls"
 
+# Centralize frequently reused evaluation artifacts so scripts do not rebuild paths inline.
 COMBINED_CORPUS_FILE = CORPUS_DIR / "combined_corpus.json"
 MEDQA_FILE = EVALUATION_DIR / "medqa.json"
 FAISS_INDEX_DIR = VECTOR_STORE_DIR / "faiss_index"
 EVALUATION_RESULTS_DIR = RESULTS_DIR / "evaluation"
+RETRIEVAL_CACHE_DIR = EVALUATION_RESULTS_DIR / "retrieval_cache"
 
 
 def ensure_data_directories() -> None:
@@ -43,6 +45,7 @@ def ensure_data_directories() -> None:
         EVALUATION_DIR,
         VECTOR_STORE_DIR,
         EVALUATION_RESULTS_DIR,
+        RETRIEVAL_CACHE_DIR,
         MEDICAL_KNOWLEDGE_DIR,
         TEXTBOOKS_DIR,
         PUBMED_DIR,

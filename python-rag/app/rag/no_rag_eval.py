@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .data_paths import EVALUATION_DIR, EVALUATION_RESULTS_DIR
+from .data_paths import EVALUATION_RESULTS_DIR, MEDQA_FILE
 from .eval_shared import (
     ConcurrencyConfig,
     create_eval_context,
@@ -30,7 +30,7 @@ from .progress_manager import EvaluationProgressManager
 class NoRAGEvalConfig:
     dev_size: int = 300
     test_size: Optional[int] = None
-    question_file: Path = EVALUATION_DIR / "medqa.json"
+    question_file: Path = MEDQA_FILE
     output_dir: Path = EVALUATION_RESULTS_DIR
     llm: EvaluationLLMConfig = field(default_factory=EvaluationLLMConfig)
     concurrency: ConcurrencyConfig = field(default_factory=ConcurrencyConfig)

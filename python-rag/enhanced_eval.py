@@ -42,9 +42,9 @@ from app.rag.chunking import SemanticChunker, ParentChildChunker
 from app.rag.metadata_enhancement import MetadataGenerator, RuleBasedMetadataGenerator
 from app.rag.progress_manager import EvaluationProgressManager
 from app.rag.data_paths import (
-    EVALUATION_DIR,
     EVALUATION_RESULTS_DIR,
     FAISS_INDEX_DIR,
+    MEDQA_FILE,
 )
 from app.rag.embeddings import resolve_embedding_runtime
 from app.rag.eval_shared import (
@@ -168,7 +168,7 @@ class EnhancedEvaluationConfig:
 
     # File paths
     VECTOR_STORE_PATH = str(FAISS_INDEX_DIR)
-    QUESTION_FILE = str(EVALUATION_DIR / "medqa.json")
+    QUESTION_FILE = str(MEDQA_FILE)
     OUTPUT_DIR = str(EVALUATION_RESULTS_DIR)
     CACHE_DIR = str(EVALUATION_RESULTS_DIR / "cache")
 
