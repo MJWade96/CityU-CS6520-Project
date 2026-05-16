@@ -5,12 +5,12 @@ Naive RAG retrieval script - performs retrieval and caches results.
 from __future__ import annotations
 
 import asyncio
-import json
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List
 
+from app.rag.json_utils import save_json_atomic
 from app.rag.naive_rag_eval import load_vector_store
 from app.rag.progress_manager import EvaluationProgressManager
 from naive_rag_shared import (
@@ -20,11 +20,13 @@ from naive_rag_shared import (
     load_sample_questions,
     OUTPUT_DIR,
     QUESTION_FILE,
+    run_tracked_workers,
     SAMPLE_SIZE,
     save_retrieval_cache,
     TOP_K,
     VECTOR_STORE_PATH,
     DEV_SIZE,
+    WorkerResult,
 )
 
 
@@ -60,21 +62,17 @@ async def run_retrieval(config: RetrievalConfig) -> Dict[str, Any]:
         print(f"  ERROR: Failed to load vector store: {e}")
         return {"error": str(e)}
 
-    results: List[Dict[str, Any]] = []
     start_time = time.time()
-    processed = 0
     cached_count = 0
-    lock = asyncio.Lock()
 
-    async def process_item(item: Dict[str, Any]) -> Dict[str, Any]:
-        nonlocal processed, cached_count
+    async def process_item(item: Dict[str, Any]) -> WorkerResult[Dict[str, Any]]:
+        nonlocal cached_count
         question = item.get("question", "")
         cached = load_cached_retrieval(question)
 
         if cached:
-            async with lock:
-                cached_count += 1
-            return cached
+            cached_count += 1
+            return WorkerResult(payload=cached)
 
         search_results = await asyncio.to_thread(
             vectorstore.similarity_search_with_score, question, config.top_k
@@ -92,56 +90,32 @@ async def run_retrieval(config: RetrievalConfig) -> Dict[str, Any]:
             "contexts": contexts,
         }
         save_retrieval_cache(question, result)
-        return result
+        return WorkerResult(payload=result)
+
+    def handle_progress(
+        _results: List[Dict[str, Any]], processed: int, _correct_count: int, elapsed: float
+    ) -> None:
+        progress_mgr.print_progress(
+            run_name="RETRIEVAL",
+            dataset_name="Sample",
+            processed_questions=processed,
+            total_questions=len(sample_questions),
+            correct_count=cached_count,
+            elapsed_time=elapsed,
+        )
 
     print("Running retrieval...")
-    queue: asyncio.Queue[Dict[str, Any] | None] = asyncio.Queue()
-    for item in sample_questions:
-        await queue.put(item)
-
-    async def worker() -> None:
-        nonlocal processed
-        while True:
-            item = await queue.get()
-            if item is None:
-                queue.task_done()
-                break
-
-            try:
-                result = await process_item(item)
-                async with lock:
-                    results.append(result)
-                    processed += 1
-                    current_processed = processed
-                    current_cached = cached_count
-
-                elapsed = time.time() - start_time
-                progress_mgr.print_progress(
-                    run_name="RETRIEVAL",
-                    dataset_name="Sample",
-                    processed_questions=current_processed,
-                    total_questions=len(sample_questions),
-                    correct_count=current_cached,
-                    elapsed_time=elapsed,
-                )
-            except Exception as e:
-                print(f"  Error retrieving for question: {e}")
-            finally:
-                queue.task_done()
-
-    workers = [
-        asyncio.create_task(worker()) for _ in range(config.concurrency.max_concurrent)
-    ]
-    await queue.join()
-
-    for _ in range(config.concurrency.max_concurrent):
-        await queue.put(None)
-    await asyncio.gather(*workers, return_exceptions=True)
+    results, _correct_count = await run_tracked_workers(
+        items=sample_questions,
+        process_item=process_item,
+        max_concurrent=config.concurrency.max_concurrent,
+        on_progress=handle_progress,
+    )
 
     elapsed = time.time() - start_time
     output = {
         "total_questions": len(sample_questions),
-        "processed_questions": processed,
+        "processed_questions": len(results),
         "cached_count": cached_count,
         "elapsed_time": elapsed,
         "retrieval_results": results,
@@ -151,8 +125,7 @@ async def run_retrieval(config: RetrievalConfig) -> Dict[str, Any]:
     print(f"  Time: {elapsed:.1f}s\n")
 
     output_file = config.output_dir / "retrieval_results.json"
-    with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(output, f, ensure_ascii=False, indent=2)
+    save_json_atomic(output_file, output)
     print(f"Results saved to: {output_file}")
 
     return output

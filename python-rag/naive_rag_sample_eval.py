@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from app.rag.data_paths import EVALUATION_DIR, EVALUATION_RESULTS_DIR, FAISS_INDEX_DIR
+from app.rag.data_paths import EVALUATION_RESULTS_DIR, FAISS_INDEX_DIR, MEDQA_FILE
 from app.rag.eval_shared import (
     ConcurrencyConfig,
     create_eval_context,
@@ -21,12 +21,17 @@ from app.rag.eval_shared import (
 )
 from app.rag.naive_rag_eval import load_vector_store
 from app.rag.progress_manager import EvaluationProgressManager
+from naive_rag_shared import (
+    run_tracked_workers,
+    write_live_sample_progress,
+    WorkerResult,
+)
 
 
 SAMPLE_SIZE = 973
 TOP_K = 3
 DEV_SIZE = 300
-QUESTION_FILE = EVALUATION_DIR / "medqa.json"
+QUESTION_FILE = MEDQA_FILE
 OUTPUT_DIR = EVALUATION_RESULTS_DIR
 VECTOR_STORE_PATH = FAISS_INDEX_DIR
 
@@ -56,103 +61,56 @@ async def evaluate_naive_rag_sample(
     concurrency: ConcurrencyConfig,
 ) -> Dict[str, Any]:
     """Evaluate a sample of questions using naive RAG with concurrent execution."""
-    results: List[Dict[str, Any]] = []
-    correct_count = 0
     start_time = time.time()
 
-    queue: asyncio.Queue[Dict[str, Any] | None] = asyncio.Queue()
-    for item in questions:
-        await queue.put(item)
+    async def process_item(item: Dict[str, Any]) -> WorkerResult[Dict[str, Any]]:
+        result = await evaluate_single_item(ctx, item, vectorstore, top_k)
+        return WorkerResult(payload=result, increment_correct=result["is_correct"])
 
-    lock = asyncio.Lock()
-    processed = 0
+    def handle_error(
+        item: Dict[str, Any], error: Exception
+    ) -> WorkerResult[Dict[str, Any]]:
+        print(f"  Warning: Failed to evaluate question: {error}")
+        traceback.print_exc()
+        return WorkerResult(
+            payload={
+                "question": item.get("question", ""),
+                "options": item.get("options", []),
+                "correct_answer": "",
+                "predicted_answer": "",
+                "is_correct": False,
+                "error": str(error),
+            }
+        )
 
-    async def worker() -> None:
-        nonlocal correct_count, processed
-        while True:
-            item = await queue.get()
-            if item is None:  # 收到结束信号
-                queue.task_done()
-                break
+    def handle_progress(
+        results: List[Dict[str, Any]], processed: int, correct_count: int, elapsed: float
+    ) -> None:
+        try:
+            write_live_sample_progress(
+                progress_mgr,
+                artifact_paths,
+                live_config,
+                console_run_name="NAIVE_RAG",
+                artifact_run_name="NAIVE_RAG_SAMPLE",
+                evaluation_type="NAIVE_RAG",
+                total_questions=len(questions),
+                processed_questions=processed,
+                correct_count=correct_count,
+                elapsed=elapsed,
+                results=results,
+                top_k=top_k,
+            )
+        except Exception as io_err:
+            print(f"  Warning: Failed to save progress/artifacts: {io_err}")
 
-            try:
-                # 1. 评估逻辑
-                try:
-                    result = await evaluate_single_item(ctx, item, vectorstore, top_k)
-                except Exception as e:
-                    print(f"  Warning: Failed to evaluate question: {e}")
-                    traceback.print_exc()  # 打印完整的报错调用链
-                    result = {
-                        "question": item.get("question", ""),
-                        "options": item.get("options", []),
-                        "correct_answer": "",
-                        "predicted_answer": "",
-                        "is_correct": False,
-                        "error": str(e),
-                    }
-
-                # 2. 状态更新 (严格控制锁的范围)
-                async with lock:
-                    results.append(result)
-                    if result["is_correct"]:
-                        correct_count += 1
-                    processed += 1
-                    current_processed = processed
-                    current_correct = correct_count
-
-                # 3. 进度输出与写入 (包裹在全面的 try-except 中，防止 IO 错误杀死 Worker)
-                elapsed = time.time() - start_time
-                try:
-                    progress_mgr.print_progress(
-                        run_name="NAIVE_RAG",
-                        dataset_name="Sample",
-                        processed_questions=current_processed,
-                        total_questions=len(questions),
-                        correct_count=current_correct,
-                        elapsed_time=elapsed,
-                    )
-
-                    stage_result = progress_mgr.build_stage_result(
-                        dataset_name="Sample",
-                        total_questions=len(questions),
-                        processed_questions=current_processed,
-                        correct_count=current_correct,
-                        elapsed_time=elapsed,
-                        detailed_results=results,  # 注意：在高并发下直接传递 results 引用可能是安全的，因为 JSON 序列化时是瞬间的，但严格来说存在微小的数据竞争风险
-                        top_k=top_k,
-                    )
-                    progress_mgr.write_live_results(
-                        artifact_paths=artifact_paths,
-                        run_name="NAIVE_RAG_SAMPLE",
-                        evaluation_type="NAIVE_RAG",
-                        config=live_config,
-                        stage_result=stage_result,
-                        status="running",
-                    )
-                except Exception as io_err:
-                    print(f"  Warning: Failed to save progress/artifacts: {io_err}")
-
-            except Exception as critical_err:
-                # 终极兜底：确保没有任何未捕获的异常能逃逸出这个 while 循环
-                print(
-                    f"  CRITICAL: Worker encountered unexpected error: {critical_err}"
-                )
-            finally:
-                # 确保每次 get() 都有明确的 task_done()，彻底杜绝 queue.join() 死锁
-                queue.task_done()
-
-    # 启动 worker
-    workers = [asyncio.create_task(worker()) for _ in range(concurrency.max_concurrent)]
-
-    # 等待所有任务完成
-    await queue.join()
-
-    # 安全的退出机制
-    for _ in range(concurrency.max_concurrent):
-        await queue.put(None)
-
-    # 允许 worker 协程优雅清理并退出
-    await asyncio.gather(*workers, return_exceptions=True)
+    results, correct_count = await run_tracked_workers(
+        items=questions,
+        process_item=process_item,
+        max_concurrent=concurrency.max_concurrent,
+        on_progress=handle_progress,
+        on_error=handle_error,
+    )
 
     elapsed = time.time() - start_time
     return progress_mgr.build_stage_result(

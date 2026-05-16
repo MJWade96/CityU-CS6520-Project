@@ -27,9 +27,12 @@ from naive_rag_shared import (
     load_sample_questions,
     OUTPUT_DIR,
     QUESTION_FILE,
+    run_tracked_workers,
     SAMPLE_SIZE,
     TOP_K,
     DEV_SIZE,
+    write_live_sample_progress,
+    WorkerResult,
 )
 
 
@@ -68,19 +71,15 @@ async def run_generation(config: GenerationConfig) -> Dict[str, Any]:
 
     ctx = create_eval_context(config.llm, config.concurrency)
 
-    results: List[Dict[str, Any]] = []
-    correct_count = 0
     start_time = time.time()
-    processed = 0
-    lock = asyncio.Lock()
 
-    async def process_item(item: Dict[str, Any]) -> Dict[str, Any]:
+    async def process_item(item: Dict[str, Any]) -> WorkerResult[Dict[str, Any]]:
         question = item.get("question", "")
         cached = load_cached_retrieval(question)
 
         if not cached:
             print(f"  Warning: No cached retrieval for question: {question[:50]}...")
-            return {
+            result = {
                 "question": question,
                 "options": item.get("options", []),
                 "correct_answer": get_correct_answer_letter(item),
@@ -88,6 +87,7 @@ async def run_generation(config: GenerationConfig) -> Dict[str, Any]:
                 "is_correct": False,
                 "error": "No cached retrieval found",
             }
+            return WorkerResult(payload=result)
 
         contexts = cached.get("contexts", [])
         context_str = "\n\n".join(f"[{i + 1}] {c}" for i, c in enumerate(contexts))
@@ -101,7 +101,7 @@ async def run_generation(config: GenerationConfig) -> Dict[str, Any]:
         predicted_answer = extract_answer(response_content)
         correct_answer = get_correct_answer_letter(item)
 
-        return {
+        result = {
             "question": question,
             "options": item.get("options", []),
             "correct_answer": correct_answer,
@@ -111,92 +111,53 @@ async def run_generation(config: GenerationConfig) -> Dict[str, Any]:
             "retrieved_docs": cached.get("retrieved_docs", 0),
             "scores": cached.get("scores", []),
         }
+        return WorkerResult(payload=result, increment_correct=result["is_correct"])
+
+    def handle_error(
+        item: Dict[str, Any], error: Exception
+    ) -> WorkerResult[Dict[str, Any]]:
+        print(f"  Warning: Failed to generate answer: {error}")
+        traceback.print_exc()
+        return WorkerResult(
+            payload={
+                "question": item.get("question", ""),
+                "options": item.get("options", []),
+                "correct_answer": get_correct_answer_letter(item),
+                "predicted_answer": "",
+                "is_correct": False,
+                "error": str(error),
+            }
+        )
+
+    def handle_progress(
+        results: List[Dict[str, Any]], processed: int, correct_count: int, elapsed: float
+    ) -> None:
+        try:
+            write_live_sample_progress(
+                progress_mgr,
+                artifact_paths,
+                live_config,
+                console_run_name="NAIVE_RAG",
+                artifact_run_name="NAIVE_RAG_GENERATION",
+                evaluation_type="NAIVE_RAG",
+                total_questions=len(sample_questions),
+                processed_questions=processed,
+                correct_count=correct_count,
+                elapsed=elapsed,
+                results=results,
+                top_k=config.top_k,
+            )
+        except Exception as io_err:
+            print(f"  Warning: Failed to save progress/artifacts: {io_err}")
 
     print("Running generation...")
-    queue: asyncio.Queue[Dict[str, Any] | None] = asyncio.Queue()
-    for item in sample_questions:
-        await queue.put(item)
-
-    async def worker() -> None:
-        nonlocal correct_count, processed
-        while True:
-            item = await queue.get()
-            if item is None:
-                queue.task_done()
-                break
-
-            try:
-                # 1. 生成逻辑
-                try:
-                    result = await process_item(item)
-                except Exception as e:
-                    print(f"  Warning: Failed to generate answer: {e}")
-                    traceback.print_exc()
-                    result = {
-                        "question": item.get("question", ""),
-                        "options": item.get("options", []),
-                        "correct_answer": get_correct_answer_letter(item),
-                        "predicted_answer": "",
-                        "is_correct": False,
-                        "error": str(e),
-                    }
-
-                # 2. 状态更新 (严格控制锁的范围)
-                async with lock:
-                    results.append(result)
-                    if result["is_correct"]:
-                        correct_count += 1
-                    processed += 1
-                    current_processed = processed
-                    current_correct = correct_count
-
-                # 3. 进度输出与写入 (包裹在全面的 try-except 中，防止 IO 错误杀死 Worker)
-                elapsed = time.time() - start_time
-                try:
-                    progress_mgr.print_progress(
-                        run_name="NAIVE_RAG",
-                        dataset_name="Sample",
-                        processed_questions=current_processed,
-                        total_questions=len(sample_questions),
-                        correct_count=current_correct,
-                        elapsed_time=elapsed,
-                    )
-
-                    stage_result = progress_mgr.build_stage_result(
-                        dataset_name="Sample",
-                        total_questions=len(sample_questions),
-                        processed_questions=current_processed,
-                        correct_count=current_correct,
-                        elapsed_time=elapsed,
-                        detailed_results=results,
-                        top_k=config.top_k,
-                    )
-                    progress_mgr.write_live_results(
-                        artifact_paths=artifact_paths,
-                        run_name="NAIVE_RAG_GENERATION",
-                        evaluation_type="NAIVE_RAG",
-                        config=live_config,
-                        stage_result=stage_result,
-                        status="running",
-                    )
-                except Exception as io_err:
-                    print(f"  Warning: Failed to save progress/artifacts: {io_err}")
-
-            except Exception as critical_err:
-                # 终极兜底：确保没有任何未捕获的异常能逃逸出这个 while 循环
-                print(f"  CRITICAL: Worker encountered unexpected error: {critical_err}")
-            finally:
-                # 确保每次 get() 都有明确的 task_done()，彻底杜绝 queue.join() 死锁
-                queue.task_done()
-
-    workers = [
-        asyncio.create_task(worker()) for _ in range(config.concurrency.max_concurrent)
-    ]
-    await queue.join()
-
-    for _ in range(config.concurrency.max_concurrent):
-        await queue.put(None)
-    await asyncio.gather(*workers, return_exceptions=True)
+    results, correct_count = await run_tracked_workers(
+        items=sample_questions,
+        process_item=process_item,
+        max_concurrent=config.concurrency.max_concurrent,
+        on_progress=handle_progress,
+        on_error=handle_error,
+    )
 
     elapsed = time.time() - start_time
     results_data = progress_mgr.build_stage_result(

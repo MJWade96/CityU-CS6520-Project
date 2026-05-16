@@ -9,21 +9,40 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import json
+import time
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any, Awaitable, Callable, Dict, Generic, List, Sequence, Tuple, TypeVar
 
-from app.rag.data_paths import EVALUATION_DIR, EVALUATION_RESULTS_DIR, FAISS_INDEX_DIR
+from app.rag.data_paths import (
+    EVALUATION_RESULTS_DIR,
+    FAISS_INDEX_DIR,
+    MEDQA_FILE,
+    RETRIEVAL_CACHE_DIR,
+)
 from app.rag.eval_shared import ConcurrencyConfig, load_questions, split_questions
+from app.rag.json_utils import load_json_safe, save_json_atomic
+from app.rag.progress_manager import EvaluationProgressManager
 
 
 SAMPLE_SIZE = 973
 TOP_K = 3
 DEV_SIZE = 300
-QUESTION_FILE = EVALUATION_DIR / "medqa.json"
+# Re-export canonical evaluation paths so consumers keep one stable import surface.
+QUESTION_FILE = MEDQA_FILE
 OUTPUT_DIR = EVALUATION_RESULTS_DIR
 VECTOR_STORE_PATH = FAISS_INDEX_DIR
-CACHE_DIR = EVALUATION_RESULTS_DIR / "retrieval_cache"
+CACHE_DIR = RETRIEVAL_CACHE_DIR
+
+ResultT = TypeVar("ResultT")
+
+
+@dataclass
+class WorkerResult(Generic[ResultT]):
+    """Shared worker output so callers reuse one queue runner instead of duplicating it."""
+
+    payload: ResultT
+    increment_correct: bool = False
 
 
 def get_question_hash(question: str) -> str:
@@ -40,8 +59,7 @@ def load_cached_retrieval(question: str) -> Dict[str, Any] | None:
     """Load cached retrieval result for a question."""
     cache_path = get_cache_path(get_question_hash(question))
     if cache_path.exists():
-        with open(cache_path, "r", encoding="utf-8") as f:
-            return json.load(f)
+        return load_json_safe(cache_path)
     return None
 
 
@@ -49,8 +67,7 @@ def save_retrieval_cache(question: str, result: Dict[str, Any]) -> None:
     """Save retrieval result to cache."""
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     cache_path = get_cache_path(get_question_hash(question))
-    with open(cache_path, "w", encoding="utf-8") as f:
-        json.dump(result, f, ensure_ascii=False, indent=2)
+    save_json_atomic(cache_path, result)
 
 
 def load_sample_questions(
@@ -62,30 +79,69 @@ def load_sample_questions(
     return test_questions[:sample_size]
 
 
-async def run_concurrent_workers(
-    items: List[Dict[str, Any]],
-    process_item: Callable[[Dict[str, Any]], Any],
+def write_live_sample_progress(
+    progress_mgr: EvaluationProgressManager,
+    artifact_paths: Dict[str, Path],
+    live_config: Dict[str, Any],
+    *,
+    console_run_name: str,
+    artifact_run_name: str,
+    evaluation_type: str,
+    total_questions: int,
+    processed_questions: int,
+    correct_count: int,
+    elapsed: float,
+    results: List[Dict[str, Any]],
+    top_k: int,
+) -> None:
+    """Keep sample progress output and live artifacts aligned across naive-RAG scripts."""
+    progress_mgr.print_progress(
+        run_name=console_run_name,
+        dataset_name="Sample",
+        processed_questions=processed_questions,
+        total_questions=total_questions,
+        correct_count=correct_count,
+        elapsed_time=elapsed,
+    )
+
+    stage_result = progress_mgr.build_stage_result(
+        dataset_name="Sample",
+        total_questions=total_questions,
+        processed_questions=processed_questions,
+        correct_count=correct_count,
+        elapsed_time=elapsed,
+        detailed_results=results,
+        top_k=top_k,
+    )
+    progress_mgr.write_live_results(
+        artifact_paths=artifact_paths,
+        run_name=artifact_run_name,
+        evaluation_type=evaluation_type,
+        config=live_config,
+        stage_result=stage_result,
+        status="running",
+    )
+
+
+async def run_tracked_workers(
+    items: Sequence[Dict[str, Any]],
+    process_item: Callable[[Dict[str, Any]], Awaitable[WorkerResult[ResultT]]],
     max_concurrent: int,
-) -> List[Any]:
-    """
-    Run concurrent workers using queue-based pattern.
-
-    Args:
-        items: List of items to process
-        process_item: Async function to process each item
-        max_concurrent: Maximum number of concurrent workers
-
-    Returns:
-        List of results from processing each item
-    """
-    results: List[Any] = []
+    on_progress: Callable[[List[ResultT], int, int, float], None] | None = None,
+    on_error: Callable[[Dict[str, Any], Exception], WorkerResult[ResultT] | None] | None = None,
+) -> Tuple[List[ResultT], int]:
+    """Run one shared worker loop so callers only provide item-specific logic."""
+    results: List[ResultT] = []
+    correct_count = 0
     queue: asyncio.Queue[Dict[str, Any] | None] = asyncio.Queue()
     for item in items:
         await queue.put(item)
 
     lock = asyncio.Lock()
+    start_time = time.time()
 
     async def worker() -> None:
+        nonlocal correct_count
         while True:
             item = await queue.get()
             if item is None:
@@ -93,11 +149,33 @@ async def run_concurrent_workers(
                 break
 
             try:
-                result = await process_item(item)
+                try:
+                    outcome = await process_item(item)
+                except Exception as exc:
+                    if on_error is None:
+                        print(f"  Error processing item: {exc}")
+                        continue
+                    outcome = on_error(item, exc)
+                    if outcome is None:
+                        continue
+
                 async with lock:
-                    results.append(result)
-            except Exception as e:
-                print(f"  Error processing item: {e}")
+                    results.append(outcome.payload)
+                    if outcome.increment_correct:
+                        correct_count += 1
+                    progress_results = list(results)
+                    processed = len(progress_results)
+                    progress_correct = correct_count
+
+                if on_progress is not None:
+                    on_progress(
+                        progress_results,
+                        processed,
+                        progress_correct,
+                        time.time() - start_time,
+                    )
+            except Exception as exc:
+                print(f"  Worker encountered unexpected error: {exc}")
             finally:
                 queue.task_done()
 
@@ -108,4 +186,4 @@ async def run_concurrent_workers(
         await queue.put(None)
     await asyncio.gather(*workers, return_exceptions=True)
 
-    return results
+    return results, correct_count
