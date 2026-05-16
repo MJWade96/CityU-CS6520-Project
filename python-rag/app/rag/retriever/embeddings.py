@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from langchain_core.embeddings import Embeddings
 from langchain_community.embeddings import HuggingFaceEmbeddings
 
-from .json_utils import load_json_safe
+from ..data.json_utils import load_json_safe
 
 
 DEFAULT_HF_EMBEDDING_MODEL = "BAAI/bge-m3"

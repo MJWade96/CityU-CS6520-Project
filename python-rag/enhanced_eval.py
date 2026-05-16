@@ -28,17 +28,17 @@ from langchain_core.documents import Document
 from langchain_openai import ChatOpenAI
 
 # Import optimization modules
-from app.rag.hybrid_retriever import HybridRetriever
-from app.rag.query_rewrite import QueryRewritePipeline
-from app.rag.reranker import RerankerPipeline
-from app.rag.progress_manager import EvaluationProgressManager
-from app.rag.data_paths import (
+from app.rag.retriever.hybrid_retriever import HybridRetriever
+from app.rag.retriever.query_rewrite import QueryRewritePipeline
+from app.rag.retriever.reranker import RerankerPipeline
+from app.rag.utils.progress_manager import EvaluationProgressManager
+from app.rag.data.data_paths import (
     EVALUATION_RESULTS_DIR,
     FAISS_INDEX_DIR,
     MEDQA_FILE,
 )
-from app.rag.embeddings import resolve_embedding_runtime
-from app.rag.eval_shared import (
+from app.rag.retriever.embeddings import resolve_embedding_runtime
+from app.rag.evaluation.eval_shared import (
     ConcurrencyConfig,
     EvaluationLLMConfig,
     RateLimiter,
@@ -593,7 +593,7 @@ def load_vector_store(config: EnhancedEvaluationConfig):
     config.INDEX_EMBEDDING_MODEL = recorded_model
 
     # Load vector store using MedicalVectorStore
-    from app.rag.vector_store import MedicalVectorStore
+    from app.rag.retriever.vector_store import MedicalVectorStore
 
     vectorstore = MedicalVectorStore(
         embedding_model=embeddings,

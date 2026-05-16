@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import asyncio
 
-from app.rag.no_rag_eval import NoRAGEvalConfig, run_no_rag_evaluation
+from app.rag.evaluation.no_rag_eval import NoRAGEvalConfig, run_no_rag_evaluation
 
 
 DEV_SIZE = 300

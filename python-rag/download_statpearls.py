@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.rag.data_paths import CORPUS_DIR, ensure_data_directories
-from app.rag.statpearls_dataset import build_statpearls_dataset
+from app.rag.data.data_paths import CORPUS_DIR, ensure_data_directories
+from app.rag.data.statpearls_dataset import build_statpearls_dataset
 
 
 DATA_DIR = CORPUS_DIR

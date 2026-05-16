@@ -19,8 +19,8 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from openai import AsyncOpenAI
 
-from .data_paths import MEDQA_FILE
-from .json_utils import load_json_safe
+from ..data.data_paths import MEDQA_FILE
+from ..data.json_utils import load_json_safe
 
 
 DEFAULT_BASE_URL = "https://wishub-x6.ctyun.cn/v1"
@@ -397,44 +397,3 @@ def update_progress(
     """Update progress checkpoint and live results if progress_mgr is provided."""
     if not progress_mgr:
         return
-
-    progress_mgr.save_checkpoint(
-        dataset_name=dataset_name,
-        total_questions=total_questions,
-        processed_questions=processed_questions,
-        current_top_k=top_k or 0,
-        results=results,
-        correct_count=correct_count,
-        total_count=processed_questions,
-        elapsed_time=elapsed,
-        config=config_payload,
-        script_name=script_name,
-    )
-    stage_result = progress_mgr.build_stage_result(
-        dataset_name=dataset_name,
-        total_questions=total_questions,
-        processed_questions=processed_questions,
-        correct_count=correct_count,
-        elapsed_time=elapsed,
-        detailed_results=results,
-        top_k=top_k,
-    )
-    progress_mgr.print_progress(
-        run_name=run_name,
-        dataset_name=dataset_name,
-        processed_questions=processed_questions,
-        total_questions=total_questions,
-        correct_count=correct_count,
-        elapsed_time=elapsed,
-    )
-    if artifact_paths and live_config:
-        live_sections = dict(extra_sections or {})
-        live_sections["current_stage"] = stage_result
-        progress_mgr.write_live_results(
-            artifact_paths=artifact_paths,
-            run_name=run_name,
-            evaluation_type=evaluation_type,
-            config=live_config,
-            stage_result=stage_result,
-            extra_sections=live_sections,
-        )

@@ -11,7 +11,7 @@ from langchain_core.embeddings import Embeddings
 from langchain_community.vectorstores import FAISS
 from langchain_community.vectorstores.utils import DistanceStrategy
 
-from .json_utils import load_json_safe, save_json_atomic
+from ..data.json_utils import load_json_safe, save_json_atomic
 
 
 class MedicalVectorStore:

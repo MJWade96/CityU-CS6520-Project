@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List
 
-from app.rag.eval_shared import (
+from app.rag.evaluation.eval_shared import (
     build_medical_eval_prompt,
     call_llm,
     ConcurrencyConfig,
@@ -20,7 +20,7 @@ from app.rag.eval_shared import (
     extract_answer,
     get_correct_answer_letter,
 )
-from app.rag.progress_manager import EvaluationProgressManager
+from app.rag.utils.progress_manager import EvaluationProgressManager
 from naive_rag_shared import (
     CACHE_DIR,
     load_cached_retrieval,

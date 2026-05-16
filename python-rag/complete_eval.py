@@ -10,8 +10,8 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
-from app.rag.naive_rag_eval import NaiveRAGEvalConfig, run_complete_evaluation
-from app.rag.data_paths import EVALUATION_RESULTS_DIR, FAISS_INDEX_DIR, MEDQA_FILE
+from app.rag.evaluation.naive_rag_eval import NaiveRAGEvalConfig, run_complete_evaluation
+from app.rag.data.data_paths import EVALUATION_RESULTS_DIR, FAISS_INDEX_DIR, MEDQA_FILE
 
 
 DEV_SIZE = 300

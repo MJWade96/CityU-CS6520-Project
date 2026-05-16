@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .data_paths import EVALUATION_RESULTS_DIR, MEDQA_FILE
+from ..data.data_paths import EVALUATION_RESULTS_DIR, MEDQA_FILE
 from .eval_shared import (
     ConcurrencyConfig,
     create_eval_context,
@@ -23,7 +23,7 @@ from .eval_shared import (
     split_questions,
     update_progress,
 )
-from .progress_manager import EvaluationProgressManager
+from ..utils.progress_manager import EvaluationProgressManager
 
 
 @dataclass

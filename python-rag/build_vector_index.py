@@ -15,14 +15,14 @@ from typing import Dict, List
 from langchain_core.documents import Document
 from tqdm import tqdm
 
-from app.rag.data_paths import (
+from app.rag.data.data_paths import (
     COMBINED_CORPUS_FILE,
     FAISS_INDEX_DIR,
     ensure_data_directories,
 )
-from app.rag.embeddings import get_langchain_embeddings, resolve_embedding_runtime
-from app.rag.json_utils import load_json_safe, save_json_atomic
-from app.rag.vector_store import MedicalVectorStore
+from app.rag.retriever.embeddings import get_langchain_embeddings, resolve_embedding_runtime
+from app.rag.data.json_utils import load_json_safe, save_json_atomic
+from app.rag.retriever.vector_store import MedicalVectorStore
 
 
 CORPUS_FILE = COMBINED_CORPUS_FILE

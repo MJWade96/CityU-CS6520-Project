@@ -11,7 +11,7 @@ import os
 from typing import List, Dict, Any, Optional, Tuple
 from langchain_openai import ChatOpenAI
 
-from app.rag.eval_shared import (
+from ..evaluation.eval_shared import (
     DEFAULT_API_KEY,
     DEFAULT_BASE_URL,
     DEFAULT_MODEL,

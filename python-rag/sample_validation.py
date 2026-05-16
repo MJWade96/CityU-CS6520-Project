@@ -10,8 +10,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from app.rag.data_paths import EVALUATION_RESULTS_DIR, FAISS_INDEX_DIR, MEDQA_FILE
-from app.rag.eval_shared import (
+from app.rag.data.data_paths import EVALUATION_RESULTS_DIR, FAISS_INDEX_DIR, MEDQA_FILE
+from app.rag.evaluation.eval_shared import (
     ConcurrencyConfig,
     create_eval_context,
     EvalContext,
@@ -20,8 +20,8 @@ from app.rag.eval_shared import (
     load_questions,
     split_questions,
 )
-from app.rag.naive_rag_eval import load_vector_store
-from app.rag.progress_manager import EvaluationProgressManager
+from app.rag.evaluation.naive_rag_eval import load_vector_store
+from app.rag.utils.progress_manager import EvaluationProgressManager
 
 
 SAMPLE_SIZE = 50

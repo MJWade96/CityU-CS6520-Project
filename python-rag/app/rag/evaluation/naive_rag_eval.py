@@ -15,8 +15,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from langchain_openai import ChatOpenAI
 
-from .data_paths import EVALUATION_RESULTS_DIR, FAISS_INDEX_DIR, MEDQA_FILE
-from .embeddings import get_langchain_embeddings
+from ..data.data_paths import EVALUATION_RESULTS_DIR, FAISS_INDEX_DIR, MEDQA_FILE
+from ..retriever.embeddings import get_langchain_embeddings
 from .eval_shared import (
     build_medical_eval_prompt,
     ConcurrencyConfig,
@@ -30,8 +30,8 @@ from .eval_shared import (
     split_questions,
     update_progress,
 )
-from .progress_manager import EvaluationProgressManager
-from .vector_store import MedicalVectorStore
+from ..utils.progress_manager import EvaluationProgressManager
+from ..retriever.vector_store import MedicalVectorStore
 
 
 @dataclass

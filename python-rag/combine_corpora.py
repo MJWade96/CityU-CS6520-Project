@@ -11,9 +11,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, Iterable, Optional
 
-from app.rag.corpus_registry import CORPUS_REGISTRY, combine_registered_corpora
-from app.rag.data_paths import COMBINED_CORPUS_FILE, ensure_data_directories
-from app.rag.json_utils import save_json_atomic
+from app.rag.data.corpus_registry import CORPUS_REGISTRY, combine_registered_corpora
+from app.rag.data.data_paths import COMBINED_CORPUS_FILE, ensure_data_directories
+from app.rag.data.json_utils import save_json_atomic
 
 
 OUTPUT_FILE = COMBINED_CORPUS_FILE

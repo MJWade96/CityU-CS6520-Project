@@ -10,9 +10,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List
 
-from app.rag.json_utils import save_json_atomic
-from app.rag.naive_rag_eval import load_vector_store
-from app.rag.progress_manager import EvaluationProgressManager
+from app.rag.data.json_utils import save_json_atomic
+from app.rag.evaluation.naive_rag_eval import load_vector_store
+from app.rag.utils.progress_manager import EvaluationProgressManager
 from naive_rag_shared import (
     CACHE_DIR,
     ConcurrencyConfig,

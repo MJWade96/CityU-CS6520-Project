@@ -1,0 +1,15 @@
+Medical RAG Evaluation Progress
+============================================================
+Run: SAMPLE_VALIDATION
+Type: COMPARISON
+Status: completed
+Updated: 2026-05-16T20:21:02.790615
+
+Configuration:
+  sample_size: 50
+  top_k: 3
+  llm_provider: Qwen3-4B
+  llm_model: 8606056bfe0c49448d92587452d1f2fc
+  vector_store: D:\RAG_Medical_Final\python-rag\data\vector_store\faiss_index
+  no_rag_enable_thinking: False
+  naive_rag_enable_thinking: True

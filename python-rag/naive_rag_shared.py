@@ -14,15 +14,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Dict, Generic, List, Sequence, Tuple, TypeVar
 
-from app.rag.data_paths import (
+from app.rag.data.data_paths import (
     EVALUATION_RESULTS_DIR,
     FAISS_INDEX_DIR,
     MEDQA_FILE,
     RETRIEVAL_CACHE_DIR,
 )
-from app.rag.eval_shared import ConcurrencyConfig, load_questions, split_questions
-from app.rag.json_utils import load_json_safe, save_json_atomic
-from app.rag.progress_manager import EvaluationProgressManager
+from app.rag.evaluation.eval_shared import ConcurrencyConfig, load_questions, split_questions
+from app.rag.data.json_utils import load_json_safe, save_json_atomic
+from app.rag.utils.progress_manager import EvaluationProgressManager
 
 
 SAMPLE_SIZE = 973
