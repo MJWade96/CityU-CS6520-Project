@@ -2,6 +2,7 @@
 /Zignored/
 .trae/
 .claude/
+.learnings/
 .DS_Store
 __pycache__/
 *.pyc
