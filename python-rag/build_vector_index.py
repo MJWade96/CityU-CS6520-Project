@@ -69,8 +69,6 @@ def build_index(
     )
     vectorstore = MedicalVectorStore(
         embedding_model=embeddings,
-        store_type="faiss",
-        persist_directory=str(output_dir),
     )
 
     start_time = time.time()
@@ -122,8 +120,6 @@ def test_retrieval(
     )
     vectorstore = MedicalVectorStore(
         embedding_model=embeddings,
-        store_type="faiss",
-        persist_directory=str(index_dir),
     )
     vectorstore.load(str(index_dir))
 

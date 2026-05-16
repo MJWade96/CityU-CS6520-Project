@@ -1,188 +1,104 @@
-# Medical RAG System with LangChain
+# Medical RAG Evaluation Toolkit
 
-A Retrieval-Augmented Generation (RAG) system for medical diagnosis support, built with Python and LangChain.
+This repository is now centered on evaluation and corpus-preparation workflows for the medical RAG experiments. The active runtime surface is the set of CLI scripts under the project root, not a FastAPI service.
 
-## 🎯 Project Overview
+## Overview
 
-This project implements a RAG system specifically designed for medical diagnosis, following best practices from recent academic literature including MedRAG, RAGMed, and related papers.
+The project evaluates three main paths on the MedQA-style dataset:
 
-### Key Features
+- `evaluate_no_rag.py`: direct LLM baseline without retrieval.
+- `complete_eval.py`: naive RAG evaluation with FAISS retrieval.
+- `enhanced_eval.py`: hybrid retrieval + query rewrite + cross-encoder reranking.
 
-- **Real Datasets**: PubMedQA, MedQA, MedMCQA
-- **Real LLM**: OpenAI GPT-4o-mini (configurable)
-- **Medical Embeddings**: Bio_ClinicalBERT or OpenAI embeddings
-- **Comprehensive Evaluation**: RAGAS + Medical-specific metrics
-- **LangChain Framework**: Modular, production-ready architecture
+There are also smaller utility entrypoints for validation and staged runs:
 
-## 📊 Evaluation Datasets
+- `sample_validation.py`: small no-RAG vs naive-RAG comparison.
+- `naive_rag_sample_eval.py`: sample-only naive-RAG validation.
+- `naive_rag_retrieval.py`: cache retrieval results for the sample workflow.
+- `naive_rag_generation.py`: generate answers from cached retrieval results.
+- `run_with_resume.py`: restart supported evaluation scripts from checkpoints.
 
-| Dataset | Size | Task | Source |
-|---------|------|------|--------|
-| PubMedQA | 1,000 QA | Yes/No/Maybe reasoning | PubMed abstracts |
-| MedQA | 12,723 questions | USMLE multiple choice | Medical exams |
-| MedMCQA | 194,000+ questions | Multiple choice | AIIMS/NEET exams |
-
-## 🛠 Installation
-
-### Prerequisites
-
-- Python 3.10+
-- OpenAI API key (or other LLM API)
-
-### Setup
+## Setup
 
 ```bash
-# Clone or download the project
 cd python-rag
-
-# Create virtual environment
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
+venv\Scripts\activate
 pip install -r requirements.txt
-
-# Set API key
-export OPENAI_API_KEY="your-api-key-here"
 ```
 
-## 🚀 Quick Start
+Configure the LLM and embedding environment through the constants and environment variables already used by the scripts in `app/rag/eval_shared.py`, `app/rag/embeddings.py`, and `enhanced_eval.py`.
 
-### Basic Usage
-
-```python
-from app.rag.improved_medical_rag import MedicalRAGSystem, MedicalRAGConfig
-
-# Configure the system
-config = MedicalRAGConfig(
-    llm_model="gpt-4o-mini",
-    llm_temperature=0.1,
-    top_k=5
-)
-
-# Initialize
-system = MedicalRAGSystem(config)
-system.initialize()
-
-# Query
-result = system.query("What are the treatments for hypertension?")
-print(result['answer'])
-```
-
-### Running the API Server
+## Common Workflow
 
 ```bash
-# Start FastAPI server
-cd python-rag
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+# Optional data preparation
+python download_statpearls.py
+python combine_corpora.py
+python build_vector_index.py
 
-# Access API documentation
-# http://localhost:8000/docs
+# Quick sanity check before full runs
+python sample_validation.py
+
+# Main evaluations
+python evaluate_no_rag.py
+python complete_eval.py
+python enhanced_eval.py
 ```
 
-## 📁 Project Structure
+If a long evaluation is interrupted, run:
 
+```bash
+python run_with_resume.py
 ```
+
+## Active Code Paths
+
+Current evaluation entrypoints share a small core set of modules:
+
+- `app/rag/eval_shared.py`: prompt building, answer extraction, concurrency, API helpers.
+- `app/rag/progress_manager.py`: checkpoints and live/final artifacts.
+- `app/rag/data_paths.py`: canonical dataset, cache, and output paths.
+- `app/rag/no_rag_eval.py`: baseline evaluation flow.
+- `app/rag/naive_rag_eval.py`: naive RAG evaluation flow.
+- `app/rag/hybrid_retriever.py`, `app/rag/query_rewrite.py`, `app/rag/reranker.py`: enhanced evaluation stack.
+- `app/rag/vector_store.py` and `app/rag/embeddings.py`: FAISS and embedding runtime support.
+
+## Project Structure
+
+```text
 python-rag/
 ├── app/
 │   ├── __init__.py
-│   ├── main.py                    # FastAPI application
 │   └── rag/
 │       ├── __init__.py
-│       ├── config.py              # Configuration
-│       ├── document_loader.py     # Document processing
-│       ├── embeddings.py          # Embedding models
-│       ├── vector_store.py        # Vector store (FAISS)
-│       ├── pipeline.py            # RAG pipeline
-│       ├── improved_medical_rag.py # Improved implementation
-│       └── evaluation.py          # Evaluation module
-├── scripts/
-│   ├── start.sh                   # Startup script
-│   └── test_system.py             # Test script
-├── data/                          # Data directory
-├── requirements.txt
+│       ├── data_paths.py
+│       ├── embeddings.py
+│       ├── eval_shared.py
+│       ├── hybrid_retriever.py
+│       ├── json_utils.py
+│       ├── naive_rag_eval.py
+│       ├── no_rag_eval.py
+│       ├── progress_manager.py
+│       ├── query_rewrite.py
+│       ├── reranker.py
+│       └── vector_store.py
+├── build_vector_index.py
+├── combine_corpora.py
+├── complete_eval.py
+├── download_statpearls.py
+├── enhanced_eval.py
+├── evaluate_no_rag.py
+├── naive_rag_generation.py
+├── naive_rag_retrieval.py
+├── naive_rag_sample_eval.py
+├── run_with_resume.py
+├── sample_validation.py
 └── README.md
 ```
 
-## 📈 Evaluation
+## Notes
 
-### RAGAS Metrics
-
-| Metric | Description |
-|--------|-------------|
-| Faithfulness | Answer grounded in retrieved context |
-| Answer Relevancy | Answer addresses the question |
-| Context Relevancy | Retrieved context is relevant |
-| Context Precision | Precision of retrieved context |
-
-### Medical-Specific Metrics
-
-| Metric | Description |
-|--------|-------------|
-| Medical Accuracy | Correctness of medical information |
-| Safety Score | Presence of disclaimers, absence of dangerous advice |
-| Completeness | Coverage of required medical elements |
-
-### Running Evaluation
-
-```python
-from app.rag.evaluation import ComprehensiveEvaluator
-
-evaluator = ComprehensiveEvaluator()
-
-results = evaluator.evaluate(
-    question="What is the treatment for MI?",
-    answer="...",
-    contexts=["..."],
-    ground_truth="..."
-)
-
-print(f"Overall Score: {results['overall_score']}")
-print(f"Safety Score: {results['safety']['score']}")
-```
-
-## 🔧 Configuration
-
-### LLM Options
-
-| Model | Provider | Notes |
-|-------|----------|-------|
-| gpt-4o-mini | OpenAI | Recommended (cost-effective) |
-| gpt-4o | OpenAI | Best performance |
-| glm-4 | Zhipu AI | Chinese language support |
-
-### Embedding Options
-
-| Model | Dimensions | Notes |
-|-------|------------|-------|
-| text-embedding-3-small | 1536 | OpenAI, recommended |
-| Bio_ClinicalBERT | 768 | Medical domain-specific |
-| all-MiniLM-L6-v2 | 384 | Lightweight, fast |
-
-## 📚 References
-
-### Key Papers
-
-1. **MedRAG** (2025): Knowledge graph-enhanced medical RAG
-2. **RAGMed** (2025): RAG-based medical AI assistant
-3. **RAG in Healthcare Survey** (2025): Comprehensive review
-
-### Datasets
-
-- [PubMedQA](https://huggingface.co/datasets/pubmed_qa)
-- [MedQA](https://github.com/jind11/MedQA)
-- [MedMCQA](https://medmcqa.github.io/)
-
-## ⚠️ Important Notes
-
-1. **API Keys**: This project requires an OpenAI API key (or compatible LLM API)
-2. **Medical Disclaimer**: This system is for educational purposes only. Always consult healthcare professionals for medical advice.
-3. **Evaluation**: For accurate evaluation, use the full PubMedQA/MedQA datasets
-
-## 📝 License
-
-This project is for educational purposes as part of a university course project.
-
-## 👤 Author
-
-Sun Baozheng (59433383)
+1. The repository stores evaluation artifacts under `results/evaluation/`.
+2. `run_with_resume.py` only manages the supported evaluation scripts it knows about.
+3. The codebase keeps corpus-preparation scripts because rebuilding the FAISS index still depends on them.

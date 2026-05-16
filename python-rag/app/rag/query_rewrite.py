@@ -4,12 +4,10 @@ Query Rewrite Module
 Implements query rewriting strategies:
 1. Rule-based rewriting (medical dictionary, abbreviation expansion)
 2. LLM-based rewriting (lightweight)
-3. Query expansion (Multi-Query strategy)
 """
 
 import asyncio
 import os
-import json
 from typing import List, Dict, Any, Optional, Tuple
 from langchain_openai import ChatOpenAI
 
@@ -339,192 +337,6 @@ Rewritten question:"""
             return query
 
 
-class QueryExpander:
-    """
-    Query expansion using Multi-Query strategy
-
-    Generates multiple semantically related queries to improve recall
-    """
-
-    EXPANSION_PROMPT = """Based on the original question, generate 3-5 semantically related but diverse questions that cover different aspects.
-
-Guidelines:
-- Keep diversity
-- Cover different angles
-- Maintain medical accuracy
-
-Original question: {query}
-
-Generated questions (3-5):"""
-
-    def __init__(
-        self,
-        provider: Optional[str] = None,
-        model: Optional[str] = None,
-        api_key: Optional[str] = None,
-        base_url: Optional[str] = None,
-        num_expansions: int = 3,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
-        enable_thinking: Optional[bool] = None,
-    ):
-        """
-        Initialize query expander.
-
-        Args:
-            provider: LLM provider
-            model: Model name/ID
-            api_key: API key
-            base_url: API base URL
-            num_expansions: Number of expanded queries to generate
-        """
-        self.provider = provider or _get_env_with_fallback(
-            "RAG_QUERY_REWRITE_PROVIDER",
-            "RAG_LLM_PROVIDER",
-            DEFAULT_PROVIDER,
-        )
-        self.model = model or _get_env_with_fallback(
-            "RAG_QUERY_REWRITE_MODEL",
-            "RAG_LLM_MODEL",
-            DEFAULT_MODEL,
-        )
-        self.num_expansions = num_expansions
-        self.temperature = (
-            temperature
-            if temperature is not None
-            else float(os.getenv("RAG_QUERY_EXPANSION_TEMPERATURE", "0.3"))
-        )
-        self.max_tokens = (
-            max_tokens
-            if max_tokens is not None
-            else int(os.getenv("RAG_QUERY_EXPANSION_MAX_TOKENS", "300"))
-        )
-        self.enable_thinking = (
-            enable_thinking
-            if enable_thinking is not None
-            else _get_query_rewrite_enable_thinking(default=False)
-        )
-
-        # Get API credentials
-        self.api_key = api_key or _get_env_with_fallback(
-            "RAG_QUERY_REWRITE_API_KEY",
-            "RAG_LLM_API_KEY",
-            DEFAULT_API_KEY,
-        )
-        self.base_url = base_url or _get_env_with_fallback(
-            "RAG_QUERY_REWRITE_BASE_URL",
-            "RAG_LLM_BASE_URL",
-            DEFAULT_BASE_URL,
-        )
-
-        llm_config = EvaluationLLMConfig(
-            provider=self.provider,
-            model=self.model,
-            temperature=self.temperature,
-            base_url=self.base_url,
-            api_key=self.api_key,
-            enable_thinking=self.enable_thinking,
-        )
-        llm_kwargs = {
-            "max_tokens": self.max_tokens,
-            "api_key": self.api_key,
-            "base_url": self.base_url,
-            **get_qwen_langchain_kwargs(llm_config),
-        }
-        self.completion_kwargs = {
-            **get_qwen_completion_kwargs(llm_config),
-            "max_tokens": self.max_tokens,
-        }
-        self.async_client = create_async_client(llm_config)
-        self.llm = ChatOpenAI(**llm_kwargs)
-
-    def expand(self, query: str) -> List[str]:
-        """
-        Expand query into multiple related queries.
-
-        Args:
-            query: Original query
-
-        Returns:
-            List of expanded queries (including original)
-        """
-        prompt = self.EXPANSION_PROMPT.format(query=query)
-
-        try:
-            response = self.llm.invoke(prompt)
-            expanded_queries = response.content.strip().split("\n")
-
-            # Clean up queries
-            cleaned = []
-            for q in expanded_queries:
-                q = q.strip()
-                # Remove numbering
-                if q and q[0].isdigit():
-                    q = q[2:].strip()
-                if q and len(q) > 5:
-                    cleaned.append(q)
-
-            # Add original query
-            if query not in cleaned:
-                cleaned.insert(0, query)
-
-            return cleaned[: self.num_expansions + 1]
-
-        except Exception as e:
-            print(f"Query expansion failed: {e}")
-            return [query]
-
-    async def aexpand(
-        self,
-        query: str,
-        *,
-        rate_limiter: Optional[RateLimiter] = None,
-        api_semaphore: Optional[asyncio.Semaphore] = None,
-    ) -> List[str]:
-        """Expand query asynchronously."""
-        prompt = self.EXPANSION_PROMPT.format(query=query)
-
-        try:
-            if api_semaphore:
-                async with api_semaphore:
-                    if rate_limiter:
-                        await rate_limiter.acquire()
-                    completion = await self.async_client.chat.completions.create(
-                        messages=[{"role": "user", "content": prompt}],
-                        **self.completion_kwargs,
-                    )
-            else:
-                if rate_limiter:
-                    await rate_limiter.acquire()
-                completion = await self.async_client.chat.completions.create(
-                    messages=[{"role": "user", "content": prompt}],
-                    **self.completion_kwargs,
-                )
-
-            content = (
-                completion.choices[0].message.content
-                or completion.choices[0].message.reasoning_content
-                or ""
-            )
-            expanded_queries = content.strip().split("\n")
-
-            cleaned = []
-            for q in expanded_queries:
-                q = q.strip()
-                if q and q[0].isdigit():
-                    q = q[2:].strip()
-                if q and len(q) > 5:
-                    cleaned.append(q)
-
-            if query not in cleaned:
-                cleaned.insert(0, query)
-
-            return cleaned[: self.num_expansions + 1]
-        except Exception as e:
-            print(f"Query expansion failed: {e}")
-            return [query]
-
-
 class QueryRewritePipeline:
     """
     Complete query rewrite pipeline
@@ -532,14 +344,12 @@ class QueryRewritePipeline:
     Combines:
     1. Rule-based rewriting
     2. LLM-based rewriting (optional)
-    3. Query expansion (optional)
     """
 
     def __init__(
         self,
         use_dict: bool = True,
         use_llm: bool = True,
-        use_expansion: bool = False,
         llm_provider: Optional[str] = None,
         llm_model: Optional[str] = None,
         api_key: Optional[str] = None,
@@ -547,9 +357,6 @@ class QueryRewritePipeline:
         llm_temperature: Optional[float] = None,
         llm_max_tokens: Optional[int] = None,
         llm_enable_thinking: Optional[bool] = None,
-        expansion_temperature: Optional[float] = None,
-        expansion_max_tokens: Optional[int] = None,
-        expansion_enable_thinking: Optional[bool] = None,
     ):
         """
         Initialize rewrite pipeline.
@@ -557,16 +364,11 @@ class QueryRewritePipeline:
         Args:
             use_dict: Use dictionary-based rewriting
             use_llm: Use LLM-based rewriting
-            use_expansion: Use query expansion
             llm_provider: LLM provider
             llm_model: LLM model
             api_key: API key
             base_url: API base URL
         """
-        self.use_dict = use_dict
-        self.use_llm = use_llm
-        self.use_expansion = use_expansion
-
         # Initialize components
         if use_dict:
             self.dict_rewriter = MedicalDictionaryRewriter()
@@ -586,76 +388,29 @@ class QueryRewritePipeline:
         else:
             self.llm_rewriter = None
 
-        if use_expansion:
-            self.expander = QueryExpander(
-                provider=llm_provider,
-                model=llm_model,
-                api_key=api_key,
-                base_url=base_url,
-                temperature=expansion_temperature,
-                max_tokens=expansion_max_tokens,
-                enable_thinking=expansion_enable_thinking,
-            )
-        else:
-            self.expander = None
-
-    def rewrite(self, query: str, mode: str = "single") -> Tuple[str, List[str]]:
-        """
-        Rewrite query.
-
-        Args:
-            query: Original query
-            mode: 'single' (one query) or 'expanded' (multiple queries)
-
-        Returns:
-            Tuple of (primary_rewritten_query, all_queries_for_retrieval)
-        """
-        return self._rewrite_internal(query, mode=mode, use_llm=None)
-
-    def _rewrite_internal(
-        self,
-        query: str,
-        *,
-        mode: str = "single",
-        use_llm: Optional[bool] = None,
-    ) -> Tuple[str, List[str]]:
-        """Shared sync rewrite implementation with optional LLM override."""
-        all_queries = [query]
-
-        # Step 1: Dictionary-based rewriting
-        if self.dict_rewriter:
-            dict_rewritten = self.dict_rewriter.rewrite(query)
-            all_queries[0] = dict_rewritten
-
-        # Step 2: LLM rewriting
-        llm_enabled = self.llm_rewriter is not None if use_llm is None else (
-            self.llm_rewriter is not None and use_llm
-        )
-        if llm_enabled and mode == "single":
-            llm_rewritten = self.llm_rewriter.rewrite(all_queries[0])
-            all_queries[0] = llm_rewritten
-
-        # Step 3: Query expansion
-        if self.expander and mode == "expanded":
-            expanded = self.expander.expand(all_queries[0])
-            all_queries = expanded
-
-        return all_queries[0], all_queries
-
     def rewrite_with_options(
         self,
         query: str,
-        mode: str = "single",
         *,
         use_llm: Optional[bool] = None,
     ) -> Tuple[str, List[str]]:
         """Rewrite query with an optional per-call LLM toggle."""
-        return self._rewrite_internal(query, mode=mode, use_llm=use_llm)
+        all_queries = [query]
+
+        if self.dict_rewriter:
+            all_queries[0] = self.dict_rewriter.rewrite(query)
+
+        llm_enabled = self.llm_rewriter is not None if use_llm is None else (
+            self.llm_rewriter is not None and use_llm
+        )
+        if llm_enabled:
+            all_queries[0] = self.llm_rewriter.rewrite(all_queries[0])
+
+        return all_queries[0], all_queries
 
     async def arewrite(
         self,
         query: str,
-        mode: str = "single",
         *,
         rate_limiter: Optional[RateLimiter] = None,
         api_semaphore: Optional[asyncio.Semaphore] = None,
@@ -671,7 +426,7 @@ class QueryRewritePipeline:
         llm_enabled = self.llm_rewriter is not None if use_llm is None else (
             self.llm_rewriter is not None and use_llm
         )
-        if llm_enabled and mode == "single":
+        if llm_enabled:
             llm_rewritten = await self.llm_rewriter.arewrite(
                 all_queries[0],
                 rate_limiter=rate_limiter,
@@ -679,72 +434,4 @@ class QueryRewritePipeline:
             )
             all_queries[0] = llm_rewritten
 
-        if self.expander and mode == "expanded":
-            all_queries = await self.expander.aexpand(
-                all_queries[0],
-                rate_limiter=rate_limiter,
-                api_semaphore=api_semaphore,
-            )
-
         return all_queries[0], all_queries
-
-    def get_stats(self) -> Dict[str, Any]:
-        """Get pipeline statistics"""
-        return {
-            "use_dict_rewriting": self.dict_rewriter is not None,
-            "use_llm_rewriting": self.llm_rewriter is not None,
-            "use_query_expansion": self.expander is not None,
-        }
-
-
-if __name__ == "__main__":
-    # Test query rewriting
-    print("Testing Query Rewrite Module...")
-
-    # Test dictionary rewriter
-    print("\n=== Dictionary-based Rewriting ===")
-    dict_rewriter = MedicalDictionaryRewriter()
-
-    test_queries = [
-        "What is MI?",
-        "Treatment for high blood pressure",
-        "心梗的症状是什么",
-        "How to treat diabetes?",
-    ]
-
-    for query in test_queries:
-        rewritten = dict_rewriter.rewrite(query)
-        print(f"\nOriginal:  {query}")
-        print(f"Rewritten: {rewritten}")
-
-    # Test LLM rewriter
-    print("\n=== LLM-based Rewriting ===")
-    llm_rewriter = LLMQueryRewriter()
-
-    test_query = "What are the symptoms of heart attack?"
-    rewritten = llm_rewriter.rewrite(test_query)
-    print(f"\nOriginal:  {test_query}")
-    print(f"Rewritten: {rewritten}")
-
-    # Test query expansion
-    print("\n=== Query Expansion ===")
-    expander = QueryExpander()
-
-    expanded = expander.expand(test_query)
-    print(f"\nOriginal:  {test_query}")
-    print(f"Expanded queries:")
-    for i, q in enumerate(expanded, 1):
-        print(f"  {i}. {q}")
-
-    # Test pipeline
-    print("\n=== Complete Pipeline ===")
-    pipeline = QueryRewritePipeline(
-        use_dict=True,
-        use_llm=True,
-        use_expansion=False,
-    )
-
-    primary, all_queries = pipeline.rewrite("What is MI?", mode="single")
-    print(f"\nOriginal:  What is MI?")
-    print(f"Primary:   {primary}")
-    print(f"All queries: {all_queries}")

@@ -76,8 +76,6 @@ def load_vector_store(index_path: Path) -> MedicalVectorStore:
     )
     vectorstore = MedicalVectorStore(
         embedding_model=embeddings,
-        store_type="faiss",
-        persist_directory=str(index_path),
     )
     vectorstore.load(str(index_path))
     return vectorstore

@@ -1,20 +1,13 @@
 """
 Enhanced Medical RAG Evaluation System
 
-Integrates all Phase 1 and Phase 2 optimizations:
-- Phase 1:
-  * Hybrid retrieval (Dense + BM25 with RRF fusion)
-  * Query rewriting (dictionary + LLM-based)
-  * Prompt optimization (Chain-of-Thought, structured output)
-
-- Phase 2:
-  * Semantic chunking with sliding window
-  * Parent-Child chunk association
-  * Metadata enhancement
-  * Cross-Encoder reranking
+Runs the active enhanced evaluation stack used by the current project:
+- Hybrid retrieval (Dense + BM25 with RRF fusion)
+- Query rewriting (dictionary + LLM-based)
+- Cross-Encoder reranking
 
 Usage:
-    python enhanced_eval.py
+        python enhanced_eval.py
 """
 
 import asyncio
@@ -35,11 +28,9 @@ from langchain_core.documents import Document
 from langchain_openai import ChatOpenAI
 
 # Import optimization modules
-from app.rag.hybrid_retriever import HybridRetriever, AdaptiveRetriever
+from app.rag.hybrid_retriever import HybridRetriever
 from app.rag.query_rewrite import QueryRewritePipeline
 from app.rag.reranker import RerankerPipeline
-from app.rag.chunking import SemanticChunker, ParentChildChunker
-from app.rag.metadata_enhancement import MetadataGenerator, RuleBasedMetadataGenerator
 from app.rag.progress_manager import EvaluationProgressManager
 from app.rag.data_paths import (
     EVALUATION_RESULTS_DIR,
@@ -105,7 +96,6 @@ class EnhancedEvaluationConfig:
     EMBEDDING_DEVICE = os.getenv("RAG_EMBEDDING_DEVICE", "auto")
 
     # Retrieval configuration
-    TOP_K_VALUES = [1, 3, 5, 10]
     DEFAULT_TOP_K = 5
 
     # Optimization flags
@@ -127,8 +117,6 @@ class EnhancedEvaluationConfig:
     USE_RERANKER = True
     RERANKER_MODEL = os.getenv("RAG_RERANKER_MODEL", "BAAI/bge-reranker-large")
     RERANKER_DEVICE = os.getenv("RAG_RERANKER_DEVICE", "auto")
-    USE_COT_PROMPT = False
-    USE_ADAPTIVE_RETRIEVAL = False
     CONCURRENCY = ConcurrencyConfig(
         rpm_limit=int(
             os.getenv(
@@ -301,7 +289,6 @@ class EnhancedRAGPipeline:
     - Hybrid retrieval (Dense + BM25)
     - Query rewriting
     - Reranking
-    - Adaptive retrieval
     """
 
     def __init__(
@@ -328,14 +315,10 @@ class EnhancedRAGPipeline:
             bm25_cache_path=bm25_cache_path,
         )
 
-        # Initialize adaptive retriever
-        self.adaptive_retriever = AdaptiveRetriever(self.hybrid_retriever)
-
         # Initialize query rewrite pipeline
         self.query_rewriter = QueryRewritePipeline(
             use_dict=config.USE_QUERY_REWRITE,
             use_llm=config.USE_QUERY_REWRITE and config.USE_LLM_QUERY_REWRITE,
-            use_expansion=False,
             llm_provider=config.QUERY_REWRITE_PROVIDER,
             llm_model=config.QUERY_REWRITE_MODEL,
             api_key=config.QUERY_REWRITE_API_KEY,
@@ -348,8 +331,6 @@ class EnhancedRAGPipeline:
         # Initialize reranker
         self.reranker = RerankerPipeline(
             use_cross_encoder=config.USE_RERANKER,
-            use_mmr=False,
-            use_lost_in_middle=False,
             cross_encoder_model=config.RERANKER_MODEL,
             cross_encoder_device=config.RERANKER_DEVICE,
             top_k=config.DEFAULT_TOP_K,
@@ -411,7 +392,6 @@ class EnhancedRAGPipeline:
         top_k: int = 5,
         use_rewrite: bool = True,
         use_rerank: bool = True,
-        use_adaptive: bool = False,
     ) -> List[Tuple[Document, float]]:
         """
         Enhanced retrieval with query rewriting and reranking
@@ -421,28 +401,23 @@ class EnhancedRAGPipeline:
             top_k: Number of documents to return
             use_rewrite: Use query rewriting
             use_rerank: Use reranking
-            use_adaptive: Use adaptive retrieval
 
         Returns:
             List of (document, score) tuples
         """
         # Step 1: Query rewriting
         if use_rewrite:
-            primary_query, all_queries = self.query_rewriter.rewrite_with_options(
+            primary_query, _ = self.query_rewriter.rewrite_with_options(
                 query,
-                mode="single",
                 use_llm=self._should_use_llm_query_rewrite(query),
             )
         else:
             primary_query = query
 
         # Step 2: Retrieval
-        if use_adaptive:
-            results = self.adaptive_retriever.search(primary_query, k=top_k * 2)
-        else:
-            results = self.hybrid_retriever.search(
-                primary_query, k=top_k * 2, use_hybrid=self.config.USE_HYBRID_RETRIEVAL
-            )
+        results = self.hybrid_retriever.search(
+            primary_query, k=top_k * 2, use_hybrid=self.config.USE_HYBRID_RETRIEVAL
+        )
 
         # Step 3: Reranking
         if use_rerank and self.reranker:
@@ -457,7 +432,6 @@ class EnhancedRAGPipeline:
         top_k: int = 5,
         use_rewrite: bool = True,
         use_rerank: bool = True,
-        use_adaptive: bool = False,
         *,
         rate_limiter: Optional[RateLimiter] = None,
         api_semaphore: Optional[asyncio.Semaphore] = None,
@@ -466,7 +440,6 @@ class EnhancedRAGPipeline:
         if use_rewrite:
             primary_query, _ = await self.query_rewriter.arewrite(
                 query,
-                mode="single",
                 rate_limiter=rate_limiter,
                 api_semaphore=api_semaphore,
                 use_llm=self._should_use_llm_query_rewrite(query),
@@ -474,19 +447,12 @@ class EnhancedRAGPipeline:
         else:
             primary_query = query
 
-        if use_adaptive:
-            results = await asyncio.to_thread(
-                self.adaptive_retriever.search,
-                primary_query,
-                top_k * 2,
-            )
-        else:
-            results = await asyncio.to_thread(
-                self.hybrid_retriever.search,
-                primary_query,
-                top_k * 2,
-                self.config.USE_HYBRID_RETRIEVAL,
-            )
+        results = await asyncio.to_thread(
+            self.hybrid_retriever.search,
+            primary_query,
+            top_k * 2,
+            self.config.USE_HYBRID_RETRIEVAL,
+        )
 
         if use_rerank and self.reranker:
             results = await asyncio.to_thread(self.reranker.rerank, primary_query, results)
@@ -631,8 +597,6 @@ def load_vector_store(config: EnhancedEvaluationConfig):
 
     vectorstore = MedicalVectorStore(
         embedding_model=embeddings,
-        store_type="faiss",
-        persist_directory=config.VECTOR_STORE_PATH,
     )
     vectorstore.load(config.VECTOR_STORE_PATH)
 
@@ -1131,8 +1095,6 @@ async def main_async():
     print(f"  Reranker: {config.USE_RERANKER}")
     print(f"  Reranker Model: {config.RERANKER_MODEL}")
     print(f"  Reranker Device: {config.RERANKER_DEVICE}")
-    print(f"  CoT Prompting: {config.USE_COT_PROMPT}")
-    print(f"  Adaptive Retrieval: {config.USE_ADAPTIVE_RETRIEVAL}")
     print(f"  Max Concurrent: {config.CONCURRENCY.max_concurrent}")
     print(f"  In-Flight Multiplier: {config.IN_FLIGHT_MULTIPLIER}")
     print(f"  Progress Save Every: {config.PROGRESS_SAVE_EVERY} questions")
@@ -1192,8 +1154,6 @@ async def main_async():
         "use_reranker": config.USE_RERANKER,
         "reranker_model": config.RERANKER_MODEL,
         "reranker_device": config.RERANKER_DEVICE,
-        "use_cot_prompt": config.USE_COT_PROMPT,
-        "use_adaptive_retrieval": config.USE_ADAPTIVE_RETRIEVAL,
         "max_concurrent": config.CONCURRENCY.max_concurrent,
         "in_flight_multiplier": config.IN_FLIGHT_MULTIPLIER,
         "rpm_limit": config.CONCURRENCY.rpm_limit,
@@ -1285,8 +1245,7 @@ async def main_async():
     print(f"\n{'=' * 60}")
     print("Optimization Summary:")
     print(f"{'=' * 60}")
-    print("✓ Phase 1: Hybrid Retrieval, Query Rewrite, Prompt Optimization")
-    print("✓ Phase 2: Semantic Chunking, Metadata Enhancement, Reranking")
+    print("✓ Active stack: Hybrid Retrieval, Query Rewrite, Cross-Encoder Reranking")
     print(f"Results JSON: {paths['json']}")
     print(f"Summary TXT: {paths['summary']}")
     print(f"{'=' * 60}")

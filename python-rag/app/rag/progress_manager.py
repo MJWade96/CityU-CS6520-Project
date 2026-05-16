@@ -44,10 +44,6 @@ class EvaluationProgressManager:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-        self.checkpoint_file = self.output_dir / "checkpoint.json"
-        self.backup_file = self.output_dir / "checkpoint.backup.json"
-        self._current_checkpoint: Optional[CheckpointData] = None
-
     def create_run_artifacts(
         self,
         run_name: str,
@@ -252,21 +248,17 @@ class EvaluationProgressManager:
                 lines.append(f"  {key}: {value}")
         return lines
 
-    def _get_backup_path(self, script_name: Optional[str] = None) -> Path:
-        if script_name:
-            return self.output_dir / f"checkpoint_{script_name}.backup.json"
-        return self.backup_file
+    def _get_backup_path(self, script_name: str) -> Path:
+        return self.output_dir / f"checkpoint_{script_name}.backup.json"
 
-    def _get_checkpoint_path(self, script_name: Optional[str] = None) -> Path:
-        if script_name:
-            return self.output_dir / f"checkpoint_{script_name}.json"
-        return self.checkpoint_file
+    def _get_checkpoint_path(self, script_name: str) -> Path:
+        return self.output_dir / f"checkpoint_{script_name}.json"
 
-    def has_checkpoint(self, script_name: Optional[str] = None) -> bool:
+    def has_checkpoint(self, script_name: str) -> bool:
         checkpoint_path = self._get_checkpoint_path(script_name)
         return checkpoint_path.exists()
 
-    def load_checkpoint(self, script_name: Optional[str] = None) -> Optional[CheckpointData]:
+    def load_checkpoint(self, script_name: str) -> Optional[CheckpointData]:
         checkpoint_path = self._get_checkpoint_path(script_name)
         backup_path = self._get_backup_path(script_name)
 
@@ -279,7 +271,6 @@ class EvaluationProgressManager:
         try:
             data = json.loads(checkpoint_path.read_text(encoding="utf-8"))
             checkpoint = CheckpointData(**data)
-            self._current_checkpoint = checkpoint
             print(
                 f"[resume][{checkpoint.script_name}] "
                 f"{checkpoint.processed_questions}/{checkpoint.total_questions} | "
@@ -293,7 +284,6 @@ class EvaluationProgressManager:
                 try:
                     data = json.loads(backup_path.read_text(encoding="utf-8"))
                     checkpoint = CheckpointData(**data)
-                    self._current_checkpoint = checkpoint
                     return checkpoint
                 except Exception:
                     return None
@@ -310,12 +300,12 @@ class EvaluationProgressManager:
         total_count: int,
         elapsed_time: float,
         config: Dict[str, Any],
-        script_name: Optional[str] = None,
+        script_name: str,
         error_message: Optional[str] = None,
     ) -> None:
         checkpoint = CheckpointData(
             timestamp=datetime.now().isoformat(),
-            script_name=script_name or "unknown",
+            script_name=script_name,
             dataset_name=dataset_name,
             total_questions=total_questions,
             processed_questions=processed_questions,
@@ -327,7 +317,6 @@ class EvaluationProgressManager:
             config=config,
             error_message=error_message,
         )
-        self._current_checkpoint = checkpoint
 
         checkpoint_path = self._get_checkpoint_path(script_name)
         backup_path = self._get_backup_path(script_name)
@@ -342,7 +331,7 @@ class EvaluationProgressManager:
             encoding="utf-8",
         )
 
-    def clear_checkpoint(self, script_name: Optional[str] = None) -> None:
+    def clear_checkpoint(self, script_name: str) -> None:
         checkpoint_path = self._get_checkpoint_path(script_name)
         backup_path = self._get_backup_path(script_name)
         if checkpoint_path.exists():
@@ -350,7 +339,7 @@ class EvaluationProgressManager:
         if backup_path.exists():
             backup_path.unlink()
 
-    def should_resume(self, script_name: Optional[str] = None) -> bool:
+    def should_resume(self, script_name: str) -> bool:
         if not self.has_checkpoint(script_name):
             return False
 
@@ -364,7 +353,7 @@ class EvaluationProgressManager:
 
         return True
 
-    def get_resume_info(self, script_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def get_resume_info(self, script_name: str) -> Optional[Dict[str, Any]]:
         checkpoint = self.load_checkpoint(script_name)
         if not checkpoint:
             return None
@@ -377,8 +366,3 @@ class EvaluationProgressManager:
             "current_top_k": checkpoint.current_top_k,
             "config": checkpoint.config,
         }
-
-
-def create_progress_manager(output_dir: str = "./results/evaluation") -> EvaluationProgressManager:
-    """Factory function to create a progress manager."""
-    return EvaluationProgressManager(output_dir)
