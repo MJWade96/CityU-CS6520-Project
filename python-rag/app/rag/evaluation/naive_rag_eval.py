@@ -1,81 +1,69 @@
-"""
-Naive RAG evaluation pipeline.
-
-The core evaluation logic lives here so ``complete_eval.py`` can stay as a thin
-entrypoint and other scripts can reuse the same retrieval/generation flow.
-"""
+"""Primary native RAG evaluation pipeline."""
 
 from __future__ import annotations
 
 import asyncio
 import time
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from langchain_openai import ChatOpenAI
+from llama_index.llms.openai_like import OpenAILike
 
-from ..data.data_paths import EVALUATION_RESULTS_DIR, FAISS_INDEX_DIR, MEDQA_FILE
-from ..retriever.embeddings import get_langchain_embeddings
+from ..retriever.runtime_config import resolve_embedding_runtime
+from ..retriever.vector_store import MedicalVectorStore
+from ..utils.progress_manager import EvaluationProgressManager
+from .config import EvaluationRunNames, NaiveRAGEvalConfig
 from .eval_shared import (
-    build_medical_eval_prompt,
-    ConcurrencyConfig,
-    create_eval_context,
-    evaluate_single_item,
     EvaluationLLMConfig,
-    extract_answer,
-    get_correct_answer_letter,
-    get_qwen_langchain_kwargs,
+    RateLimiter,
+    build_eval_result,
+    format_options,
+    get_qwen_openai_like_kwargs,
     load_questions,
     split_questions,
     update_progress,
 )
-from ..utils.progress_manager import EvaluationProgressManager
-from ..retriever.vector_store import MedicalVectorStore
 
 
-@dataclass
-class NaiveRAGEvalConfig:
-    dev_size: int = 300
-    test_size: Optional[int] = None
-    top_k_values: List[int] = field(default_factory=lambda: [1, 3, 5, 10])
-    manual_top_k: Optional[int] = 3
-    vector_store_path: Path = FAISS_INDEX_DIR
-    question_file: Path = MEDQA_FILE
-    output_dir: Path = EVALUATION_RESULTS_DIR
-    llm: EvaluationLLMConfig = field(default_factory=EvaluationLLMConfig)
-    concurrency: ConcurrencyConfig = field(default_factory=ConcurrencyConfig)
+def build_query(question: str, options: List[str]) -> str:
+    """Keep evaluation prompt structure stable while delegating answering to the query engine."""
+    return "\n".join(
+        [
+            "You are a medical expert assistant.",
+            "Use the retrieved medical context to answer the multiple-choice question.",
+            f"Question: {question}",
+            "",
+            "Options:",
+            format_options(options),
+            "",
+            "Provide only the final answer in the following format:",
+            "Answer: [A/B/C/D/E]",
+        ]
+    )
 
 
-class MedicalLLMGenerator:
-    """Sync generator for dev-set evaluation using LangChain."""
+def create_llm(config: EvaluationLLMConfig) -> OpenAILike:
+    """Create the native OpenAI-compatible LLM used by the query engine."""
+    return OpenAILike(**get_qwen_openai_like_kwargs(config))
 
-    def __init__(self, config: EvaluationLLMConfig):
-        self.llm = ChatOpenAI(
-            api_key=config.api_key,
-            base_url=config.base_url,
-            **get_qwen_langchain_kwargs(config),
-        )
 
-    def generate(self, question: str, contexts: List[str], options: List[str]) -> str:
-        prompt = build_medical_eval_prompt(
-            question=question,
-            options=options,
-            context="\n\n".join(f"[{i + 1}] {c}" for i, c in enumerate(contexts)),
-        )
-        return self.llm.invoke(prompt).content
+def extract_rag_metadata(response: Any) -> Dict[str, Any]:
+    """Convert native source nodes into the shared evaluation payload."""
+    source_nodes = list(getattr(response, "source_nodes", []) or [])
+    return {
+        "retrieved_docs": len(source_nodes),
+        "scores": [float(node.score or 0.0) for node in source_nodes],
+        "contexts": [node.node.get_content() for node in source_nodes],
+    }
 
 
 def load_vector_store(index_path: Path) -> MedicalVectorStore:
-    """Load the persisted FAISS store."""
-    embeddings = get_langchain_embeddings(
-        model_type="bge-m3",
-        model_name="BAAI/bge-m3",
-        model_kwargs={"device": "cpu"},
-        encode_kwargs={"normalize_embeddings": True},
-    )
+    """Load the persisted native FAISS store."""
+    runtime = resolve_embedding_runtime(str(index_path), default_model="BAAI/bge-m3")
     vectorstore = MedicalVectorStore(
-        embedding_model=embeddings,
+        embedding_model_name=runtime["model_name"],
+        embedding_device=runtime["device"],
+        normalize_embeddings=True,
     )
     vectorstore.load(str(index_path))
     return vectorstore
@@ -83,9 +71,12 @@ def load_vector_store(index_path: Path) -> MedicalVectorStore:
 
 def evaluate_sync_dataset(
     vectorstore: MedicalVectorStore,
-    generator: MedicalLLMGenerator,
+    llm_config: EvaluationLLMConfig,
     questions: List[Dict[str, Any]],
     top_k: int,
+    *,
+    run_name: str,
+    evaluation_type: str,
     progress_mgr: Optional[EvaluationProgressManager] = None,
     artifact_paths: Optional[Dict[str, Path]] = None,
     live_config: Optional[Dict[str, Any]] = None,
@@ -93,40 +84,21 @@ def evaluate_sync_dataset(
     dataset_name: str = "Development Set",
     script_name: str = "complete_eval_dev",
 ) -> Dict[str, Any]:
-    """Evaluate a dataset synchronously (for dev-set hyperparameter search)."""
+    """Evaluate a dataset synchronously with the native query engine."""
+    query_engine = vectorstore.as_query_engine(
+        llm=create_llm(llm_config),
+        similarity_top_k=top_k,
+    )
     start_time = time.time()
     results: List[Dict[str, Any]] = []
     correct = 0
 
     for index, item in enumerate(questions, start=1):
-        search_results = vectorstore.similarity_search_with_score(
-            item["question"], k=top_k
-        )
-        docs = [doc for doc, _ in search_results]
-        contexts = [doc.page_content for doc in docs]
-        scores = [float(score) for _, score in search_results]
-        response = generator.generate(
-            item["question"], contexts, item.get("options", [])
-        )
-        predicted_answer = extract_answer(response)
-        correct_answer = get_correct_answer_letter(item)
-        is_correct = predicted_answer == correct_answer
-        if is_correct:
+        response = query_engine.query(build_query(item["question"], item.get("options", [])))
+        result = build_eval_result(item, str(response), extract_rag_metadata(response))
+        results.append(result)
+        if result["is_correct"]:
             correct += 1
-
-        results.append(
-            {
-                "question": item["question"],
-                "options": item.get("options", []),
-                "correct_answer": correct_answer,
-                "predicted_answer": predicted_answer,
-                "is_correct": is_correct,
-                "response": response,
-                "retrieved_docs": len(docs),
-                "scores": scores,
-                "contexts": contexts,
-            }
-        )
 
         if progress_mgr:
             update_progress(
@@ -140,8 +112,8 @@ def evaluate_sync_dataset(
                 correct_count=correct,
                 elapsed=time.time() - start_time,
                 results=results,
-                run_name="NAIVE_RAG",
-                evaluation_type="NAIVE_RAG",
+                run_name=run_name,
+                evaluation_type=evaluation_type,
                 config_payload={"top_k": top_k},
                 script_name=script_name,
                 top_k=top_k,
@@ -163,9 +135,14 @@ def evaluate_sync_dataset(
 
 async def evaluate_async_dataset(
     vectorstore: MedicalVectorStore,
+    llm_config: EvaluationLLMConfig,
     questions: List[Dict[str, Any]],
-    config: NaiveRAGEvalConfig,
     top_k: int,
+    *,
+    run_name: str,
+    evaluation_type: str,
+    max_concurrent: int,
+    requests_per_second: float,
     progress_mgr: Optional[EvaluationProgressManager] = None,
     artifact_paths: Optional[Dict[str, Path]] = None,
     live_config: Optional[Dict[str, Any]] = None,
@@ -177,16 +154,25 @@ async def evaluate_async_dataset(
     initial_correct: int = 0,
     initial_elapsed: float = 0.0,
 ) -> Dict[str, Any]:
-    """Evaluate a dataset asynchronously with resume-safe ordered batching."""
-    ctx = create_eval_context(config.llm, config.concurrency)
+    """Evaluate a dataset asynchronously with the native query engine."""
+    query_engine = vectorstore.as_query_engine(
+        llm=create_llm(llm_config),
+        similarity_top_k=top_k,
+    )
+    semaphore = asyncio.Semaphore(max(1, max_concurrent))
+    rate_limiter = RateLimiter(requests_per_second=requests_per_second, burst=max_concurrent)
     start_time = time.time() - initial_elapsed
     results: List[Dict[str, Any]] = list(initial_results or [])
     correct = initial_correct
     remaining_questions = questions[start_from:]
-    batch_size = max(1, config.concurrency.max_concurrent)
+    batch_size = max(1, max_concurrent)
 
     async def evaluate_item(item: Dict[str, Any]) -> Dict[str, Any]:
-        return await evaluate_single_item(ctx, item, vectorstore, top_k)
+        prompt = build_query(item["question"], item.get("options", []))
+        async with semaphore:
+            await rate_limiter.acquire()
+            response = await query_engine.aquery(prompt)
+        return build_eval_result(item, str(response), extract_rag_metadata(response))
 
     for batch_start in range(0, len(remaining_questions), batch_size):
         batch = remaining_questions[batch_start : batch_start + batch_size]
@@ -210,8 +196,8 @@ async def evaluate_async_dataset(
                     correct_count=correct,
                     elapsed=time.time() - start_time,
                     results=results,
-                    run_name="NAIVE_RAG",
-                    evaluation_type="NAIVE_RAG",
+                    run_name=run_name,
+                    evaluation_type=evaluation_type,
                     config_payload={"top_k": top_k},
                     script_name=script_name,
                     top_k=top_k,
@@ -233,22 +219,25 @@ async def evaluate_async_dataset(
 
 def find_best_top_k(
     vectorstore: MedicalVectorStore,
-    generator: MedicalLLMGenerator,
     dev_set: List[Dict[str, Any]],
     config: NaiveRAGEvalConfig,
+    run_names: EvaluationRunNames,
     progress_mgr: Optional[EvaluationProgressManager] = None,
     artifact_paths: Optional[Dict[str, Path]] = None,
     live_config: Optional[Dict[str, Any]] = None,
 ) -> Tuple[int, Dict[int, float], Dict[str, Any]]:
-    """Search for the best top-k on the dev set."""
+    """Search for the best top-k on the development slice."""
     scores: Dict[int, float] = {}
     results_by_k: Dict[int, Dict[str, Any]] = {}
+
     for k in config.top_k_values:
         result = evaluate_sync_dataset(
             vectorstore=vectorstore,
-            generator=generator,
+            llm_config=config.llm,
             questions=dev_set,
             top_k=k,
+            run_name=run_names.run_name,
+            evaluation_type=run_names.evaluation_type,
             progress_mgr=progress_mgr,
             artifact_paths=artifact_paths,
             live_config=live_config,
@@ -261,10 +250,11 @@ def find_best_top_k(
                 },
             },
             dataset_name=f"Development Set (k={k})",
-            script_name="complete_eval_dev",
+            script_name=run_names.dev_script_name,
         )
         scores[k] = result["accuracy"]
         results_by_k[k] = result
+
     best_k = max(scores, key=scores.get)
     return best_k, scores, results_by_k[best_k]
 
@@ -274,18 +264,16 @@ def calculate_recall_at_k(
     questions: List[Dict[str, Any]],
     k_values: List[int],
 ) -> Dict[int, float]:
-    """Compute a simple answer-string recall@k metric."""
+    """Compute a simple answer-string recall@k metric from native retrieval results."""
     recall_scores: Dict[int, float] = {}
     for k in k_values:
         hits = 0
         for item in questions:
-            search_results = vectorstore.similarity_search_with_score(
-                item["question"], k=k
-            )
             answer = str(item.get("answer", "")).lower()
+            source_nodes = vectorstore.retrieve(item["question"], k=k)
             if any(
-                answer and answer in doc.page_content.lower()
-                for doc, _ in search_results
+                answer and answer in node_with_score.node.get_content().lower()
+                for node_with_score in source_nodes
             ):
                 hits += 1
         recall_scores[k] = hits / len(questions) if questions else 0.0
@@ -293,12 +281,14 @@ def calculate_recall_at_k(
 
 
 async def run_complete_evaluation(config: NaiveRAGEvalConfig) -> Dict[str, Any]:
-    """Execute the complete naive RAG evaluation flow."""
+    """Execute the complete native RAG flow behind the primary entrypoint names."""
+    vectorstore = load_vector_store(config.vector_store_path)
+    run_names = EvaluationRunNames()
     questions = load_questions(str(config.question_file))
     dev_set, test_set = split_questions(questions, config.dev_size, config.test_size)
 
     progress_mgr = EvaluationProgressManager(output_dir=str(config.output_dir))
-    artifact_paths = progress_mgr.create_run_artifacts("naive_rag_eval")
+    artifact_paths = progress_mgr.create_run_artifacts(run_names.artifact_prefix)
     live_config = {
         "dev_set_size": len(dev_set),
         "test_set_size": len(test_set),
@@ -306,16 +296,15 @@ async def run_complete_evaluation(config: NaiveRAGEvalConfig) -> Dict[str, Any]:
         "llm_model": config.llm.model,
         "vector_store": str(config.vector_store_path),
         "manual_top_k": config.manual_top_k,
+        "evaluation_backend": run_names.evaluation_type,
     }
-    vectorstore = load_vector_store(config.vector_store_path)
-    generator = MedicalLLMGenerator(config.llm)
 
     if config.manual_top_k is None:
         best_k, dev_scores, dev_results = find_best_top_k(
             vectorstore,
-            generator,
             dev_set,
             config,
+            run_names,
             progress_mgr,
             artifact_paths,
             live_config,
@@ -333,16 +322,20 @@ async def run_complete_evaluation(config: NaiveRAGEvalConfig) -> Dict[str, Any]:
             "detailed_results": [],
         }
 
-    resume_test = progress_mgr.should_resume("complete_eval_test")
+    resume_test = progress_mgr.should_resume(run_names.test_script_name)
     resume_info_test = (
-        progress_mgr.get_resume_info("complete_eval_test") if resume_test else None
+        progress_mgr.get_resume_info(run_names.test_script_name) if resume_test else None
     )
 
     test_results = await evaluate_async_dataset(
         vectorstore=vectorstore,
+        llm_config=config.llm,
         questions=test_set,
-        config=config,
         top_k=best_k,
+        run_name=run_names.run_name,
+        evaluation_type=run_names.evaluation_type,
+        max_concurrent=config.concurrency.max_concurrent,
+        requests_per_second=config.concurrency.requests_per_second,
         progress_mgr=progress_mgr,
         artifact_paths=artifact_paths,
         live_config=live_config,
@@ -357,17 +350,18 @@ async def run_complete_evaluation(config: NaiveRAGEvalConfig) -> Dict[str, Any]:
                 "used_manual_top_k": config.manual_top_k is not None,
             },
         },
+        script_name=run_names.test_script_name,
         start_from=resume_info_test["start_from"] if resume_info_test else 0,
         initial_results=resume_info_test["results"] if resume_info_test else None,
         initial_correct=resume_info_test["correct_count"] if resume_info_test else 0,
         initial_elapsed=resume_info_test["elapsed_time"] if resume_info_test else 0.0,
     )
     recall_scores = calculate_recall_at_k(vectorstore, test_set, [1, 3, 5, 10])
-    progress_mgr.clear_checkpoint("complete_eval_test")
+    progress_mgr.clear_checkpoint(run_names.test_script_name)
     paths = progress_mgr.write_final_results(
         artifact_paths=artifact_paths,
-        run_name="NAIVE_RAG",
-        evaluation_type="NAIVE_RAG",
+        run_name=run_names.run_name,
+        evaluation_type=run_names.evaluation_type,
         config=live_config,
         stage_results={
             "development_set_evaluation": dev_results,
@@ -393,3 +387,6 @@ async def run_complete_evaluation(config: NaiveRAGEvalConfig) -> Dict[str, Any]:
         "recall_scores": recall_scores,
         "output_paths": paths,
     }
+
+
+DEFAULT_NAIVE_RAG_CONFIG = NaiveRAGEvalConfig()

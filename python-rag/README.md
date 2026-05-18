@@ -1,19 +1,19 @@
 # Medical RAG Evaluation Toolkit
 
-This repository is now centered on evaluation and corpus-preparation workflows for the medical RAG experiments. The active runtime surface is the set of CLI scripts under the project root, not a FastAPI service.
+This repository is centered on corpus preparation and evaluation workflows for the medical RAG experiments. The supported runtime surface is the CLI scripts under `python-rag/`.
 
 ## Overview
 
-The project evaluates three main paths on the MedQA-style dataset:
+The project now uses a single native LlamaIndex retrieval stack behind the original entrypoint names:
 
+- `build_vector_index.py`: build the FAISS-backed native index used by all RAG scripts.
+- `complete_eval.py`: primary RAG evaluation using `HuggingFaceEmbedding`, `OpenAILike`, `FaissVectorStore`, and `VectorStoreIndex` query capability.
+- `sample_validation.py`: small no-RAG vs RAG comparison using the same native store.
 - `evaluate_no_rag.py`: direct LLM baseline without retrieval.
-- `complete_eval.py`: naive RAG evaluation with FAISS retrieval.
-- `enhanced_eval.py`: hybrid retrieval + query rewrite + cross-encoder reranking.
 
-There are also smaller utility entrypoints for validation and staged runs:
+There are also narrower helper entrypoints for staged or sample-only workflows:
 
-- `sample_validation.py`: small no-RAG vs naive-RAG comparison.
-- `naive_rag_sample_eval.py`: sample-only naive-RAG validation.
+- `naive_rag_sample_eval.py`: sample-only RAG validation.
 - `naive_rag_retrieval.py`: cache retrieval results for the sample workflow.
 - `naive_rag_generation.py`: generate answers from cached retrieval results.
 - `run_with_resume.py`: restart supported evaluation scripts from checkpoints.
@@ -27,7 +27,9 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-Configure the LLM and embedding environment through the constants and environment variables already used by the scripts in `app/rag/eval_shared.py`, `app/rag/embeddings.py`, and `enhanced_eval.py`.
+Configure the LLM and embedding environment through the constants and environment variables used by `app/rag/evaluation/eval_shared.py` and `app/rag/retriever/runtime_config.py`.
+
+The data root is resolved by `app/rag/data/data_paths.py`: if `python-rag/data/` exists it is used directly; otherwise the scripts fall back to the sibling directory `RAG_Medical_Data/` next to `python-rag/`, unless `RAG_DATA_DIR` is set.
 
 ## Common Workflow
 
@@ -35,6 +37,8 @@ Configure the LLM and embedding environment through the constants and environmen
 # Optional data preparation
 python download_statpearls.py
 python combine_corpora.py
+
+# Rebuild the native FAISS-backed index after pulling migration changes
 python build_vector_index.py
 
 # Quick sanity check before full runs
@@ -43,26 +47,34 @@ python sample_validation.py
 # Main evaluations
 python evaluate_no_rag.py
 python complete_eval.py
-python enhanced_eval.py
 ```
 
-If a long evaluation is interrupted, run:
+## Script Prerequisites
+
+- `build_vector_index.py` requires `<data-root>/corpus/combined_corpus.json` because it rebuilds the persisted index from the combined corpus.
+- `complete_eval.py`, `sample_validation.py`, `naive_rag_sample_eval.py`, `naive_rag_retrieval.py`, and `naive_rag_generation.py` require `<data-root>/vector_store/faiss_index` plus `<data-root>/evaluation/medqa.json`.
+- `evaluate_no_rag.py` only needs `<data-root>/evaluation/medqa.json` and valid LLM settings.
+
+If a supported long evaluation is interrupted, run:
 
 ```bash
 python run_with_resume.py
 ```
 
+`run_with_resume.py` defaults to auto-detecting interrupted runs for `complete_eval.py`, `sample_validation.py`, and `evaluate_no_rag.py`.
+
 ## Active Code Paths
 
-Current evaluation entrypoints share a small core set of modules:
+The current scripts share a small core set of modules:
 
-- `app/rag/eval_shared.py`: prompt building, answer extraction, concurrency, API helpers.
-- `app/rag/progress_manager.py`: checkpoints and live/final artifacts.
-- `app/rag/data_paths.py`: canonical dataset, cache, and output paths.
-- `app/rag/no_rag_eval.py`: baseline evaluation flow.
-- `app/rag/naive_rag_eval.py`: naive RAG evaluation flow.
-- `app/rag/hybrid_retriever.py`, `app/rag/query_rewrite.py`, `app/rag/reranker.py`: enhanced evaluation stack.
-- `app/rag/vector_store.py` and `app/rag/embeddings.py`: FAISS and embedding runtime support.
+- `app/rag/evaluation/eval_shared.py`: prompt building, answer extraction, concurrency, and API helpers.
+- `app/rag/utils/progress_manager.py`: checkpoints and live/final artifacts.
+- `app/rag/data/data_paths.py`: canonical dataset, cache, and output paths.
+- `app/rag/data/corpus_loader.py`: shared combined-corpus parsing and metadata mapping.
+- `app/rag/evaluation/no_rag_eval.py`: baseline evaluation flow.
+- `app/rag/evaluation/naive_rag_eval.py`: native RAG evaluation flow behind the primary entrypoint names.
+- `app/rag/retriever/vector_store.py`: native FAISS-backed storage, retrieval, and query-engine helpers.
+- `app/rag/retriever/runtime_config.py`: embedding model and device resolution.
 
 ## Project Structure
 
@@ -71,23 +83,14 @@ python-rag/
 ├── app/
 │   ├── __init__.py
 │   └── rag/
-│       ├── __init__.py
-│       ├── data_paths.py
-│       ├── embeddings.py
-│       ├── eval_shared.py
-│       ├── hybrid_retriever.py
-│       ├── json_utils.py
-│       ├── naive_rag_eval.py
-│       ├── no_rag_eval.py
-│       ├── progress_manager.py
-│       ├── query_rewrite.py
-│       ├── reranker.py
-│       └── vector_store.py
+│       ├── data/
+│       ├── evaluation/
+│       ├── retriever/
+│       └── utils/
 ├── build_vector_index.py
 ├── combine_corpora.py
 ├── complete_eval.py
 ├── download_statpearls.py
-├── enhanced_eval.py
 ├── evaluate_no_rag.py
 ├── naive_rag_generation.py
 ├── naive_rag_retrieval.py
@@ -99,6 +102,6 @@ python-rag/
 
 ## Notes
 
-1. The repository stores evaluation artifacts under `results/evaluation/`.
-2. `run_with_resume.py` only manages the supported evaluation scripts it knows about.
-3. The codebase keeps corpus-preparation scripts because rebuilding the FAISS index still depends on them.
+1. Evaluation artifacts are written under `results/evaluation/`.
+2. The on-disk index format behind `<data-root>/vector_store/faiss_index` is now the native LlamaIndex-backed format, so rebuild it with `python build_vector_index.py` after pulling this migration.
+3. Corpus-preparation scripts and evaluation scripts do not share identical prerequisites; only index builders need `combined_corpus.json`.

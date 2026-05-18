@@ -1,0 +1,133 @@
+"""Guardrails for the native LlamaIndex replacement architecture."""
+
+from pathlib import Path
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+STORE_FILE = PROJECT_ROOT / "app" / "rag" / "retriever" / "vector_store.py"
+EVAL_FILE = PROJECT_ROOT / "app" / "rag" / "evaluation" / "naive_rag_eval.py"
+BUILD_FILE = PROJECT_ROOT / "build_vector_index.py"
+COMPLETE_EVAL_FILE = PROJECT_ROOT / "complete_eval.py"
+SAMPLE_FILE = PROJECT_ROOT / "sample_validation.py"
+RESUME_FILE = PROJECT_ROOT / "run_with_resume.py"
+REQUIREMENTS_FILE = PROJECT_ROOT / "requirements.txt"
+
+
+def read_text(path: Path) -> str:
+    """Keep source-file assertions in one place to avoid repeated file I/O logic."""
+    return path.read_text(encoding="utf-8")
+
+
+def test_primary_vector_store_uses_native_llamaindex_components() -> None:
+    source = read_text(STORE_FILE)
+
+    assert "HuggingFaceEmbedding" in source
+    assert "FaissVectorStore" in source
+    assert "VectorStoreIndex" in source
+
+
+def test_primary_evaluation_uses_native_query_engine() -> None:
+    source = read_text(EVAL_FILE)
+
+    assert "OpenAILike" in source
+    assert "as_query_engine" in source
+    assert "run_complete_evaluation" in source
+
+
+def test_primary_entrypoints_route_through_canonical_modules() -> None:
+    build_source = read_text(BUILD_FILE)
+    complete_source = read_text(COMPLETE_EVAL_FILE)
+    sample_source = read_text(SAMPLE_FILE)
+
+    assert "from app.rag.retriever.vector_store import MedicalVectorStore" in build_source
+    assert "from app.rag.evaluation.naive_rag_eval import NaiveRAGEvalConfig, run_complete_evaluation" in complete_source
+    assert "from app.rag.evaluation.naive_rag_eval import load_vector_store" in sample_source
+
+
+def test_parallel_llamaindex_specific_modules_are_removed() -> None:
+    assert not (PROJECT_ROOT / "build_llamaindex_index.py").exists()
+    assert not (PROJECT_ROOT / "llamaindex_eval.py").exists()
+    assert not (PROJECT_ROOT / "llamaindex_sample_validation.py").exists()
+    assert not (
+        PROJECT_ROOT / "app" / "rag" / "evaluation" / "llamaindex_rag_eval.py"
+    ).exists()
+    assert not (
+        PROJECT_ROOT / "app" / "rag" / "retriever" / "llamaindex_store.py"
+    ).exists()
+
+
+def test_primary_configs_default_to_single_faiss_store() -> None:
+    import sys
+
+    sys.path.insert(0, str(PROJECT_ROOT.resolve()))
+
+    from app.rag.evaluation.config import (  # pylint: disable=import-outside-toplevel
+        NaiveRAGEvalConfig,
+        SampleEvalConfig,
+    )
+
+    assert NaiveRAGEvalConfig().vector_store_path.name == "faiss_index"
+    assert SampleEvalConfig().vector_store_path.name == "faiss_index"
+
+
+def test_resume_helper_uses_primary_script_names_only() -> None:
+    source = read_text(RESUME_FILE)
+
+    assert '"complete_eval"' in source
+    assert '"llamaindex_eval"' not in source
+
+
+def test_resume_helper_uses_configured_results_dir() -> None:
+    source = read_text(RESUME_FILE)
+
+    assert "EVALUATION_RESULTS_DIR" in source
+
+
+def test_resume_helper_defaults_to_auto_detect_mode() -> None:
+    source = read_text(RESUME_FILE)
+
+    assert "AUTO_DETECT = True" in source
+
+
+def test_resolve_embedding_runtime_prefers_recorded_model_over_env(
+    monkeypatch, tmp_path
+) -> None:
+    import json
+    import sys
+
+    sys.path.insert(0, str(PROJECT_ROOT.resolve()))
+
+    metadata_path = tmp_path / "build_metadata.json"
+    metadata_path.write_text(
+        json.dumps({"embedding_model": "recorded-model"}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("RAG_EMBEDDING_MODEL", "env-model")
+
+    from app.rag.retriever.runtime_config import (  # pylint: disable=import-outside-toplevel
+        resolve_embedding_runtime,
+    )
+
+    runtime = resolve_embedding_runtime(
+        str(tmp_path),
+        default_model="default-model",
+        preferred_device="cpu",
+    )
+
+    assert runtime["model_name"] == "recorded-model"
+
+
+def test_requirements_keep_only_native_llamaindex_packages() -> None:
+    source = read_text(REQUIREMENTS_FILE)
+
+    assert "llama-index-embeddings-huggingface" in source
+    assert "llama-index-llms-openai-like" in source
+    assert "langchain" not in source.lower()
+
+
+def test_runtime_python_files_are_langchain_free() -> None:
+    for path in PROJECT_ROOT.rglob("*.py"):
+        if "tests" in path.parts:
+            continue
+        source = read_text(path)
+        assert "langchain" not in source.lower(), path

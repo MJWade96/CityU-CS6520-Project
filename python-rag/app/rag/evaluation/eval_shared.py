@@ -237,15 +237,20 @@ def get_qwen_completion_kwargs(config: EvaluationLLMConfig) -> Dict[str, Any]:
     return kwargs
 
 
-def get_qwen_langchain_kwargs(config: EvaluationLLMConfig) -> Dict[str, Any]:
-    """Return the shared Qwen3-4B parameters for ChatOpenAI."""
-    kwargs = {
+def get_qwen_openai_like_kwargs(config: EvaluationLLMConfig) -> Dict[str, Any]:
+    """Return the shared Qwen3-4B parameters for LlamaIndex OpenAILike."""
+    kwargs: Dict[str, Any] = {
         "model": config.model,
         "temperature": config.temperature,
+        "api_key": config.api_key,
+        "api_base": config.base_url,
+        "is_chat_model": True,
+        "timeout": float(os.getenv("RAG_LLM_TIMEOUT", "120.0")),
+        "max_retries": int(os.getenv("RAG_LLM_MAX_RETRIES", "5")),
     }
-    extra_body = build_extra_body(enable_thinking=config.enable_thinking)
-    if extra_body:
-        kwargs["extra_body"] = extra_body
+    additional_kwargs = build_extra_body(enable_thinking=config.enable_thinking)
+    if additional_kwargs:
+        kwargs["additional_kwargs"] = additional_kwargs
     return kwargs
 
 

@@ -1,88 +1,60 @@
-"""
-Build the FAISS index used by the naive RAG pipeline.
-
-The script reuses corpus normalization and embedding helpers so indexing logic
-stays aligned with the rest of the project.
-"""
+"""Build the FAISS-backed index used by the primary native RAG pipeline."""
 
 from __future__ import annotations
 
 import time
-from math import ceil
 from pathlib import Path
 from typing import Dict, List
 
-from langchain_core.documents import Document
+from llama_index.core import Document as LlamaDocument
 from tqdm import tqdm
 
+from app.rag.data.corpus_loader import build_corpus_metadata, load_corpus_chunks
 from app.rag.data.data_paths import (
     COMBINED_CORPUS_FILE,
     FAISS_INDEX_DIR,
     ensure_data_directories,
 )
-from app.rag.retriever.embeddings import get_langchain_embeddings, resolve_embedding_runtime
-from app.rag.data.json_utils import load_json_safe, save_json_atomic
+from app.rag.data.json_utils import save_json_atomic
+from app.rag.retriever.runtime_config import resolve_embedding_runtime
 from app.rag.retriever.vector_store import MedicalVectorStore
 
 
 CORPUS_FILE = COMBINED_CORPUS_FILE
 OUTPUT_DIR = FAISS_INDEX_DIR
-BATCH_SIZE = 1000
 SKIP_TEST = False
 
 
-def load_documents(corpus_file: Path) -> List[Document]:
-    """Load the combined corpus and convert it into LangChain documents."""
-    if not corpus_file.exists():
-        raise FileNotFoundError(f"Corpus file not found: {corpus_file}")
+def load_documents(corpus_file: Path) -> List[LlamaDocument]:
+    """Load the combined corpus and convert it into native documents."""
+    chunks = load_corpus_chunks(corpus_file)
 
-    chunks = load_json_safe(corpus_file)
-
-    documents: List[Document] = []
+    documents: List[LlamaDocument] = []
     for chunk in tqdm(chunks, desc="Loading corpus", unit="doc"):
-        metadata = {
-            "id": chunk.get("id", ""),
-            "title": chunk.get("title", ""),
-            "source": chunk.get("source", ""),
-            "textbook": chunk.get("textbook", ""),
-            "pmid": chunk.get("pmid", ""),
-            "journal": chunk.get("journal", ""),
-            "year": chunk.get("year", ""),
-        }
-        documents.append(Document(page_content=chunk["content"], metadata=metadata))
+        documents.append(
+            LlamaDocument(
+                text=chunk["content"],
+                metadata=build_corpus_metadata(chunk),
+            )
+        )
     return documents
 
 
 def build_index(
-    documents: List[Document],
+    documents: List[LlamaDocument],
     output_dir: Path,
     embedding_model_name: str,
     embedding_device: str,
-    batch_size: int = 256,
 ) -> Dict[str, object]:
-    """Embed documents and persist a FAISS index."""
-    embeddings = get_langchain_embeddings(
-        model_type="bge-m3",
-        model_name=embedding_model_name,
-        model_kwargs={"device": embedding_device},
-        encode_kwargs={"normalize_embeddings": True, "batch_size": 256},
-    )
+    """Embed documents and persist the native FAISS-backed index."""
     vectorstore = MedicalVectorStore(
-        embedding_model=embeddings,
+        embedding_model_name=embedding_model_name,
+        embedding_device=embedding_device,
+        normalize_embeddings=True,
     )
 
     start_time = time.time()
-    total_batches = ceil(len(documents) / batch_size) if documents else 0
-    batch_iterator = range(0, len(documents), batch_size)
-    for start in tqdm(
-        batch_iterator,
-        total=total_batches,
-        desc="Building FAISS index",
-        unit="batch",
-    ):
-        batch = documents[start : start + batch_size]
-        vectorstore.add_documents(batch)
-
+    vectorstore.build(documents)
     elapsed = time.time() - start_time
     vectorstore.save(str(output_dir))
 
@@ -95,13 +67,11 @@ def build_index(
         "document_count": len(documents),
         "embedding_model": embedding_model_name,
         "embedding_device": embedding_device,
-        "store_type": "faiss",
+        "store_type": "native-faiss",
         "sources": source_counts,
         "build_time_seconds": elapsed,
     }
-
     save_json_atomic(output_dir / "build_metadata.json", metadata)
-
     return metadata
 
 
@@ -112,14 +82,10 @@ def test_retrieval(
     k: int = 5,
 ) -> None:
     """Run a small smoke test against the persisted index."""
-    embeddings = get_langchain_embeddings(
-        model_type="bge-m3",
-        model_name=embedding_model_name,
-        model_kwargs={"device": embedding_device},
-        encode_kwargs={"normalize_embeddings": True, "batch_size": 256},
-    )
     vectorstore = MedicalVectorStore(
-        embedding_model=embeddings,
+        embedding_model_name=embedding_model_name,
+        embedding_device=embedding_device,
+        normalize_embeddings=True,
     )
     vectorstore.load(str(index_dir))
 
@@ -129,27 +95,23 @@ def test_retrieval(
         "pneumonia antibiotics",
     ):
         print(f"\nQuery: {query}")
-        for rank, (doc, score) in enumerate(
-            vectorstore.similarity_search_with_score(query, k=k), start=1
-        ):
+        for rank, node_with_score in enumerate(vectorstore.retrieve(query, k=k), start=1):
+            node = node_with_score.node
             print(
-                f"{rank}. [{doc.metadata.get('source', 'unknown')}] {doc.metadata.get('title', '')[:60]}"
+                f"{rank}. [{node.metadata.get('source', 'unknown')}] {node.metadata.get('title', '')[:60]}"
             )
-            print(f"   score={score:.4f}")
+            print(f"   score={float(node_with_score.score or 0.0):.4f}")
 
 
 def main() -> None:
     ensure_data_directories()
     documents = load_documents(Path(CORPUS_FILE))
-    embedding_runtime = resolve_embedding_runtime(
-        default_model="BAAI/bge-m3",
-    )
+    embedding_runtime = resolve_embedding_runtime(default_model="BAAI/bge-m3")
     metadata = build_index(
         documents,
         Path(OUTPUT_DIR),
         embedding_model_name=embedding_runtime["model_name"],
         embedding_device=embedding_runtime["device"],
-        batch_size=BATCH_SIZE,
     )
 
     print("=" * 60)

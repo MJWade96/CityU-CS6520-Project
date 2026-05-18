@@ -6,11 +6,10 @@ from __future__ import annotations
 
 import asyncio
 import time
-from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from app.rag.data.data_paths import EVALUATION_RESULTS_DIR, FAISS_INDEX_DIR, MEDQA_FILE
+from app.rag.evaluation.config import SampleEvalConfig
 from app.rag.evaluation.eval_shared import (
     ConcurrencyConfig,
     create_eval_context,
@@ -30,20 +29,6 @@ DEV_SIZE = 0
 QUESTION_FILE = MEDQA_FILE
 OUTPUT_DIR = EVALUATION_RESULTS_DIR
 VECTOR_STORE_PATH = FAISS_INDEX_DIR
-
-
-@dataclass
-class SampleEvalConfig:
-    sample_size: int = SAMPLE_SIZE
-    top_k: int = TOP_K
-    dev_size: int = DEV_SIZE
-    question_file: Path = QUESTION_FILE
-    output_dir: Path = OUTPUT_DIR
-    vector_store_path: Path = VECTOR_STORE_PATH
-    llm: EvaluationLLMConfig = field(
-        default_factory=lambda: EvaluationLLMConfig(enable_thinking=None)
-    )
-    concurrency: ConcurrencyConfig = field(default_factory=ConcurrencyConfig)
 
 
 async def evaluate_sample(

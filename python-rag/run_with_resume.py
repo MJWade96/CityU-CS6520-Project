@@ -17,10 +17,12 @@ import traceback
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
+from app.rag.data.data_paths import EVALUATION_RESULTS_DIR
+
 
 SCRIPT_NAME = "sample_validation"
 AUTO_RESUME = True
-AUTO_DETECT = False
+AUTO_DETECT = True
 
 
 def get_script_path(script_name: str) -> Path:
@@ -33,8 +35,8 @@ def get_checkpoint_script_names(script_name: str) -> List[str]:
     """Return current and legacy checkpoint prefixes for a script."""
     aliases = {
         "complete_eval": ["complete_eval_test", "complete_eval_dev", "complete_eval"],
-        "enhanced_eval": ["enhanced_eval_test", "enhanced_eval_dev", "enhanced_eval"],
         "evaluate_no_rag": ["evaluate_no_rag", "no_rag_eval"],
+        "sample_validation": ["sample_validation"],
     }
     return aliases.get(script_name, [script_name])
 
@@ -134,9 +136,8 @@ def run_script(script_name: str, auto_resume: bool = True):
     if not script_path.exists():
         print(f"❌ ERROR: Script not found: {script_path}")
         print("\nAvailable scripts:")
-        print("  - sample_validation")
         print("  - complete_eval")
-        print("  - enhanced_eval")
+        print("  - sample_validation")
         print("  - evaluate_no_rag")
         return False
     
@@ -146,7 +147,7 @@ def run_script(script_name: str, auto_resume: bool = True):
     print(f"\n📜 Script: {script_path.name}")
     print(f"📂 Location: {script_path.parent}")
     
-    output_dir = script_path.parent / "results" / "evaluation"
+    output_dir = EVALUATION_RESULTS_DIR
     
     if auto_resume:
         status = check_checkpoint_status(str(output_dir), script_name)
@@ -229,13 +230,12 @@ def auto_detect_and_run():
     print("=" * 60)
     
     scripts = [
-        "sample_validation",
         "complete_eval",
-        "enhanced_eval",
+        "sample_validation",
         "evaluate_no_rag",
     ]
-    
-    output_dir = Path(__file__).parent / "results" / "evaluation"
+
+    output_dir = EVALUATION_RESULTS_DIR
     
     interrupted_scripts = []
     

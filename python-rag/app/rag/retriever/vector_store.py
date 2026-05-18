@@ -1,121 +1,146 @@
-"""
-Vector Store Module
-Handles document storage and retrieval using the FAISS vector store
-"""
+"""Native FAISS-backed vector store helpers used by the primary RAG pipeline."""
 
-from typing import List, Optional, Dict, Any, Tuple
+from __future__ import annotations
+
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
-from langchain_core.documents import Document
-from langchain_core.embeddings import Embeddings
-from langchain_community.vectorstores import FAISS
-from langchain_community.vectorstores.utils import DistanceStrategy
+import faiss
+from llama_index.core import StorageContext, VectorStoreIndex, load_index_from_storage
+from llama_index.core import Document as LlamaDocument
+from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from llama_index.vector_stores.faiss import FaissVectorStore
 
 from ..data.json_utils import load_json_safe, save_json_atomic
 
 
-class MedicalVectorStore:
-    """
-    Medical Vector Store using LangChain FAISS.
+@dataclass
+class RetrievedDocument:
+    """Lightweight document view used by the shared evaluation helpers."""
 
-    The current project only builds and evaluates against the persisted FAISS
-    index, so the wrapper stays focused on that one backend.
-    """
-    
+    page_content: str
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+class MedicalVectorStore:
+    """FAISS-backed native store with retriever and query-engine helpers."""
+
     def __init__(
         self,
-        embedding_model: Embeddings,
-        distance_strategy: DistanceStrategy = DistanceStrategy.COSINE
+        embedding_model_name: str = "BAAI/bge-m3",
+        embedding_device: str = "cpu",
+        normalize_embeddings: bool = True,
+        batch_size: int = 256,
     ):
-        """
-        Initialize the vector store.
-        
-        Args:
-            embedding_model: LangChain embeddings instance
-            distance_strategy: Distance metric for similarity search
-        """
-        self.embedding_model = embedding_model
-        self.distance_strategy = distance_strategy
-        
-        self.vectorstore: Optional[Any] = None
-        self.documents: List[Document] = []
-    
-    def add_documents(
-        self,
-        documents: List[Document],
-        ids: Optional[List[str]] = None
-    ) -> None:
-        """
-        Add documents to the vector store.
-        
-        Args:
-            documents: List of LangChain Document objects
-            ids: Optional list of document IDs
-        """
-        self.documents.extend(documents)
-        
-        if self.vectorstore is None:
-            self.vectorstore = FAISS.from_documents(
-                documents,
-                self.embedding_model,
-                distance_strategy=self.distance_strategy,
-            )
-        else:
-            self.vectorstore.add_documents(documents)
-    
+        self.embedding_model_name = embedding_model_name
+        self.embedding_device = embedding_device
+        self.normalize_embeddings = normalize_embeddings
+        self.batch_size = batch_size
+        self.index: Optional[VectorStoreIndex] = None
+        self._embed_model = HuggingFaceEmbedding(
+            model_name=embedding_model_name,
+            device=embedding_device,
+            normalize=normalize_embeddings,
+            embed_batch_size=batch_size,
+        )
+
+    def _require_index(self) -> VectorStoreIndex:
+        if self.index is None:
+            raise ValueError("MedicalVectorStore has not been built or loaded")
+        return self.index
+
+    def build(self, documents: List[LlamaDocument]) -> None:
+        """Build the native index from LlamaIndex documents."""
+        if not documents:
+            self.index = None
+            return
+
+        dimension = len(self._embed_model.get_text_embedding("dimension probe"))
+        faiss_index = faiss.IndexFlatIP(dimension)
+        vector_store = FaissVectorStore(faiss_index=faiss_index)
+        storage_context = StorageContext.from_defaults(vector_store=vector_store)
+        self.index = VectorStoreIndex.from_documents(
+            documents,
+            storage_context=storage_context,
+            embed_model=self._embed_model,
+            show_progress=False,
+        )
+
+    def as_retriever(self, similarity_top_k: int = 5) -> Any:
+        """Create a native retriever for the loaded index."""
+        return self._require_index().as_retriever(similarity_top_k=similarity_top_k)
+
+    def as_query_engine(self, *, llm: Any, similarity_top_k: int = 5) -> Any:
+        """Create a native query engine for the loaded index."""
+        return self._require_index().as_query_engine(
+            llm=llm,
+            similarity_top_k=similarity_top_k,
+        )
+
+    def retrieve(self, query: str, k: int = 5) -> List[Any]:
+        """Expose native retrieval results for recall checks and smoke tests."""
+        return self.as_retriever(similarity_top_k=k).retrieve(query)
+
     def similarity_search_with_score(
         self,
         query: str,
         k: int = 5,
-        filter: Optional[Dict[str, Any]] = None
-    ) -> List[Tuple[Document, float]]:
-        """
-        Perform similarity search with scores.
+        filter: Optional[Dict[str, Any]] = None,
+    ) -> List[Tuple[RetrievedDocument, float]]:
+        """Return doc-and-score tuples compatible with shared evaluation helpers."""
+        del filter
 
-        Keeping this logic in one method avoids duplicating FAISS search calls
-        across evaluation scripts.
-        """
-        if self.vectorstore is None:
-            return []
+        results: List[Tuple[RetrievedDocument, float]] = []
+        for node_with_score in self.retrieve(query, k=k):
+            node = node_with_score.node
+            results.append(
+                (
+                    RetrievedDocument(
+                        page_content=node.get_content(),
+                        metadata=dict(node.metadata),
+                    ),
+                    float(node_with_score.score or 0.0),
+                )
+            )
+        return results
 
-        return self.vectorstore.similarity_search_with_score(
-            query,
-            k=k,
-            filter=filter
-        )
-    
     def save(self, path: str) -> None:
-        """Save the vector store to disk"""
-        if self.vectorstore is None:
+        """Persist the index and lightweight metadata."""
+        if self.index is None:
             return
-        
-        path = Path(path)
-        path.mkdir(parents=True, exist_ok=True)
 
-        self.vectorstore.save_local(str(path))
-        
-        # Save metadata
-        metadata = {
-            'store_type': 'faiss',
-            'document_count': len(self.documents),
-        }
-        save_json_atomic(path / "metadata.json", metadata, indent=2, ensure_ascii=False)
-    
-    def load(self, path: str) -> None:
-        """Load the vector store from disk"""
-        path = Path(path)
-
-        self.vectorstore = FAISS.load_local(
-            str(path),
-            self.embedding_model,
-            allow_dangerous_deserialization=True
+        persist_dir = Path(path)
+        persist_dir.mkdir(parents=True, exist_ok=True)
+        self.index.storage_context.persist(persist_dir=str(persist_dir))
+        save_json_atomic(
+            persist_dir / "metadata.json",
+            {
+                "store_type": "native-faiss",
+                "embedding_model": self.embedding_model_name,
+                "embedding_device": self.embedding_device,
+            },
+            indent=2,
+            ensure_ascii=False,
         )
-        # Restore documents from docstore
-        if hasattr(self.vectorstore, 'docstore') and self.vectorstore.docstore:
-            self.documents = list(self.vectorstore.docstore._dict.values())
-        
-        # Load metadata
-        metadata_path = path / "metadata.json"
+
+    def load(self, path: str) -> None:
+        """Load a persisted native FAISS index."""
+        persist_dir = Path(path)
+        vector_store = FaissVectorStore.from_persist_dir(str(persist_dir))
+        storage_context = StorageContext.from_defaults(
+            persist_dir=str(persist_dir),
+            vector_store=vector_store,
+        )
+        self.index = load_index_from_storage(
+            storage_context=storage_context,
+            embed_model=self._embed_model,
+        )
+
+        metadata_path = persist_dir / "metadata.json"
         if metadata_path.exists():
             metadata = load_json_safe(metadata_path)
-            print(f"Loaded vector store with {metadata.get('document_count', 0)} documents")
+            print(
+                "Loaded vector store "
+                f"with model {metadata.get('embedding_model', 'unknown')}"
+            )
