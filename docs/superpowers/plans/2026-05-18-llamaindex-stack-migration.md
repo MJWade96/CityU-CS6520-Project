@@ -4,7 +4,7 @@
 
 **Goal:** Preserve the enhanced evaluation feature surface while replacing its LangChain-bound retrieval stack with native LlamaIndex abstractions.
 
-**Architecture:** Keep `build_vector_index.py`, `complete_eval.py`, `sample_validation.py`, and `enhanced_eval.py` as the public entrypoints. Reuse the current native store and evaluation helpers, restore the enhanced retrieval modules on native LlamaIndex primitives, and keep the recovered `ENHANCED_RAG` artifact naming contract intact.
+**Architecture:** Keep the active evaluation entrypoints (`complete_eval.py`, `sample_validation.py`, and `enhanced_eval.py`) while reusing the current native store and evaluation helpers. Restore the enhanced retrieval modules on native LlamaIndex primitives, and keep the recovered `ENHANCED_RAG` artifact naming contract intact. Do not preserve unused index root scripts purely for migration history. Retain corpus preparation utilities such as `download_statpearls.py` and `combine_corpora.py` when they may need to be run manually later; see `CLAUDE.md`.
 
 **Tech Stack:** Python, LlamaIndex, FAISS, HuggingFace embeddings, OpenAI-compatible LLMs via `OpenAILike`, `BM25Retriever`, `QueryFusionRetriever`, native query transforms, `SentenceTransformerRerank`, and focused pytest/py_compile/import validation.
 

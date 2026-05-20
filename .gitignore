@@ -33,3 +33,7 @@ python-rag/results/
 !python-rag/app/rag/data/**
 python-rag/app/rag/data/vector_store/
 python-rag/app/rag/data/vector_store/**
+
+# Local planning/spec notes
+docs/superpowers/plans/
+docs/superpowers/specs/
