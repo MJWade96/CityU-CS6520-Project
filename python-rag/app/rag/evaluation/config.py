@@ -17,13 +17,15 @@ from .eval_shared import ConcurrencyConfig, EvaluationLLMConfig
 SAMPLE_SIZE = 50
 TOP_K = 3
 DEV_SIZE = 0
+TOP_K_VALUES = (1, 3, 5, 10)
 
 
 @dataclass
 class NaiveRAGEvalConfig:
+    # Keep this config flat until evaluation/backends are split into separate modules.
     dev_size: int = 300
     test_size: Optional[int] = None
-    top_k_values: List[int] = field(default_factory=lambda: [1, 3, 5, 10])
+    top_k_values: List[int] = field(default_factory=lambda: list(TOP_K_VALUES))
     manual_top_k: Optional[int] = 3
     vector_store_path: Path = FAISS_INDEX_DIR
     question_file: Path = MEDQA_FILE
@@ -33,12 +35,16 @@ class NaiveRAGEvalConfig:
 
 
 @dataclass(frozen=True)
-class EvaluationRunNames:
+class RunNames:
     artifact_prefix: str = "naive_rag_eval"
     run_name: str = "NAIVE_RAG"
     evaluation_type: str = "NAIVE_RAG"
     dev_script_name: str = "complete_eval_dev"
     test_script_name: str = "complete_eval_test"
+
+
+NAIVE_RAG_RUN_NAMES = RunNames()
+EvaluationRunNames = RunNames
 
 
 @dataclass

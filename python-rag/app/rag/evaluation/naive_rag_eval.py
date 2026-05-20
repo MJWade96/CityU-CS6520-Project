@@ -12,7 +12,7 @@ from llama_index.llms.openai_like import OpenAILike
 from ..retriever.runtime_config import resolve_embedding_runtime
 from ..retriever.vector_store import MedicalVectorStore
 from ..utils.progress_manager import EvaluationProgressManager
-from .config import EvaluationRunNames, NaiveRAGEvalConfig
+from .config import EvaluationRunNames, NAIVE_RAG_RUN_NAMES, NaiveRAGEvalConfig
 from .eval_shared import (
     EvaluationLLMConfig,
     RateLimiter,
@@ -283,7 +283,7 @@ def calculate_recall_at_k(
 async def run_complete_evaluation(config: NaiveRAGEvalConfig) -> Dict[str, Any]:
     """Execute the complete native RAG flow behind the primary entrypoint names."""
     vectorstore = load_vector_store(config.vector_store_path)
-    run_names = EvaluationRunNames()
+    run_names = NAIVE_RAG_RUN_NAMES
     questions = load_questions(str(config.question_file))
     dev_set, test_set = split_questions(questions, config.dev_size, config.test_size)
 
