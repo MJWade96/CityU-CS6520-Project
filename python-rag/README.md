@@ -8,14 +8,9 @@ The project now uses a single native LlamaIndex retrieval stack behind the origi
 
 - `build_vector_index.py`: build the FAISS-backed native index used by all RAG scripts.
 - `complete_eval.py`: primary RAG evaluation using `HuggingFaceEmbedding`, `OpenAILike`, `FaissVectorStore`, and `VectorStoreIndex` query capability.
+- `enhanced_eval.py`: enhanced RAG evaluation using native hybrid retrieval, query rewrite, and reranking.
 - `sample_validation.py`: small no-RAG vs RAG comparison using the same native store.
 - `evaluate_no_rag.py`: direct LLM baseline without retrieval.
-
-There are also narrower helper entrypoints for staged or sample-only workflows:
-
-- `naive_rag_sample_eval.py`: sample-only RAG validation.
-- `naive_rag_retrieval.py`: cache retrieval results for the sample workflow.
-- `naive_rag_generation.py`: generate answers from cached retrieval results.
 - `run_with_resume.py`: restart supported evaluation scripts from checkpoints.
 
 ## Setup
@@ -52,7 +47,7 @@ python complete_eval.py
 ## Script Prerequisites
 
 - `build_vector_index.py` requires `<data-root>/corpus/combined_corpus.json` because it rebuilds the persisted index from the combined corpus.
-- `complete_eval.py`, `sample_validation.py`, `naive_rag_sample_eval.py`, `naive_rag_retrieval.py`, and `naive_rag_generation.py` require `<data-root>/vector_store/faiss_index` plus `<data-root>/evaluation/medqa.json`.
+- `complete_eval.py`, `enhanced_eval.py`, and `sample_validation.py` require `<data-root>/vector_store/faiss_index` plus `<data-root>/evaluation/medqa.json`.
 - `evaluate_no_rag.py` only needs `<data-root>/evaluation/medqa.json` and valid LLM settings.
 
 If a supported long evaluation is interrupted, run:
@@ -73,6 +68,8 @@ The current scripts share a small core set of modules:
 - `app/rag/data/corpus_loader.py`: shared combined-corpus parsing and metadata mapping.
 - `app/rag/evaluation/no_rag_eval.py`: baseline evaluation flow.
 - `app/rag/evaluation/naive_rag_eval.py`: native RAG evaluation flow behind the primary entrypoint names.
+- `app/rag/evaluation/enhanced_rag_eval.py`: enhanced native RAG evaluation flow behind `enhanced_eval.py`.
+- `app/rag/evaluation/sample_validation_eval.py`: sample-comparison implementation behind `sample_validation.py`.
 - `app/rag/retriever/vector_store.py`: native FAISS-backed storage, retrieval, and query-engine helpers.
 - `app/rag/retriever/runtime_config.py`: embedding model and device resolution.
 
@@ -91,10 +88,8 @@ python-rag/
 ├── combine_corpora.py
 ├── complete_eval.py
 ├── download_statpearls.py
+├── enhanced_eval.py
 ├── evaluate_no_rag.py
-├── naive_rag_generation.py
-├── naive_rag_retrieval.py
-├── naive_rag_sample_eval.py
 ├── run_with_resume.py
 ├── sample_validation.py
 └── README.md

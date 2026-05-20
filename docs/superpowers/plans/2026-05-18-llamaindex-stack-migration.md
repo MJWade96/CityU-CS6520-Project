@@ -2,96 +2,104 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the mixed retrieval stack with a single native LlamaIndex implementation behind the original entrypoint and module names.
+**Goal:** Preserve the enhanced evaluation feature surface while replacing its LangChain-bound retrieval stack with native LlamaIndex abstractions.
 
-**Architecture:** Keep `build_vector_index.py`, `complete_eval.py`, and `sample_validation.py` as the public entrypoints. Implement their backing store and evaluation logic natively with LlamaIndex, remove parallel `llamaindex_*` files, and delete deprecated LangChain-only modules and dependencies.
+**Architecture:** Keep `build_vector_index.py`, `complete_eval.py`, `sample_validation.py`, and `enhanced_eval.py` as the public entrypoints. Reuse the current native store and evaluation helpers, restore the enhanced retrieval modules on native LlamaIndex primitives, and keep the recovered `ENHANCED_RAG` artifact naming contract intact.
 
-**Tech Stack:** Python, LlamaIndex, FAISS, HuggingFace embeddings, OpenAI-compatible LLMs via `OpenAILike`, and focused pytest/py_compile/import validation.
+**Tech Stack:** Python, LlamaIndex, FAISS, HuggingFace embeddings, OpenAI-compatible LLMs via `OpenAILike`, `BM25Retriever`, `QueryFusionRetriever`, native query transforms, `SentenceTransformerRerank`, and focused pytest/py_compile/import validation.
 
 ---
 
-### Task 1: Consolidate the primary module names onto native implementations
+### Task 1: Recover the deleted enhanced contract and freeze scope
 
 **Files:**
-- Modify: `python-rag/app/rag/retriever/vector_store.py`
-- Modify: `python-rag/app/rag/evaluation/naive_rag_eval.py`
-- Modify: `python-rag/build_vector_index.py`
-- Modify: `python-rag/complete_eval.py`
-- Modify: `python-rag/sample_validation.py`
+- Verify: `python-rag/enhanced_eval.py`
+- Verify: `python-rag/app/rag/retriever/hybrid_retriever.py`
+- Verify: `python-rag/app/rag/retriever/query_rewrite.py`
+- Verify: `python-rag/app/rag/retriever/reranker.py`
+
+- [x] **Step 1: Recover the last pre-deletion snapshot from git history**
+
+Resolved the deleted enhanced files from commit `a878785`, which is the last snapshot before `Replace LangChain stack with native LlamaIndex paths` removed them.
+
+- [x] **Step 2: Capture the user-visible contract that must survive migration**
+
+Recovered these contract markers from history: artifact prefix `enhanced_rag_eval`, run name and evaluation type `ENHANCED_RAG`, checkpoint script names `enhanced_eval_dev` and `enhanced_eval_test`, plus the enhanced stages of hybrid retrieval, query rewrite, and reranking.
+
+- [x] **Step 3: Freeze the implementation boundary before further coding**
+
+Treat `enhanced_eval.py` as a preserved feature entrypoint and treat `hybrid_retriever.py`, `query_rewrite.py`, and `reranker.py` as implementation modules to migrate rather than delete.
+
+### Task 2: Restore native enhanced module boundaries
+
+**Files:**
+- Add: `python-rag/enhanced_eval.py`
+- Add: `python-rag/app/rag/retriever/hybrid_retriever.py`
+- Add: `python-rag/app/rag/retriever/query_rewrite.py`
+- Add: `python-rag/app/rag/retriever/reranker.py`
 - Modify: `python-rag/requirements.txt`
 
-- [x] **Step 1: Keep only the native dependency set**
+- [x] **Step 1: Restore the deleted module surfaces with native imports**
 
-Retain the minimal packages needed for `HuggingFaceEmbedding`, `OpenAILike`, FAISS-backed index persistence, and the direct OpenAI SDK used by shared helpers.
+Restored `enhanced_eval.py`, `hybrid_retriever.py`, `query_rewrite.py`, and `reranker.py` as native LlamaIndex modules so the enhanced surface exists again.
 
-- [x] **Step 2: Move native implementations under the canonical module names**
+- [x] **Step 2: Rebuild hybrid retrieval around native LlamaIndex primitives**
 
-Replace the contents of `vector_store.py`, `naive_rag_eval.py`, and `build_vector_index.py` with native LlamaIndex implementations so the old import paths remain the only supported ones.
+`hybrid_retriever.py` now targets `QueryFusionRetriever` for fusion and the official `BM25Retriever` extension for sparse retrieval.
 
-- [x] **Step 3: Keep helper flows compatible with the new store**
+- [x] **Step 3: Rebuild query rewrite and reranking boundaries natively**
 
-Preserve the sample/staged helper scripts by exposing a native `similarity_search_with_score(...)` compatibility surface from the new store.
+`query_rewrite.py` now exposes a native `BaseQueryTransform` boundary plus deterministic medical rewrite rules and an `OpenAILike`-backed rewriter, while `reranker.py` targets `SentenceTransformerRerank` through a Node Postprocessor boundary.
 
-- [x] **Step 4: Keep shared runtime/config helpers neutral**
+- [ ] **Step 4: Implement the enhanced evaluation orchestration behind the preserved entrypoint**
 
-Keep `runtime_config.py`, `corpus_loader.py`, `config.py`, and `eval_shared.py` free of deprecated retrieval-stack dependencies.
+Wire `enhanced_eval.py` through a native evaluation module that preserves the recovered `ENHANCED_RAG` artifact names and uses native retriever, rewrite, rerank, and generation components end-to-end.
 
-### Task 2: Remove the parallel path and deprecated modules
-
-**Files:**
-- Delete: `python-rag/build_llamaindex_index.py`
-- Delete: `python-rag/llamaindex_eval.py`
-- Delete: `python-rag/llamaindex_sample_validation.py`
-- Delete: `python-rag/enhanced_eval.py`
-- Delete: `python-rag/app/rag/evaluation/llamaindex_rag_eval.py`
-- Delete: `python-rag/app/rag/retriever/llamaindex_store.py`
-- Delete: `python-rag/app/rag/retriever/embeddings.py`
-- Delete: `python-rag/app/rag/retriever/hybrid_retriever.py`
-- Delete: `python-rag/app/rag/retriever/query_rewrite.py`
-- Delete: `python-rag/app/rag/retriever/reranker.py`
-- Modify: `python-rag/run_with_resume.py`
-
-- [x] **Step 1: Remove the parallel `llamaindex_*` entrypoints and modules**
-
-Delete the secondary file set so the project only exposes the canonical old names.
-
-- [x] **Step 2: Delete the deprecated LangChain-only helper modules**
-
-Remove the hybrid/query-rewrite/reranker branch and the old embedding adapter layer so runtime Python files are free of `langchain` imports.
-
-- [x] **Step 3: Narrow resume-helper support to retained scripts**
-
-Update `run_with_resume.py` to track `complete_eval.py`, `sample_validation.py`, and `evaluate_no_rag.py` only.
-
-### Task 3: Update docs and validate the final replacement state
+### Task 3: Correct docs and guardrails around the preserved enhanced path
 
 **Files:**
-- Modify: `python-rag/README.md`
 - Modify: `docs/superpowers/specs/2026-05-18-llamaindex-stack-migration-design.md`
 - Modify: `docs/superpowers/plans/2026-05-18-llamaindex-stack-migration.md`
 - Verify: `python-rag/tests/test_llamaindex_native_stack.py`
 
-- [x] **Step 1: Rewrite docs around the single native stack**
+- [x] **Step 1: Rewrite docs around the corrected feature boundary**
 
-Document that `faiss_index` is now the single native store location, that the old primary entrypoint names remain in place, and that users must rebuild the index after pulling the migration.
+Document that `enhanced_eval.py` remains supported, that only the LangChain implementation is being removed, and that the enhanced native path must preserve the recovered `ENHANCED_RAG` contract.
 
-- [x] **Step 2: Run architecture guardrail tests**
+- [x] **Step 2: Restore an architecture guardrail for the enhanced surface**
 
 Run: `python -m pytest python-rag/tests/test_llamaindex_native_stack.py -q`
 
 Expected: command exits with code 0.
 
-- [ ] **Step 3: Run narrow syntax/import checks for retained entrypoints**
+### Task 4: Run focused validation on the restored enhanced slice
+
+**Files:**
+- Verify: `python-rag/enhanced_eval.py`
+- Verify: `python-rag/app/rag/retriever/hybrid_retriever.py`
+- Verify: `python-rag/app/rag/retriever/query_rewrite.py`
+- Verify: `python-rag/app/rag/retriever/reranker.py`
+- Verify: `python-rag/tests/test_llamaindex_native_stack.py`
+
+- [x] **Step 1: Run the focused guardrail red-green cycle for the enhanced surface**
+
+Run: `python -m pytest python-rag/tests/test_llamaindex_native_stack.py -k enhanced_surface_is_preserved -q`
+
+Expected: first FAIL because the files are missing, then PASS after the files are restored.
+
+- [x] **Step 2: Run narrow syntax and import checks for the restored modules**
 
 Run:
 
-`python -m py_compile python-rag/build_vector_index.py`
+`python -m py_compile python-rag/enhanced_eval.py`
 
-`python -m py_compile python-rag/complete_eval.py`
+`python -m py_compile python-rag/app/rag/retriever/hybrid_retriever.py`
 
-`python -m py_compile python-rag/sample_validation.py`
+`python -m py_compile python-rag/app/rag/retriever/query_rewrite.py`
 
-`python -c "import pathlib, sys; sys.path.insert(0, str(pathlib.Path('python-rag').resolve())); import build_vector_index, complete_eval, sample_validation"`
+`python -m py_compile python-rag/app/rag/retriever/reranker.py`
+
+`python -c "import pathlib, sys; sys.path.insert(0, str(pathlib.Path('python-rag').resolve())); import enhanced_eval; from app.rag.retriever.hybrid_retriever import HybridRetriever; from app.rag.retriever.query_rewrite import QueryRewritePipeline; from app.rag.retriever.reranker import RerankerPipeline; print('imports ok')"`
 
 Expected: all commands exit with code 0.
 
