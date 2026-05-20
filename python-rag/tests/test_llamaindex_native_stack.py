@@ -9,8 +9,10 @@ EVAL_FILE = PROJECT_ROOT / "app" / "rag" / "evaluation" / "naive_rag_eval.py"
 BUILD_FILE = PROJECT_ROOT / "build_vector_index.py"
 COMPLETE_EVAL_FILE = PROJECT_ROOT / "complete_eval.py"
 SAMPLE_FILE = PROJECT_ROOT / "sample_validation.py"
+ENHANCED_FILE = PROJECT_ROOT / "enhanced_eval.py"
 RESUME_FILE = PROJECT_ROOT / "run_with_resume.py"
 REQUIREMENTS_FILE = PROJECT_ROOT / "requirements.txt"
+SAMPLE_IMPL_FILE = PROJECT_ROOT / "app" / "rag" / "evaluation" / "sample_validation_eval.py"
 
 
 def read_text(path: Path) -> str:
@@ -41,19 +43,46 @@ def test_primary_entrypoints_route_through_canonical_modules() -> None:
 
     assert "from app.rag.retriever.vector_store import MedicalVectorStore" in build_source
     assert "from app.rag.evaluation.naive_rag_eval import NaiveRAGEvalConfig, run_complete_evaluation" in complete_source
-    assert "from app.rag.evaluation.naive_rag_eval import load_vector_store" in sample_source
+    assert "from app.rag.evaluation.sample_validation_eval import SampleEvalConfig, run_sample_comparison" in sample_source
 
 
 def test_parallel_llamaindex_specific_modules_are_removed() -> None:
     assert not (PROJECT_ROOT / "build_llamaindex_index.py").exists()
     assert not (PROJECT_ROOT / "llamaindex_eval.py").exists()
     assert not (PROJECT_ROOT / "llamaindex_sample_validation.py").exists()
+    assert not (PROJECT_ROOT / "naive_rag_sample_eval.py").exists()
+    assert not (PROJECT_ROOT / "naive_rag_retrieval.py").exists()
+    assert not (PROJECT_ROOT / "naive_rag_generation.py").exists()
+    assert not (PROJECT_ROOT / "naive_rag_shared.py").exists()
     assert not (
         PROJECT_ROOT / "app" / "rag" / "evaluation" / "llamaindex_rag_eval.py"
     ).exists()
     assert not (
         PROJECT_ROOT / "app" / "rag" / "retriever" / "llamaindex_store.py"
     ).exists()
+
+
+def test_enhanced_surface_is_preserved() -> None:
+    assert ENHANCED_FILE.exists()
+    assert (PROJECT_ROOT / "app" / "rag" / "retriever" / "hybrid_retriever.py").exists()
+    assert (PROJECT_ROOT / "app" / "rag" / "retriever" / "query_rewrite.py").exists()
+    assert (PROJECT_ROOT / "app" / "rag" / "retriever" / "reranker.py").exists()
+
+
+def test_enhanced_entrypoint_routes_through_native_module() -> None:
+    source = read_text(ENHANCED_FILE)
+
+    assert "app.rag.evaluation.enhanced_rag_eval" in source
+    assert "EnhancedEvaluationConfig" in source
+    assert "main" in source
+
+
+def test_sample_validation_entrypoint_routes_through_native_module() -> None:
+    source = read_text(SAMPLE_FILE)
+
+    assert SAMPLE_IMPL_FILE.exists()
+    assert "app.rag.evaluation.sample_validation_eval" in source
+    assert "run_sample_comparison" in source
 
 
 def test_primary_configs_default_to_single_faiss_store() -> None:
