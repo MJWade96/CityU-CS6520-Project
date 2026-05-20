@@ -1,24 +1,35 @@
-/Med-R2/
-/Zignored/
-.trae/
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python caches and virtual environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# JavaScript dependencies and builds
+node_modules/
+dist/
+build/
+
+# Local tool and agent state
 .claude/
 .learnings/
-.DS_Store
-__pycache__/
-*.pyc
-
-# Generated data / artifacts
-python-rag/results/
-python-rag/data/
-data/
-!python-rag/app/rag/data/
-!python-rag/app/rag/data/**
-
-AutoDL-SSH-Tools/
-RAG_Medical_Data/
-
-phase1_interim/
-reporting/
+.trae/
+.codebuddy/
 CLAUDE.md
 CODEBUDDY.md
-.codebuddy/
+AGENTS.md
+
+# Generated data / artifacts
+data/
+python-rag/data/
+python-rag/results/
+!python-rag/app/rag/data/
+!python-rag/app/rag/data/**
+python-rag/app/rag/data/vector_store/
+python-rag/app/rag/data/vector_store/**
