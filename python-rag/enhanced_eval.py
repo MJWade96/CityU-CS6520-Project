@@ -11,7 +11,7 @@ from app.rag.evaluation.enhanced_rag_eval import (
 
 
 async def main_async() -> None:
-    config = EnhancedEvaluationConfig()
+    config = EnhancedEvaluationConfig(dev_size=0, test_size=1)
     await run_enhanced_evaluation(config)
 
 
