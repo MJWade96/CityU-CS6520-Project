@@ -47,7 +47,7 @@ def test_primary_entrypoints_route_through_canonical_modules() -> None:
     assert "BATCH_SIZE = 1024" in build_source
     assert "INSERT_BATCH_SIZE = 8192" in build_source
     assert "LOCAL_FILES_ONLY = True" in build_source
-    assert "USE_GPU_FAISS = True" in build_source
+    assert "USE_GPU_FAISS = False" in build_source
     assert "show_progress=False" in build_source
     assert build_source.index("load_resume_checkpoint") < build_source.index("MedicalVectorStore(")
     assert "from app.rag.evaluation.naive_rag_eval import NaiveRAGEvalConfig, run_complete_evaluation" in complete_source
