@@ -23,8 +23,10 @@ CORPUS_FILE = COMBINED_CORPUS_FILE
 INDEX_DIR = FAISS_INDEX_DIR
 EMBEDDING_MODEL = DEFAULT_HF_EMBEDDING_MODEL
 EMBEDDING_DEVICE = "auto"
-BATCH_SIZE = 256
+BATCH_SIZE = 1024
 INSERT_BATCH_SIZE = 1024
+LOCAL_FILES_ONLY = True
+USE_GPU_FAISS = True
 CHECKPOINT_FILE = INDEX_DIR / "build_checkpoint.json"
 BUILD_METADATA_FILE = INDEX_DIR / "build_metadata.json"
 
@@ -86,6 +88,8 @@ def checkpoint_payload(
         "embedding_device": device,
         "embedding_batch_size": BATCH_SIZE,
         "index_insert_batch_size": INSERT_BATCH_SIZE,
+        "embedding_local_files_only": LOCAL_FILES_ONLY,
+        "use_gpu_faiss": USE_GPU_FAISS,
         "elapsed_seconds": elapsed,
         "updated_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
     }
@@ -108,6 +112,8 @@ def load_resume_checkpoint(total_documents: int, device: str) -> Dict[str, objec
         "embedding_device": device,
         "embedding_batch_size": BATCH_SIZE,
         "index_insert_batch_size": INSERT_BATCH_SIZE,
+        "embedding_local_files_only": LOCAL_FILES_ONLY,
+        "use_gpu_faiss": USE_GPU_FAISS,
     }
     mismatches = [
         key
@@ -141,6 +147,8 @@ def save_build_metadata(
         "embedding_device": device,
         "embedding_batch_size": BATCH_SIZE,
         "index_insert_batch_size": INSERT_BATCH_SIZE,
+        "embedding_local_files_only": LOCAL_FILES_ONLY,
+        "use_gpu_faiss": USE_GPU_FAISS,
         "store_type": "native-faiss",
         "sources": count_sources(documents),
         "build_time_seconds": elapsed,
@@ -152,12 +160,6 @@ def save_build_metadata(
 def main() -> None:
     documents = build_documents()
     device = resolve_torch_device(EMBEDDING_DEVICE)
-    vector_store = MedicalVectorStore(
-        embedding_model_name=EMBEDDING_MODEL,
-        embedding_device=device,
-        normalize_embeddings=True,
-        batch_size=BATCH_SIZE,
-    )
 
     print("=" * 60)
     print("Building native LlamaIndex FAISS index")
@@ -168,10 +170,20 @@ def main() -> None:
     print(f"Embedding device: {device}")
     print(f"Output: {INDEX_DIR}")
     print(f"Embedding batch size: {BATCH_SIZE}")
+    print(f"Embedding local files only: {LOCAL_FILES_ONLY}")
+    print(f"GPU FAISS: {USE_GPU_FAISS}")
     print(f"Index insert batch size: {INSERT_BATCH_SIZE}", flush=True)
 
     start_time = time.time()
     resume_checkpoint = load_resume_checkpoint(len(documents), device)
+    vector_store = MedicalVectorStore(
+        embedding_model_name=EMBEDDING_MODEL,
+        embedding_device=device,
+        normalize_embeddings=True,
+        batch_size=BATCH_SIZE,
+        local_files_only=LOCAL_FILES_ONLY,
+        use_gpu_faiss=USE_GPU_FAISS,
+    )
     start_document = 0
     prior_elapsed = 0.0
     if resume_checkpoint:

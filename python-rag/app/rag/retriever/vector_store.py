@@ -33,23 +33,55 @@ class MedicalVectorStore:
         embedding_device: str = "cpu",
         normalize_embeddings: bool = True,
         batch_size: int = 256,
+        local_files_only: bool = False,
+        use_gpu_faiss: bool = False,
     ):
         self.embedding_model_name = embedding_model_name
         self.embedding_device = embedding_device
         self.normalize_embeddings = normalize_embeddings
         self.batch_size = batch_size
+        self.local_files_only = local_files_only
+        self.use_gpu_faiss = use_gpu_faiss
         self.index: Optional[VectorStoreIndex] = None
         self._embed_model = HuggingFaceEmbedding(
             model_name=embedding_model_name,
             device=embedding_device,
             normalize=normalize_embeddings,
             embed_batch_size=batch_size,
+            local_files_only=local_files_only,
         )
 
     def _require_index(self) -> VectorStoreIndex:
         if self.index is None:
             raise ValueError("MedicalVectorStore has not been built or loaded")
         return self.index
+
+    def _to_gpu_index(self, faiss_index: Any) -> Any:
+        """Move FAISS storage to GPU only when the explicit GPU mode is available."""
+        if not self.use_gpu_faiss:
+            return faiss_index
+        if not all(
+            hasattr(faiss, attr)
+            for attr in ("StandardGpuResources", "index_cpu_to_gpu", "get_num_gpus")
+        ):
+            raise RuntimeError(
+                "GPU FAISS was requested, but the installed faiss package does not "
+                "provide GPU APIs. Install a GPU-enabled FAISS build on AutoDL."
+            )
+        if faiss.get_num_gpus() < 1:
+            raise RuntimeError("GPU FAISS was requested, but FAISS reports 0 GPUs.")
+        resources = faiss.StandardGpuResources()
+        return faiss.index_cpu_to_gpu(resources, 0, faiss_index)
+
+    def _to_cpu_index_for_persist(self, faiss_index: Any) -> Any:
+        """Convert GPU FAISS indexes back to CPU because FAISS persists CPU indexes."""
+        if not self.use_gpu_faiss:
+            return faiss_index
+        if not hasattr(faiss, "index_gpu_to_cpu"):
+            raise RuntimeError(
+                "GPU FAISS persistence requires faiss.index_gpu_to_cpu, but it is missing."
+            )
+        return faiss.index_gpu_to_cpu(faiss_index)
 
     def build(
         self,
@@ -64,7 +96,7 @@ class MedicalVectorStore:
             return
 
         dimension = len(self._embed_model.get_text_embedding("dimension probe"))
-        faiss_index = faiss.IndexFlatIP(dimension)
+        faiss_index = self._to_gpu_index(faiss.IndexFlatIP(dimension))
         vector_store = FaissVectorStore(faiss_index=faiss_index)
         storage_context = StorageContext.from_defaults(vector_store=vector_store)
         self.index = VectorStoreIndex.from_documents(
@@ -152,13 +184,21 @@ class MedicalVectorStore:
 
         persist_dir = Path(path)
         persist_dir.mkdir(parents=True, exist_ok=True)
-        self.index.storage_context.persist(persist_dir=str(persist_dir))
+        vector_store = self.index.storage_context.vector_store
+        original_faiss_index = vector_store.client
+        vector_store._faiss_index = self._to_cpu_index_for_persist(original_faiss_index)
+        try:
+            self.index.storage_context.persist(persist_dir=str(persist_dir))
+        finally:
+            vector_store._faiss_index = original_faiss_index
         save_json_atomic(
             persist_dir / "metadata.json",
             {
                 "store_type": "native-faiss",
                 "embedding_model": self.embedding_model_name,
                 "embedding_device": self.embedding_device,
+                "embedding_local_files_only": self.local_files_only,
+                "use_gpu_faiss": self.use_gpu_faiss,
             },
             indent=2,
             ensure_ascii=False,
@@ -168,6 +208,7 @@ class MedicalVectorStore:
         """Load a persisted native FAISS index."""
         persist_dir = Path(path)
         vector_store = FaissVectorStore.from_persist_dir(str(persist_dir))
+        vector_store._faiss_index = self._to_gpu_index(vector_store.client)
         storage_context = StorageContext.from_defaults(
             persist_dir=str(persist_dir),
             vector_store=vector_store,
