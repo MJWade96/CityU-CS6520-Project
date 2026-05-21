@@ -1,20 +1,6 @@
-# OS files
-.DS_Store
-Thumbs.db
-
-# Python caches and virtual environments
+# Python
 __pycache__/
-*.py[cod]
 .pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.venv/
-venv/
-
-# JavaScript dependencies and builds
-node_modules/
-dist/
-build/
 
 # Local tool and agent state
 .claude/
@@ -27,13 +13,14 @@ AGENTS.md
 
 # Generated data / artifacts
 data/
-python-rag/data/
 python-rag/results/
 !python-rag/app/rag/data/
-!python-rag/app/rag/data/**
 python-rag/app/rag/data/vector_store/
-python-rag/app/rag/data/vector_store/**
+python-rag/app/rag/data/medical_corpus/*.json
+python-rag/app/rag/data/medical_corpus/statpearls_NBK430685/
+!python-rag/app/rag/data/medical_corpus/
+!python-rag/app/rag/data/medical_corpus/*.py
+python-rag/app/rag/evaluation/medqa.json
 
 # Local planning/spec notes
-docs/superpowers/plans/
-docs/superpowers/specs/
+docs/

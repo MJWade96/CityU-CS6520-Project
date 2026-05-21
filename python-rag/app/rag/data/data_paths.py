@@ -21,18 +21,20 @@ def _detect_project_root() -> Path:
 
 
 PROJECT_ROOT = _detect_project_root()
-DEFAULT_DATA_DIR = (
-    PROJECT_ROOT / "data"
-    if (PROJECT_ROOT / "data").exists()
-    else PROJECT_ROOT.parent / "RAG_Medical_Data"
-)
+PACKAGE_DATA_DIR = PROJECT_ROOT / "app" / "rag" / "data"
+DEFAULT_DATA_DIR = PACKAGE_DATA_DIR
 DATA_DIR = Path(os.environ.get("RAG_DATA_DIR", str(DEFAULT_DATA_DIR))).resolve()
 RESULTS_DIR = Path(
     os.environ.get("RAG_RESULTS_DIR", str(PROJECT_ROOT / "results"))
 ).resolve()
 
-CORPUS_DIR = DATA_DIR / "corpus"
-EVALUATION_DIR = DATA_DIR / "evaluation"
+CORPUS_DIR = DATA_DIR / "medical_corpus"
+EVALUATION_DIR = Path(
+    os.environ.get(
+        "RAG_EVALUATION_DIR",
+        str(PROJECT_ROOT / "app" / "rag" / "evaluation"),
+    )
+).resolve()
 VECTOR_STORE_DIR = DATA_DIR / "vector_store"
 
 COMBINED_CORPUS_FILE = CORPUS_DIR / "combined_corpus.json"
@@ -52,8 +54,5 @@ def ensure_data_directories() -> None:
         VECTOR_STORE_DIR,
         EVALUATION_RESULTS_DIR,
         RETRIEVAL_CACHE_DIR,
-        CORPUS_DIR / "textbooks",
-        CORPUS_DIR / "pubmed",
-        CORPUS_DIR / "statpearls",
     ):
         directory.mkdir(parents=True, exist_ok=True)
