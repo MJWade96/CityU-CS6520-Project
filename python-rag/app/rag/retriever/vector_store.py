@@ -7,11 +7,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import faiss
+import numpy as np
 from llama_index.core import StorageContext, VectorStoreIndex, load_index_from_storage
 from llama_index.core import Document as LlamaDocument
+from llama_index.core.ingestion.pipeline import run_transformations
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.faiss import FaissVectorStore
-from tqdm import tqdm
 
 from ..data.json_utils import load_json_safe, save_json_atomic
 
@@ -22,6 +23,23 @@ class RetrievedDocument:
 
     page_content: str
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+class BatchFaissVectorStore(FaissVectorStore):
+    """Batch FAISS additions so embedded vectors reach FAISS in one array per batch."""
+
+    def add(self, nodes: List[Any], **add_kwargs: Any) -> List[str]:
+        del add_kwargs
+        if not nodes:
+            return []
+
+        start_id = int(self.client.ntotal)
+        embeddings = np.asarray(
+            [node.get_embedding() for node in nodes],
+            dtype="float32",
+        )
+        self.client.add(embeddings)
+        return [str(start_id + offset) for offset in range(len(nodes))]
 
 
 class MedicalVectorStore:
@@ -97,7 +115,7 @@ class MedicalVectorStore:
 
         dimension = len(self._embed_model.get_text_embedding("dimension probe"))
         faiss_index = self._to_gpu_index(faiss.IndexFlatIP(dimension))
-        vector_store = FaissVectorStore(faiss_index=faiss_index)
+        vector_store = BatchFaissVectorStore(faiss_index=faiss_index)
         storage_context = StorageContext.from_defaults(vector_store=vector_store)
         self.index = VectorStoreIndex.from_documents(
             documents,
@@ -126,18 +144,17 @@ class MedicalVectorStore:
             )
             return
 
-        document_iterator = (
-            tqdm(
-                documents,
-                desc="Inserting documents",
-                unit="doc",
-                leave=False,
-            )
-            if show_progress
-            else documents
+        nodes = run_transformations(
+            documents,
+            self._require_index()._transformations,
+            show_progress=show_progress,
         )
-        for document in document_iterator:
-            self.index.insert(document)
+        self._require_index().insert_nodes(nodes, show_progress=show_progress)
+        for document in documents:
+            self._require_index().docstore.set_document_hash(
+                document.id_,
+                document.hash,
+            )
 
     def as_retriever(self, similarity_top_k: int = 5) -> Any:
         """Create a native retriever for the loaded index."""
@@ -207,8 +224,10 @@ class MedicalVectorStore:
     def load(self, path: str) -> None:
         """Load a persisted native FAISS index."""
         persist_dir = Path(path)
-        vector_store = FaissVectorStore.from_persist_dir(str(persist_dir))
-        vector_store._faiss_index = self._to_gpu_index(vector_store.client)
+        loaded_vector_store = FaissVectorStore.from_persist_dir(str(persist_dir))
+        vector_store = BatchFaissVectorStore(
+            faiss_index=self._to_gpu_index(loaded_vector_store.client)
+        )
         storage_context = StorageContext.from_defaults(
             persist_dir=str(persist_dir),
             vector_store=vector_store,

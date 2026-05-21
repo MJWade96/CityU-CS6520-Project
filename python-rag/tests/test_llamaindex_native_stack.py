@@ -45,8 +45,9 @@ def test_primary_entrypoints_route_through_canonical_modules() -> None:
     assert "CHECKPOINT_FILE" in build_source
     assert "Building FAISS index" in build_source
     assert "BATCH_SIZE = 1024" in build_source
+    assert "INSERT_BATCH_SIZE = 8192" in build_source
     assert "LOCAL_FILES_ONLY = True" in build_source
-    assert "USE_GPU_FAISS = False" in build_source
+    assert "USE_GPU_FAISS = True" in build_source
     assert "show_progress=False" in build_source
     assert build_source.index("load_resume_checkpoint") < build_source.index("MedicalVectorStore(")
     assert "from app.rag.evaluation.naive_rag_eval import NaiveRAGEvalConfig, run_complete_evaluation" in complete_source
@@ -164,6 +165,11 @@ def test_requirements_keep_only_native_llamaindex_packages() -> None:
 def test_native_vector_store_uses_local_hf_and_explicit_gpu_faiss() -> None:
     source = read_text(STORE_FILE)
 
+    assert "class BatchFaissVectorStore" in source
+    assert "np.asarray" in source
+    assert "run_transformations" in source
+    assert "insert_nodes" in source
+    assert "self.index.insert(document)" not in source
     assert "local_files_only=local_files_only" in source
     assert "use_gpu_faiss" in source
     assert "index_cpu_to_gpu" in source
