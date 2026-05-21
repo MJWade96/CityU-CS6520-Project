@@ -51,9 +51,3 @@ python-dotenv>=1.0.0
 # Testing
 # ============================================
 pytest>=7.4.0
-
-# ============================================
-# NOTE: LLM (Qwen2.5-7B) is deployed via Ollama
-# Install Ollama separately: https://ollama.com
-# Pull model: ollama pull qwen2.5:7b
-# ============================================
