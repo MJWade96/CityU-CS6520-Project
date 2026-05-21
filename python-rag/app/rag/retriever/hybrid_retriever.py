@@ -47,6 +47,7 @@ class HybridRetriever:
         cls,
         vectorstore: MedicalVectorStore,
         *,
+        llm: Optional[Any] = None,
         similarity_top_k: int = 5,
         num_queries: int = 1,
         retriever_weights: Optional[Tuple[float, float]] = None,
@@ -60,6 +61,7 @@ class HybridRetriever:
         )
         fusion_retriever = QueryFusionRetriever(
             retrievers=[dense_retriever, bm25_retriever],
+            llm=llm,
             similarity_top_k=similarity_top_k,
             num_queries=max(1, num_queries),
             use_async=use_async,

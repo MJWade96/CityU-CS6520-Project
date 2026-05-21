@@ -141,9 +141,11 @@ def build_enhanced_query_engine(
     vectorstore: MedicalVectorStore,
     config: EnhancedEvaluationConfig,
 ) -> Any:
+    llm = create_llm(config.llm)
     if config.use_hybrid_retrieval:
         hybrid = HybridRetriever.from_vector_store(
             vectorstore,
+            llm=llm,
             similarity_top_k=config.top_k,
             use_async=True,
         )
@@ -164,7 +166,7 @@ def build_enhanced_query_engine(
 
     return RetrieverQueryEngine.from_args(
         retriever=retriever,
-        llm=create_llm(config.llm),
+        llm=llm,
         node_postprocessors=node_postprocessors,
         use_async=True,
     )
