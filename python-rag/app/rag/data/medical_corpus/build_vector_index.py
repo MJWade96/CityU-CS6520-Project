@@ -210,7 +210,7 @@ def main() -> None:
         batch = documents[batch_start : batch_start + INSERT_BATCH_SIZE]
         vector_store.add_documents(
             batch,
-            show_progress=True,
+            show_progress=False,
             insert_batch_size=INSERT_BATCH_SIZE,
         )
         print("Persisting index checkpoint...", flush=True)
