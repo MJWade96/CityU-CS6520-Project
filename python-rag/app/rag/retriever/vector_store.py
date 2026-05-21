@@ -11,6 +11,7 @@ from llama_index.core import StorageContext, VectorStoreIndex, load_index_from_s
 from llama_index.core import Document as LlamaDocument
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.faiss import FaissVectorStore
+from tqdm import tqdm
 
 from ..data.json_utils import load_json_safe, save_json_atomic
 
@@ -50,7 +51,13 @@ class MedicalVectorStore:
             raise ValueError("MedicalVectorStore has not been built or loaded")
         return self.index
 
-    def build(self, documents: List[LlamaDocument]) -> None:
+    def build(
+        self,
+        documents: List[LlamaDocument],
+        *,
+        show_progress: bool = False,
+        insert_batch_size: int = 1024,
+    ) -> None:
         """Build the native index from LlamaIndex documents."""
         if not documents:
             self.index = None
@@ -64,8 +71,41 @@ class MedicalVectorStore:
             documents,
             storage_context=storage_context,
             embed_model=self._embed_model,
-            show_progress=False,
+            show_progress=show_progress,
+            insert_batch_size=insert_batch_size,
         )
+
+    def add_documents(
+        self,
+        documents: List[LlamaDocument],
+        *,
+        show_progress: bool = False,
+        insert_batch_size: int = 1024,
+    ) -> None:
+        """Add documents through the same native index path used for fresh builds."""
+        if not documents:
+            return
+
+        if self.index is None:
+            self.build(
+                documents,
+                show_progress=show_progress,
+                insert_batch_size=insert_batch_size,
+            )
+            return
+
+        document_iterator = (
+            tqdm(
+                documents,
+                desc="Inserting documents",
+                unit="doc",
+                leave=False,
+            )
+            if show_progress
+            else documents
+        )
+        for document in document_iterator:
+            self.index.insert(document)
 
     def as_retriever(self, similarity_top_k: int = 5) -> Any:
         """Create a native retriever for the loaded index."""

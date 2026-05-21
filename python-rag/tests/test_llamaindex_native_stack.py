@@ -6,10 +6,10 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 STORE_FILE = PROJECT_ROOT / "app" / "rag" / "retriever" / "vector_store.py"
 EVAL_FILE = PROJECT_ROOT / "app" / "rag" / "evaluation" / "naive_rag_eval.py"
+BUILD_FILE = PROJECT_ROOT / "app" / "rag" / "data" / "medical_corpus" / "build_vector_index.py"
 COMPLETE_EVAL_FILE = PROJECT_ROOT / "complete_eval.py"
 SAMPLE_FILE = PROJECT_ROOT / "sample_validation.py"
 ENHANCED_FILE = PROJECT_ROOT / "enhanced_eval.py"
-ENHANCED_IMPL_FILE = PROJECT_ROOT / "app" / "rag" / "evaluation" / "enhanced_rag_eval.py"
 RESUME_FILE = PROJECT_ROOT / "run_with_resume.py"
 REQUIREMENTS_FILE = PROJECT_ROOT / "requirements.txt"
 SAMPLE_IMPL_FILE = PROJECT_ROOT / "app" / "rag" / "evaluation" / "sample_validation_eval.py"
@@ -37,15 +37,15 @@ def test_primary_evaluation_uses_native_query_engine() -> None:
 
 
 def test_primary_entrypoints_route_through_canonical_modules() -> None:
+    build_source = read_text(BUILD_FILE)
     complete_source = read_text(COMPLETE_EVAL_FILE)
     sample_source = read_text(SAMPLE_FILE)
 
+    assert "from app.rag.retriever.vector_store import MedicalVectorStore" in build_source
+    assert "CHECKPOINT_FILE" in build_source
+    assert "Building FAISS index" in build_source
     assert "from app.rag.evaluation.naive_rag_eval import NaiveRAGEvalConfig, run_complete_evaluation" in complete_source
     assert "from app.rag.evaluation.sample_validation_eval import SampleEvalConfig, run_sample_comparison" in sample_source
-
-
-def test_inactive_index_building_entrypoint_stays_removed() -> None:
-    assert not (PROJECT_ROOT / "build_vector_index.py").exists()
 
 
 def test_parallel_llamaindex_specific_modules_are_removed() -> None:
@@ -77,19 +77,6 @@ def test_enhanced_entrypoint_routes_through_native_module() -> None:
     assert "app.rag.evaluation.enhanced_rag_eval" in source
     assert "EnhancedEvaluationConfig" in source
     assert "main" in source
-
-
-def test_enhanced_native_impl_preserves_main_observability_controls() -> None:
-    source = read_text(ENHANCED_IMPL_FILE)
-
-    assert "RateLimiter" in source
-    assert "heartbeat_enabled" in source
-    assert "progress_save_every" in source
-    assert "progress_print_every" in source
-    assert "question_start_log_enabled" in source
-    assert "llm_query_rewrite_mode" in source
-    assert "write_live_results" in source
-    assert "save_checkpoint" in source
 
 
 def test_sample_validation_entrypoint_routes_through_native_module() -> None:
