@@ -44,11 +44,13 @@ def test_primary_entrypoints_route_through_canonical_modules() -> None:
     assert "from app.rag.retriever.vector_store import MedicalVectorStore" in build_source
     assert "CHECKPOINT_FILE" in build_source
     assert "Building FAISS index" in build_source
-    assert "BATCH_SIZE = 1024" in build_source
+    assert "BATCH_SIZE = 256" in build_source
     assert "INSERT_BATCH_SIZE = 8192" in build_source
     assert "LOCAL_FILES_ONLY = True" in build_source
     assert "USE_GPU_FAISS = False" in build_source
-    assert "show_progress=False" in build_source
+    assert "show_progress=True" in build_source
+    assert "tqdm.write" in build_source
+    assert "Indexing documents" in build_source
     assert build_source.index("load_resume_checkpoint") < build_source.index("MedicalVectorStore(")
     assert "from app.rag.evaluation.naive_rag_eval import NaiveRAGEvalConfig, run_complete_evaluation" in complete_source
     assert "from app.rag.evaluation.sample_validation_eval import SampleEvalConfig, run_sample_comparison" in sample_source

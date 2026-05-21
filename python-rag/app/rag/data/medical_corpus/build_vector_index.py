@@ -206,16 +206,24 @@ def main() -> None:
         total=total_remaining_batches,
         desc="Building FAISS index",
         unit="batch",
+        dynamic_ncols=True,
     ):
         batch = documents[batch_start : batch_start + INSERT_BATCH_SIZE]
+        batch_end = min(batch_start + len(batch), len(documents))
+        batch_number = (batch_start - start_document) // INSERT_BATCH_SIZE + 1
+        tqdm.write(
+            f"[batch {batch_number}/{total_remaining_batches}] "
+            f"Indexing documents {batch_start + 1:,}-{batch_end:,} "
+            f"({len(batch):,} docs)"
+        )
         vector_store.add_documents(
             batch,
-            show_progress=False,
+            show_progress=True,
             insert_batch_size=INSERT_BATCH_SIZE,
         )
-        print("Persisting index checkpoint...", flush=True)
+        tqdm.write("Persisting index checkpoint...")
         vector_store.save(str(INDEX_DIR))
-        completed_documents = min(batch_start + len(batch), len(documents))
+        completed_documents = batch_end
         elapsed = prior_elapsed + time.time() - start_time
         save_json_atomic(
             CHECKPOINT_FILE,
@@ -226,10 +234,9 @@ def main() -> None:
                 elapsed=elapsed,
             ),
         )
-        print(
+        tqdm.write(
             f"[checkpoint] Indexed {completed_documents:,}/{len(documents):,} "
-            f"documents in {elapsed:.1f}s",
-            flush=True,
+            f"documents in {elapsed:.1f}s"
         )
 
     elapsed = prior_elapsed + time.time() - start_time
