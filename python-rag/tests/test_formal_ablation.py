@@ -98,11 +98,32 @@ def test_formal_framework_does_not_use_legacy_medqa(monkeypatch) -> None:
 
 def test_medcpt_stays_in_experiment_framework_not_primary_retriever() -> None:
     from app.rag.experiments import phase1_formal_ablation as module
+    from app.rag.experiments import formal_ablation_runtime as runtime
 
     vector_store_source = (
         PROJECT_ROOT / "app" / "rag" / "retriever" / "vector_store.py"
     ).read_text(encoding="utf-8")
 
     assert any(provider.name == "medcpt" for provider in module.EMBEDDING_PROVIDERS)
+    assert runtime.MEDCPT_QUERY_MODEL == "ncbi/MedCPT-Query-Encoder"
+    assert runtime.MEDCPT_ARTICLE_MODEL == "ncbi/MedCPT-Article-Encoder"
     assert "MedCPT" not in vector_store_source
     assert "local_medcpt" not in vector_store_source
+
+
+def test_formal_runtime_declares_real_cache_artifact_paths() -> None:
+    from app.rag.experiments import formal_ablation_runtime as runtime
+    from app.rag.experiments.phase1_formal_ablation import build_formal_matrix
+
+    run = next(row for row in build_formal_matrix() if row.run_id == "stage1_naive_bge_m3")
+    run_paths = runtime.formal_run_paths(run)
+    index_paths = runtime.dense_index_paths(run)
+
+    assert str(index_paths.chunk_embeddings).endswith("chunk_embeddings.npy")
+    assert str(index_paths.faiss_index).endswith("faiss.index")
+    assert str(run_paths.query_embeddings).endswith("query_embeddings.npy")
+    assert str(run_paths.retrieval_top80).endswith("retrieval_top80.jsonl")
+    assert str(run_paths.final_prompts).endswith("final_prompts.jsonl")
+    assert str(run_paths.llm_outputs).endswith("llm_outputs.jsonl")
+    assert str(run_paths.token_usage).endswith("token_usage.json")
+    assert str(run_paths.estimated_token_cost).endswith("estimated_token_cost.json")

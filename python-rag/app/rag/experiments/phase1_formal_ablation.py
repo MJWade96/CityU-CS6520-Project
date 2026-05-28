@@ -6,6 +6,7 @@ and cache manifest without reusing the old smoke entrypoint or legacy MedQA file
 
 from __future__ import annotations
 
+import asyncio
 import csv
 import time
 from dataclasses import asdict, dataclass
@@ -13,6 +14,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 from app.rag.data.benchmarks.medqa_usmle import load_medqa_usmle_counts
+from app.rag.data.benchmarks.medqa_usmle import load_medqa_usmle_split
 from app.rag.data.data_paths import (
     MEDQA_FILE,
     MEDQA_USMLE_DEV_FILE,
@@ -32,6 +34,7 @@ from app.rag.retriever.runtime_config import (
 
 RUN_ID = "phase1_formal_ablation"
 EXECUTION_MODE = "plan_only"
+FORMAL_RUN_IDS_TO_EXECUTE: Sequence[str] = ()
 RANDOM_SEED = 6520
 PROMPT_VERSION = "medical_mcq_v1"
 GENERATOR_MODEL = "Qwen3-4B"
@@ -399,8 +402,32 @@ def run_formal_ablation_framework() -> Dict[str, Any]:
     return manifest
 
 
+async def execute_configured_formal_runs() -> List[Dict[str, Any]]:
+    """Execute explicitly selected formal runs after the framework is written."""
+    if not FORMAL_RUN_IDS_TO_EXECUTE:
+        return []
+
+    from app.rag.experiments.formal_ablation_runtime import execute_naive_run
+
+    rows_by_id = {row.run_id: row for row in build_formal_matrix()}
+    questions = load_medqa_usmle_split("dev")
+    results: List[Dict[str, Any]] = []
+    for run_id in FORMAL_RUN_IDS_TO_EXECUTE:
+        if run_id not in rows_by_id:
+            raise KeyError(f"Unknown formal run id: {run_id}")
+        row = rows_by_id[run_id]
+        if row.pipeline != "naive_rag":
+            raise NotImplementedError(
+                f"Configured formal execution currently supports naive_rag only: {run_id}"
+            )
+        print(f"Executing formal run: {run_id}", flush=True)
+        results.append(await execute_naive_run(row, questions))
+    return results
+
+
 def main() -> None:
     manifest = run_formal_ablation_framework()
+    executed_results = asyncio.run(execute_configured_formal_runs())
     print("=" * 60)
     print("Formal Ablation Framework Ready")
     print("=" * 60)
@@ -410,6 +437,7 @@ def main() -> None:
     print(f"Matrix rows: {len(manifest['matrix'])}")
     print(f"Framework JSON: {manifest['artifact_paths']['framework_json']}")
     print(f"Matrix CSV: {manifest['artifact_paths']['matrix_csv']}")
+    print(f"Executed formal runs: {len(executed_results)}")
 
 
 if __name__ == "__main__":
