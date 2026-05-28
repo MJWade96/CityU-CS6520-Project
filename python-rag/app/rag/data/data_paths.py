@@ -29,6 +29,7 @@ RESULTS_DIR = Path(
 ).resolve()
 
 CORPUS_DIR = DATA_DIR / "medical_corpus"
+BENCHMARKS_DIR = DATA_DIR / "benchmarks"
 EVALUATION_DIR = Path(
     os.environ.get(
         "RAG_EVALUATION_DIR",
@@ -41,11 +42,17 @@ TEXTBOOKS_CORPUS_FILE = CORPUS_DIR / "textbooks_corpus.json"
 TEXTBOOKS_DOWNLOAD_DIR = CORPUS_DIR / "medrag_textbooks"
 COMBINED_CORPUS_FILE = CORPUS_DIR / "combined_corpus.json"
 MEDQA_FILE = EVALUATION_DIR / "medqa.json"
+MEDQA_USMLE_DIR = BENCHMARKS_DIR / "MedQA-USMLE"
+MEDQA_USMLE_DEV_FILE = MEDQA_USMLE_DIR / "dev.jsonl"
+MEDQA_USMLE_TEST_FILE = MEDQA_USMLE_DIR / "test.jsonl"
 FAISS_INDEX_DIR = VECTOR_STORE_DIR / "faiss_index"
 PHASE1_INDEX_DIR = VECTOR_STORE_DIR / "phase1"
 EVALUATION_RESULTS_DIR = RESULTS_DIR / "evaluation"
 PHASE1_RESULTS_DIR = EVALUATION_RESULTS_DIR / "phase1"
-RETRIEVAL_CACHE_DIR = EVALUATION_RESULTS_DIR / "retrieval_cache"
+RESULT_INDEXES_DIR = RESULTS_DIR / "indexes"
+RETRIEVAL_CACHE_DIR = RESULTS_DIR / "retrieval_cache"
+RERANK_CACHE_DIR = RESULTS_DIR / "rerank_cache"
+RUNS_DIR = RESULTS_DIR / "runs"
 
 
 def ensure_data_directories() -> None:
@@ -54,12 +61,16 @@ def ensure_data_directories() -> None:
         DATA_DIR,
         RESULTS_DIR,
         CORPUS_DIR,
+        BENCHMARKS_DIR,
         TEXTBOOKS_DOWNLOAD_DIR,
         EVALUATION_DIR,
         VECTOR_STORE_DIR,
         PHASE1_INDEX_DIR,
         EVALUATION_RESULTS_DIR,
         PHASE1_RESULTS_DIR,
+        RESULT_INDEXES_DIR,
         RETRIEVAL_CACHE_DIR,
+        RERANK_CACHE_DIR,
+        RUNS_DIR,
     ):
         directory.mkdir(parents=True, exist_ok=True)

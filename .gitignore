@@ -24,6 +24,9 @@ python-rag/app/rag/data/medical_corpus/statpearls_NBK430685/
 python-rag/app/rag/data/medical_corpus/medrag_textbooks/
 !python-rag/app/rag/data/medical_corpus/
 !python-rag/app/rag/data/medical_corpus/*.py
+python-rag/app/rag/data/benchmarks/*/
+!python-rag/app/rag/data/benchmarks/
+!python-rag/app/rag/data/benchmarks/*.py
 python-rag/app/rag/evaluation/medqa.json
 
 # Local planning/spec notes
