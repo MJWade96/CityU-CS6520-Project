@@ -1,7 +1,7 @@
 """
 Combine registered corpora into a single dataset for indexing.
 
-The script reuses the registry in ``app.rag.corpus_registry`` so source file
+The script reuses the registry in ``app.rag.data.corpus_registry`` so source file
 definitions and normalization logic live in one place instead of being
 duplicated across scripts.
 """

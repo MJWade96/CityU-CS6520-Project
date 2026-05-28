@@ -46,6 +46,9 @@ class EnhancedEvaluationConfig:
     dev_size: int = 300
     test_size: Optional[int] = None
     top_k: int = 5
+    retrieval_top_k: Optional[int] = None
+    reranker_top_k: Optional[int] = None
+    hybrid_alpha: float = 0.5
     vector_store_path: Path = FAISS_INDEX_DIR
     question_file: Path = MEDQA_FILE
     output_dir: Path = EVALUATION_RESULTS_DIR
@@ -127,6 +130,23 @@ class EnhancedEvaluationConfig:
         )
     )
 
+    @property
+    def resolved_retrieval_top_k(self) -> int:
+        """Use final top_k as the default retrieval depth for backward compatibility."""
+        return self.retrieval_top_k if self.retrieval_top_k is not None else self.top_k
+
+    @property
+    def resolved_reranker_top_k(self) -> int:
+        """Use final top_k as the default reranker output count."""
+        return self.reranker_top_k if self.reranker_top_k is not None else self.top_k
+
+    @property
+    def dense_bm25_weights(self) -> tuple[float, float]:
+        """Map alpha to QueryFusionRetriever weights without duplicating the formula."""
+        if not 0.0 <= self.hybrid_alpha <= 1.0:
+            raise ValueError(f"hybrid_alpha must be in [0, 1], got {self.hybrid_alpha}")
+        return (self.hybrid_alpha, 1.0 - self.hybrid_alpha)
+
 
 @dataclass(frozen=True)
 class EnhancedEvaluationRunNames:
@@ -142,16 +162,19 @@ def build_enhanced_query_engine(
     config: EnhancedEvaluationConfig,
 ) -> Any:
     llm = create_llm(config.llm)
+    retrieval_top_k = config.resolved_retrieval_top_k
+    reranker_top_k = config.resolved_reranker_top_k
     if config.use_hybrid_retrieval:
         hybrid = HybridRetriever.from_vector_store(
             vectorstore,
             llm=llm,
-            similarity_top_k=config.top_k,
+            similarity_top_k=retrieval_top_k,
+            retriever_weights=config.dense_bm25_weights,
             use_async=True,
         )
         retriever = hybrid.fusion_retriever
     else:
-        retriever = vectorstore.as_retriever(similarity_top_k=config.top_k)
+        retriever = vectorstore.as_retriever(similarity_top_k=retrieval_top_k)
 
     node_postprocessors = None
     if config.use_reranker:
@@ -159,7 +182,7 @@ def build_enhanced_query_engine(
             use_cross_encoder=True,
             cross_encoder_model=config.reranker_model,
             cross_encoder_device=config.reranker_device,
-            top_k=config.top_k,
+            top_k=reranker_top_k,
         )
         if reranker.cross_encoder is not None and reranker.cross_encoder.available:
             node_postprocessors = [reranker.cross_encoder.model]
@@ -235,6 +258,11 @@ def _build_progress_config(
     payload.update(
         {
             "top_k": config.top_k,
+            "retrieval_top_k": config.resolved_retrieval_top_k,
+            "reranker_top_k": config.resolved_reranker_top_k,
+            "reranker_input_count": config.resolved_retrieval_top_k,
+            "reranker_output_count": config.resolved_reranker_top_k,
+            "hybrid_alpha": config.hybrid_alpha,
             "max_concurrent": config.concurrency.max_concurrent,
             "rpm_limit": config.concurrency.rpm_limit,
             "progress_save_every": config.progress_save_every,
@@ -320,6 +348,8 @@ async def evaluate_async_dataset(
                 f"llm_rewrite={uses_llm_rewrite}, "
                 f"reranker={config.use_reranker}, "
                 f"top_k={config.top_k}, "
+                f"retrieval_top_k={config.resolved_retrieval_top_k}, "
+                f"reranker_top_k={config.resolved_reranker_top_k}, "
                 f"preview=\"{_format_question_preview(original_question, config.question_start_log_preview_chars)}\""
             )
 
@@ -446,6 +476,9 @@ async def evaluate_async_dataset(
     return {
         "dataset_name": dataset_name,
         "top_k": config.top_k,
+        "retrieval_top_k": config.resolved_retrieval_top_k,
+        "reranker_top_k": config.resolved_reranker_top_k,
+        "hybrid_alpha": config.hybrid_alpha,
         "total_questions": len(questions),
         "processed_questions": total,
         "correct": correct,
@@ -471,10 +504,13 @@ def print_evaluation_header(
     print(f"  Test set: {len(test_set)} questions")
     print("\nInitializing Enhanced RAG Pipeline...")
     print(f"  Hybrid Retrieval: {config.use_hybrid_retrieval}")
+    print(f"  Hybrid Alpha (dense weight): {config.hybrid_alpha}")
+    print(f"  Retrieval Top K: {config.resolved_retrieval_top_k}")
     print(f"  Query Rewrite: {config.use_query_rewrite}")
     print(f"  LLM Query Rewrite: {config.use_llm_query_rewrite}")
     print(f"  LLM Query Rewrite Mode: {config.llm_query_rewrite_mode}")
     print(f"  Reranker: {config.use_reranker}")
+    print(f"  Reranker Top K: {config.resolved_reranker_top_k}")
     print(f"  Reranker Model: {config.reranker_model}")
     print(f"  Reranker Device: {config.reranker_device}")
     print(f"  Max Concurrent: {config.concurrency.max_concurrent}")
@@ -535,8 +571,14 @@ async def run_enhanced_evaluation(config: EnhancedEvaluationConfig) -> Dict[str,
         "llm_model": config.llm.model,
         "vector_store": str(config.vector_store_path),
         "top_k": config.top_k,
+        "retrieval_top_k": config.resolved_retrieval_top_k,
+        "reranker_top_k": config.resolved_reranker_top_k,
+        "reranker_input_count": config.resolved_retrieval_top_k,
+        "reranker_output_count": config.resolved_reranker_top_k,
         "evaluation_backend": run_names.evaluation_type,
         "use_hybrid_retrieval": config.use_hybrid_retrieval,
+        "hybrid_alpha": config.hybrid_alpha,
+        "hybrid_retriever_weights": list(config.dense_bm25_weights),
         "use_query_rewrite": config.use_query_rewrite,
         "use_llm_query_rewrite": config.use_llm_query_rewrite,
         "llm_query_rewrite_mode": config.llm_query_rewrite_mode,

@@ -14,10 +14,13 @@ AGENTS.md
 # Generated data / artifacts
 data/
 python-rag/results/
+python-rag/results/evaluation/phase1/
 !python-rag/app/rag/data/
 python-rag/app/rag/data/vector_store/
+python-rag/app/rag/data/vector_store/phase1/
 python-rag/app/rag/data/medical_corpus/*.json
 python-rag/app/rag/data/medical_corpus/statpearls_NBK430685/
+python-rag/app/rag/data/medical_corpus/medrag_textbooks/
 !python-rag/app/rag/data/medical_corpus/
 !python-rag/app/rag/data/medical_corpus/*.py
 python-rag/app/rag/evaluation/medqa.json

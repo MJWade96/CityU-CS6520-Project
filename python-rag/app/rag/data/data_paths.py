@@ -37,10 +37,14 @@ EVALUATION_DIR = Path(
 ).resolve()
 VECTOR_STORE_DIR = DATA_DIR / "vector_store"
 
+TEXTBOOKS_CORPUS_FILE = CORPUS_DIR / "textbooks_corpus.json"
+TEXTBOOKS_DOWNLOAD_DIR = CORPUS_DIR / "medrag_textbooks"
 COMBINED_CORPUS_FILE = CORPUS_DIR / "combined_corpus.json"
 MEDQA_FILE = EVALUATION_DIR / "medqa.json"
 FAISS_INDEX_DIR = VECTOR_STORE_DIR / "faiss_index"
+PHASE1_INDEX_DIR = VECTOR_STORE_DIR / "phase1"
 EVALUATION_RESULTS_DIR = RESULTS_DIR / "evaluation"
+PHASE1_RESULTS_DIR = EVALUATION_RESULTS_DIR / "phase1"
 RETRIEVAL_CACHE_DIR = EVALUATION_RESULTS_DIR / "retrieval_cache"
 
 
@@ -50,9 +54,12 @@ def ensure_data_directories() -> None:
         DATA_DIR,
         RESULTS_DIR,
         CORPUS_DIR,
+        TEXTBOOKS_DOWNLOAD_DIR,
         EVALUATION_DIR,
         VECTOR_STORE_DIR,
+        PHASE1_INDEX_DIR,
         EVALUATION_RESULTS_DIR,
+        PHASE1_RESULTS_DIR,
         RETRIEVAL_CACHE_DIR,
     ):
         directory.mkdir(parents=True, exist_ok=True)

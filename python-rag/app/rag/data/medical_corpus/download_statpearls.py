@@ -1,32 +1,22 @@
-"""
-Download and prepare the StatPearls corpus.
-
-The heavy lifting lives in ``app.rag.statpearls_dataset`` so the same
-download/chunking logic can be reused by other scripts.
-"""
+"""Thin entrypoint for the existing StatPearls processor."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from app.rag.data.data_paths import CORPUS_DIR, ensure_data_directories
-from app.rag.data.statpearls_dataset import build_statpearls_dataset
+try:
+    from .statpearls import process_statpearls
+except ImportError:
+    from statpearls import process_statpearls
 
 
-DATA_DIR = CORPUS_DIR
+SCRIPT_DIR = Path(__file__).resolve().parent
+SOURCE_DIR = SCRIPT_DIR / "statpearls_NBK430685"
+OUTPUT_DIR = SCRIPT_DIR / "chunk"
 
 
 def main() -> None:
-    ensure_data_directories()
-    result = build_statpearls_dataset(Path(DATA_DIR))
-
-    print("=" * 60)
-    print("StatPearls Download Complete")
-    print("=" * 60)
-    print(f"Archive: {result['archive_path']}")
-    print(f"Extracted articles: {result['article_count']:,}")
-    print(f"Generated chunks: {result['chunk_count']:,}")
-    print(f"Combined corpus: {result['combined_file']}")
+    process_statpearls(str(SOURCE_DIR), output_dir=str(OUTPUT_DIR))
 
 
 if __name__ == "__main__":
