@@ -7,7 +7,7 @@ This repository is centered on corpus preparation and evaluation workflows for t
 The project now uses a single native LlamaIndex retrieval stack behind the original entrypoint names:
 
 - `build_vector_index.py`: build the FAISS-backed native index used by all RAG scripts.
-- `complete_eval.py`: primary RAG evaluation using `HuggingFaceEmbedding`, `OpenAILike`, `FaissVectorStore`, and `VectorStoreIndex` query capability.
+- `complete_eval.py`: primary RAG evaluation using API embeddings, `OpenAILike`, `FaissVectorStore`, and `VectorStoreIndex` query capability.
 - `enhanced_eval.py`: enhanced RAG evaluation using native hybrid retrieval, query rewrite, and reranking.
 - `sample_validation.py`: small no-RAG vs RAG comparison using the same native store.
 - `evaluate_no_rag.py`: direct LLM baseline without retrieval.
@@ -71,7 +71,7 @@ The current scripts share a small core set of modules:
 - `app/rag/evaluation/enhanced_rag_eval.py`: enhanced native RAG evaluation flow behind `enhanced_eval.py`.
 - `app/rag/evaluation/sample_validation_eval.py`: sample-comparison implementation behind `sample_validation.py`.
 - `app/rag/retriever/vector_store.py`: native FAISS-backed storage, retrieval, and query-engine helpers.
-- `app/rag/retriever/runtime_config.py`: embedding model and device resolution.
+- `app/rag/retriever/runtime_config.py`: API embedding model and endpoint resolution.
 
 ## Project Structure
 

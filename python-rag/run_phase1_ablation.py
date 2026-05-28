@@ -24,7 +24,11 @@ from app.rag.data.medical_corpus.build_vector_index import IndexBuildConfig, bui
 from app.rag.data.textbooks_dataset import sync_textbooks_dataset
 from app.rag.evaluation.eval_shared import EvaluationLLMConfig, load_questions
 from app.rag.evaluation.naive_rag_eval import evaluate_sync_dataset, load_vector_store
-from app.rag.retriever.runtime_config import DEFAULT_HF_EMBEDDING_MODEL
+from app.rag.retriever.runtime_config import (
+    DEFAULT_EMBEDDING_API_BASE_URL,
+    DEFAULT_EMBEDDING_MODEL,
+    first_env_value,
+)
 
 
 AUTO_SYNC_TEXTBOOKS = True
@@ -36,15 +40,23 @@ CORPUS_VARIANTS: Dict[str, Sequence[str]] = {
     "statpearls_textbooks": ("statpearls", "textbooks"),
 }
 PLANNED_EMBEDDING_MODELS = [
-    DEFAULT_HF_EMBEDDING_MODEL,
-    "ncbi/MedCPT-Query-Encoder",
+    DEFAULT_EMBEDDING_MODEL,
     "BAAI/bge-large-en-v1.5",
 ]
-SMOKE_EMBEDDING_MODELS = [DEFAULT_HF_EMBEDDING_MODEL]
-EMBEDDING_DEVICE = "auto"
-EMBEDDING_LOCAL_FILES_ONLY = True
+SMOKE_EMBEDDING_MODELS = [DEFAULT_EMBEDDING_MODEL]
+EMBEDDING_BACKEND = "api"
+EMBEDDING_API_BASE_URL = first_env_value(
+    "RAG_EMBEDDING_API_BASE_URL",
+    default=DEFAULT_EMBEDDING_API_BASE_URL,
+)
+EMBEDDING_API_KEY = first_env_value("RAG_EMBEDDING_API_KEY", "SILICONFLOW_API_KEY")
+EMBEDDING_API_DIMENSIONS = None
+EMBEDDING_API_TIMEOUT = 120.0
+EMBEDDING_API_MAX_RETRIES = 5
 INDEX_BATCH_SIZE = 64
 INDEX_INSERT_BATCH_SIZE = 256
+EMBEDDING_ADAPTER = "llama_index.embeddings.openai.OpenAIEmbedding"
+EVALUATION_LLM_CLIENT = "llama_index.llms.openai_like.OpenAILike"
 
 
 def _slug(value: str) -> str:
@@ -56,6 +68,53 @@ def _slug(value: str) -> str:
         .replace(":", "_")
         .replace(" ", "_")
     )
+
+
+def describe_embedding_runtime() -> Dict[str, object]:
+    """Record one embedding runtime contract for all phase 1 smoke rows."""
+    return {
+        "backend": EMBEDDING_BACKEND,
+        "adapter": EMBEDDING_ADAPTER,
+        "api_used": EMBEDDING_BACKEND == "api",
+        "api_base_url": EMBEDDING_API_BASE_URL,
+        "api_dimensions": EMBEDDING_API_DIMENSIONS,
+        "api_timeout": EMBEDDING_API_TIMEOUT,
+        "api_max_retries": EMBEDDING_API_MAX_RETRIES,
+        "smoke_models": list(SMOKE_EMBEDDING_MODELS),
+        "planned_models": list(PLANNED_EMBEDDING_MODELS),
+    }
+
+
+def describe_llm_runtime(config: EvaluationLLMConfig) -> Dict[str, object]:
+    """Record LLM API provenance without persisting credentials."""
+    return {
+        "client": EVALUATION_LLM_CLIENT,
+        "api_used": True,
+        "provider": config.provider,
+        "model": config.model,
+        "base_url": config.base_url,
+        "temperature": config.temperature,
+        "enable_thinking": config.enable_thinking,
+    }
+
+
+def validate_phase1_embedding_runtime() -> None:
+    """Fail early when API embedding is requested but not configured."""
+    if EMBEDDING_BACKEND != "api":
+        return
+
+    missing = [
+        name
+        for name, value in {
+            "RAG_EMBEDDING_API_BASE_URL or default SiliconFlow URL": EMBEDDING_API_BASE_URL,
+            "RAG_EMBEDDING_API_KEY or SILICONFLOW_API_KEY": EMBEDDING_API_KEY,
+        }.items()
+        if not value
+    ]
+    if missing:
+        raise ValueError(
+            "Embedding API configuration is missing: " + ", ".join(missing)
+        )
 
 
 def ensure_phase1_corpora() -> None:
@@ -124,11 +183,14 @@ def build_phase1_index(
         corpus_file=corpus_path,
         index_dir=index_dir,
         embedding_model=embedding_model,
-        embedding_device=EMBEDDING_DEVICE,
         batch_size=INDEX_BATCH_SIZE,
         insert_batch_size=INDEX_INSERT_BATCH_SIZE,
-        local_files_only=EMBEDDING_LOCAL_FILES_ONLY,
         use_gpu_faiss=False,
+        embedding_api_base_url=EMBEDDING_API_BASE_URL,
+        embedding_api_key=EMBEDDING_API_KEY,
+        embedding_api_dimensions=EMBEDDING_API_DIMENSIONS,
+        embedding_api_timeout=EMBEDDING_API_TIMEOUT,
+        embedding_api_max_retries=EMBEDDING_API_MAX_RETRIES,
         corpus_version=f"phase1-smoke:{variant_name}",
     )
     started_at = time.time()
@@ -143,6 +205,7 @@ def evaluate_index(
     variant_name: str,
     embedding_model: str,
     index_dir: Path,
+    llm_config: EvaluationLLMConfig,
 ) -> List[Dict[str, object]]:
     """Evaluate one smoke index over the configured k values."""
     questions = load_questions()[:SAMPLE_SIZE]
@@ -155,7 +218,7 @@ def evaluate_index(
         )
         result = evaluate_sync_dataset(
             vectorstore=vectorstore,
-            llm_config=EvaluationLLMConfig(),
+            llm_config=llm_config,
             questions=questions,
             top_k=k,
             run_name="PHASE1_SMOKE",
@@ -167,6 +230,12 @@ def evaluate_index(
             {
                 "corpus_variant": variant_name,
                 "embedding_model": embedding_model,
+                "embedding_backend": EMBEDDING_BACKEND,
+                "embedding_api_used": EMBEDDING_BACKEND == "api",
+                "embedding_api_base_url": EMBEDDING_API_BASE_URL,
+                "llm_provider": llm_config.provider,
+                "llm_model": llm_config.model,
+                "llm_base_url": llm_config.base_url,
                 "k": k,
                 "accuracy": result["accuracy"],
                 "correct": result["correct"],
@@ -196,9 +265,11 @@ def write_csv(path: Path, rows: Sequence[Dict[str, object]]) -> None:
 
 def run_phase1_smoke() -> Dict[str, object]:
     """Run the small, explicitly non-final phase 1 ablation smoke."""
+    validate_phase1_embedding_runtime()
     ensure_phase1_corpora()
     all_rows: List[Dict[str, object]] = []
     index_metadata: List[Dict[str, object]] = []
+    llm_config = EvaluationLLMConfig()
 
     for variant_name, sources in CORPUS_VARIANTS.items():
         corpus_path = write_smoke_corpus(variant_name, sources)
@@ -214,6 +285,7 @@ def run_phase1_smoke() -> Dict[str, object]:
                     variant_name=variant_name,
                     embedding_model=embedding_model,
                     index_dir=Path(str(metadata["phase1_index_dir"])),
+                    llm_config=llm_config,
                 )
             )
 
@@ -224,6 +296,8 @@ def run_phase1_smoke() -> Dict[str, object]:
         "corpus_variants": {k: list(v) for k, v in CORPUS_VARIANTS.items()},
         "planned_embedding_models": PLANNED_EMBEDDING_MODELS,
         "smoke_embedding_models": SMOKE_EMBEDDING_MODELS,
+        "embedding_runtime": describe_embedding_runtime(),
+        "llm_runtime": describe_llm_runtime(llm_config),
         "k_values": K_VALUES,
         "index_metadata": index_metadata,
         "results": all_rows,

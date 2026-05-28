@@ -9,54 +9,19 @@ from typing import Any, Dict, Optional
 from ..data.json_utils import load_json_safe
 
 
-DEFAULT_HF_EMBEDDING_MODEL = "BAAI/bge-m3"
+DEFAULT_EMBEDDING_MODEL = "BAAI/bge-m3"
+DEFAULT_EMBEDDING_API_BASE_URL = "https://api.siliconflow.cn/v1"
+DEFAULT_RERANKER_API_URL = "https://api.siliconflow.cn/v1/rerank"
+DEFAULT_API_RERANKER_MODEL = "BAAI/bge-reranker-v2-m3"
 
 
-def _is_torch_device_available(device: str) -> bool:
-    """Check whether the requested torch device can be used."""
-    if device == "cpu":
-        return True
-
-    try:
-        import torch
-    except Exception:
-        return False
-
-    if device == "cuda":
-        return torch.cuda.is_available()
-    if device == "mps":
-        return bool(
-            getattr(torch.backends, "mps", None) and torch.backends.mps.is_available()
-        )
-    return False
-
-
-def resolve_torch_device(
-    preferred_device: Optional[str] = None,
-    *,
-    env_var: Optional[str] = "RAG_EMBEDDING_DEVICE",
-) -> str:
-    """Resolve a torch device with automatic fallback when accelerators are unavailable."""
-    raw_value = preferred_device
-    if raw_value is None and env_var:
-        raw_value = os.getenv(env_var)
-
-    requested = (raw_value or "auto").strip().lower()
-
-    if requested == "auto":
-        for candidate in ("cuda", "mps"):
-            if _is_torch_device_available(candidate):
-                return candidate
-        return "cpu"
-
-    if requested not in {"cpu", "cuda", "mps"}:
-        raise ValueError(f"Unsupported device: {requested}")
-
-    if _is_torch_device_available(requested):
-        return requested
-
-    print(f"[Torch] Requested device '{requested}' is unavailable; falling back to CPU")
-    return "cpu"
+def first_env_value(*names: str, default: str = "") -> str:
+    """Return the first non-empty environment value without duplicating fallback logic."""
+    for name in names:
+        value = os.getenv(name)
+        if value is not None and value.strip():
+            return value.strip()
+    return default
 
 
 def load_embedding_metadata(index_dir: Optional[str]) -> Dict[str, Any]:
@@ -78,12 +43,10 @@ def load_embedding_metadata(index_dir: Optional[str]) -> Dict[str, Any]:
 def resolve_embedding_runtime(
     index_dir: Optional[str] = None,
     *,
-    default_model: str = DEFAULT_HF_EMBEDDING_MODEL,
-    preferred_device: Optional[str] = None,
+    default_model: str = DEFAULT_EMBEDDING_MODEL,
     model_env_var: str = "RAG_EMBEDDING_MODEL",
-    device_env_var: str = "RAG_EMBEDDING_DEVICE",
 ) -> Dict[str, Any]:
-    """Resolve the runtime embedding model/device, preferring persisted index metadata."""
+    """Resolve API embedding runtime, preferring persisted index metadata."""
     metadata = load_embedding_metadata(index_dir)
     recorded_model = metadata.get("embedding_model")
     metadata_path = str(Path(index_dir) / "build_metadata.json") if index_dir else None
@@ -96,8 +59,17 @@ def resolve_embedding_runtime(
         )
 
     return {
+        "backend": "api",
         "model_name": recorded_model or env_model or default_model,
-        "device": resolve_torch_device(preferred_device, env_var=device_env_var),
+        "api_base_url": metadata.get("embedding_api_base_url")
+        or first_env_value(
+            "RAG_EMBEDDING_API_BASE_URL",
+            default=DEFAULT_EMBEDDING_API_BASE_URL,
+        ),
+        "api_key": first_env_value("RAG_EMBEDDING_API_KEY", "SILICONFLOW_API_KEY"),
+        "api_dimensions": metadata.get("embedding_api_dimensions"),
+        "api_timeout": float(metadata.get("embedding_api_timeout", 120.0)),
+        "api_max_retries": int(metadata.get("embedding_api_max_retries", 5)),
         "recorded_model": recorded_model,
         "metadata_path": metadata_path,
     }

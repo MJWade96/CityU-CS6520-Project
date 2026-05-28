@@ -23,5 +23,17 @@
 - Fact: Textbooks was successfully synced from `MedRAG/textbooks` into `app/rag/data/medical_corpus/textbooks_corpus.json` with 125,847 records.
   Evidence: `python app\rag\data\medical_corpus\download_textbooks.py` runtime output; verified from runtime output and generated file inspection.
 
-- Fact: Phase 1 smoke run completed with `sample_size=5`, corpus variants `statpearls` and `statpearls_textbooks`, embedding `BAAI/bge-m3`, and k values `3/5/10`. It generated small ignored indexes and wrote `results/evaluation/phase1/phase1_smoke_summary.json` plus `.csv`. These are pipeline verification artifacts, not formal ablation results.
+- Fact: Phase 1 smoke run completed with `sample_size=5`, corpus variants `statpearls` and `statpearls_textbooks`, API embedding model `BAAI/bge-m3`, and k values `3/5/10`. It generated small ignored indexes and wrote `results/evaluation/phase1/phase1_smoke_summary.json` plus `.csv`. These are pipeline verification artifacts, not formal ablation results.
   Evidence: `python run_phase1_ablation.py` runtime output and `results/evaluation/phase1/phase1_smoke_summary.json`; verified from runtime output and generated summary inspection.
+
+- Fact: Phase 1 uses API runtime for embedding and reranker. Embedding is wired through LlamaIndex `OpenAIEmbedding` with `model_name` set to SiliconFlow model names, and reranking is wired through the official `llama-index-postprocessor-siliconflow-rerank` package.
+  Evidence: `run_phase1_ablation.py`, `app/rag/retriever/vector_store.py`, `app/rag/retriever/reranker.py`; verified from implementation and runtime API probes.
+
+- Fact: On 2026-05-28, no `RAG_EMBEDDING_API_*` environment variables were set, and probing the existing default OpenAI-compatible LLM endpoint with `client.embeddings.create(...)` failed with HTTP 400 because the endpoint expected chat `messages`. Therefore the current default LLM endpoint is not a verified embeddings API.
+  Evidence: runtime output from the minimal embedding API probe; verified from runtime output.
+
+- Fact: With phase 1 using embedding backend `api`, `python run_phase1_ablation.py` blocks early until an embedding API key is configured via `RAG_EMBEDDING_API_KEY` or `SILICONFLOW_API_KEY`. This is intentional and prevents silent fallback.
+  Evidence: `run_phase1_ablation.py`; verified from implementation.
+
+- Fact: SiliconFlow API docs define embeddings at `https://api.siliconflow.cn/v1/embeddings` and rerank at `https://api.siliconflow.cn/v1/rerank`. The project defaults API embedding/reranker URLs to SiliconFlow and accepts `SILICONFLOW_API_KEY` as a shared key fallback. On 2026-05-28, real probes succeeded for `BAAI/bge-m3`, `BAAI/bge-large-en-v1.5`, and `BAAI/bge-reranker-v2-m3`; local embedding and local reranker code/dependencies were removed after that success. The active implementation uses official LlamaIndex integrations instead of project-local API adapters.
+  Evidence: SiliconFlow API docs, LlamaIndex docs changelog, `app/rag/retriever/runtime_config.py`, `app/rag/retriever/vector_store.py`, `app/rag/retriever/reranker.py`, runtime probe outputs; verified from documentation, implementation, and runtime output.

@@ -62,8 +62,12 @@ def load_vector_store(index_path: Path) -> MedicalVectorStore:
     runtime = resolve_embedding_runtime(str(index_path), default_model="BAAI/bge-m3")
     vectorstore = MedicalVectorStore(
         embedding_model_name=runtime["model_name"],
-        embedding_device=runtime["device"],
         normalize_embeddings=True,
+        embedding_api_base_url=runtime["api_base_url"],
+        embedding_api_key=runtime["api_key"],
+        embedding_api_dimensions=runtime["api_dimensions"],
+        embedding_api_timeout=runtime["api_timeout"],
+        embedding_api_max_retries=runtime["api_max_retries"],
     )
     vectorstore.load(str(index_path))
     return vectorstore

@@ -16,6 +16,11 @@ from ..data.data_paths import EVALUATION_RESULTS_DIR, FAISS_INDEX_DIR, MEDQA_FIL
 from ..retriever.hybrid_retriever import HybridRetriever
 from ..retriever.query_rewrite import QueryRewritePipeline
 from ..retriever.reranker import RerankerPipeline
+from ..retriever.runtime_config import (
+    DEFAULT_API_RERANKER_MODEL,
+    DEFAULT_RERANKER_API_URL,
+    first_env_value,
+)
 from ..retriever.vector_store import MedicalVectorStore
 from ..utils.progress_manager import EvaluationProgressManager
 from .eval_shared import (
@@ -77,10 +82,22 @@ class EnhancedEvaluationConfig:
     )
     use_reranker: bool = True
     reranker_model: str = field(
-        default_factory=lambda: os.getenv("RAG_RERANKER_MODEL", "BAAI/bge-reranker-large")
+        default_factory=lambda: os.getenv(
+            "RAG_RERANKER_MODEL",
+            DEFAULT_API_RERANKER_MODEL,
+        )
     )
-    reranker_device: str = field(
-        default_factory=lambda: os.getenv("RAG_RERANKER_DEVICE", "auto")
+    reranker_api_url: str = field(
+        default_factory=lambda: first_env_value(
+            "RAG_RERANKER_API_URL",
+            default=DEFAULT_RERANKER_API_URL,
+        )
+    )
+    reranker_api_key: str = field(
+        default_factory=lambda: first_env_value(
+            "RAG_RERANKER_API_KEY",
+            "SILICONFLOW_API_KEY",
+        )
     )
     llm: EvaluationLLMConfig = field(default_factory=EvaluationLLMConfig)
     concurrency: ConcurrencyConfig = field(
@@ -181,8 +198,9 @@ def build_enhanced_query_engine(
         reranker = RerankerPipeline(
             use_cross_encoder=True,
             cross_encoder_model=config.reranker_model,
-            cross_encoder_device=config.reranker_device,
             top_k=reranker_top_k,
+            api_url=config.reranker_api_url,
+            api_key=config.reranker_api_key,
         )
         if reranker.cross_encoder is not None and reranker.cross_encoder.available:
             node_postprocessors = [reranker.cross_encoder.model]
@@ -262,6 +280,8 @@ def _build_progress_config(
             "reranker_top_k": config.resolved_reranker_top_k,
             "reranker_input_count": config.resolved_retrieval_top_k,
             "reranker_output_count": config.resolved_reranker_top_k,
+            "reranker_backend": "api",
+            "reranker_api_url": config.reranker_api_url,
             "hybrid_alpha": config.hybrid_alpha,
             "max_concurrent": config.concurrency.max_concurrent,
             "rpm_limit": config.concurrency.rpm_limit,
@@ -510,9 +530,10 @@ def print_evaluation_header(
     print(f"  LLM Query Rewrite: {config.use_llm_query_rewrite}")
     print(f"  LLM Query Rewrite Mode: {config.llm_query_rewrite_mode}")
     print(f"  Reranker: {config.use_reranker}")
+    print("  Reranker Backend: api")
     print(f"  Reranker Top K: {config.resolved_reranker_top_k}")
     print(f"  Reranker Model: {config.reranker_model}")
-    print(f"  Reranker Device: {config.reranker_device}")
+    print(f"  Reranker API URL: {config.reranker_api_url}")
     print(f"  Max Concurrent: {config.concurrency.max_concurrent}")
     print(f"  Progress Save Every: {config.progress_save_every} questions")
     print(f"  Progress Print Every: {config.progress_print_every} questions")
@@ -583,8 +604,9 @@ async def run_enhanced_evaluation(config: EnhancedEvaluationConfig) -> Dict[str,
         "use_llm_query_rewrite": config.use_llm_query_rewrite,
         "llm_query_rewrite_mode": config.llm_query_rewrite_mode,
         "use_reranker": config.use_reranker,
+        "reranker_backend": "api",
         "reranker_model": config.reranker_model,
-        "reranker_device": config.reranker_device,
+        "reranker_api_url": config.reranker_api_url,
         "max_concurrent": config.concurrency.max_concurrent,
         "rpm_limit": config.concurrency.rpm_limit,
         "progress_save_every": config.progress_save_every,

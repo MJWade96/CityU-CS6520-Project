@@ -23,7 +23,8 @@ def read_text(path: Path) -> str:
 def test_primary_vector_store_uses_native_llamaindex_components() -> None:
     source = read_text(STORE_FILE)
 
-    assert "HuggingFaceEmbedding" in source
+    assert "OpenAIEmbedding" in source
+    assert "HuggingFaceEmbedding" not in source
     assert "FaissVectorStore" in source
     assert "VectorStoreIndex" in source
 
@@ -46,7 +47,6 @@ def test_primary_entrypoints_route_through_canonical_modules() -> None:
     assert "Building FAISS index" in build_source
     assert "BATCH_SIZE = 256" in build_source
     assert "INSERT_BATCH_SIZE = 8192" in build_source
-    assert "LOCAL_FILES_ONLY = True" in build_source
     assert "USE_GPU_FAISS = False" in build_source
     assert "show_progress=True" in build_source
     assert "tqdm.write" in build_source
@@ -150,7 +150,6 @@ def test_resolve_embedding_runtime_prefers_recorded_model_over_env(
     runtime = resolve_embedding_runtime(
         str(tmp_path),
         default_model="default-model",
-        preferred_device="cpu",
     )
 
     assert runtime["model_name"] == "recorded-model"
@@ -159,12 +158,12 @@ def test_resolve_embedding_runtime_prefers_recorded_model_over_env(
 def test_requirements_keep_only_native_llamaindex_packages() -> None:
     source = read_text(REQUIREMENTS_FILE)
 
-    assert "llama-index-embeddings-huggingface" in source
     assert "llama-index-llms-openai-like" in source
+    assert "llama-index-embeddings-huggingface" not in source
     assert "langchain" not in source.lower()
 
 
-def test_native_vector_store_uses_local_hf_and_explicit_gpu_faiss() -> None:
+def test_native_vector_store_uses_api_embedding_and_explicit_gpu_faiss() -> None:
     source = read_text(STORE_FILE)
 
     assert "class BatchFaissVectorStore" in source
@@ -172,7 +171,8 @@ def test_native_vector_store_uses_local_hf_and_explicit_gpu_faiss() -> None:
     assert "run_transformations" in source
     assert "insert_nodes" in source
     assert "self.index.insert(document)" not in source
-    assert "local_files_only=local_files_only" in source
+    assert "OpenAIEmbedding" in source
+    assert "HuggingFaceEmbedding" not in source
     assert "use_gpu_faiss" in source
     assert "index_cpu_to_gpu" in source
     assert "index_gpu_to_cpu" in source

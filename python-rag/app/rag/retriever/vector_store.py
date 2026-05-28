@@ -11,7 +11,7 @@ import numpy as np
 from llama_index.core import StorageContext, VectorStoreIndex, load_index_from_storage
 from llama_index.core import Document as LlamaDocument
 from llama_index.core.ingestion.pipeline import run_transformations
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.vector_stores.faiss import FaissVectorStore
 
 from ..data.json_utils import load_json_safe, save_json_atomic
@@ -48,25 +48,38 @@ class MedicalVectorStore:
     def __init__(
         self,
         embedding_model_name: str = "BAAI/bge-m3",
-        embedding_device: str = "cpu",
         normalize_embeddings: bool = True,
         batch_size: int = 256,
-        local_files_only: bool = False,
         use_gpu_faiss: bool = False,
+        embedding_api_base_url: str = "",
+        embedding_api_key: str = "",
+        embedding_api_dimensions: Optional[int] = None,
+        embedding_api_timeout: float = 120.0,
+        embedding_api_max_retries: int = 5,
     ):
+        self.embedding_backend = "api"
         self.embedding_model_name = embedding_model_name
-        self.embedding_device = embedding_device
         self.normalize_embeddings = normalize_embeddings
         self.batch_size = batch_size
-        self.local_files_only = local_files_only
         self.use_gpu_faiss = use_gpu_faiss
+        self.embedding_api_base_url = embedding_api_base_url
+        self.embedding_api_dimensions = embedding_api_dimensions
+        self.embedding_api_timeout = embedding_api_timeout
+        self.embedding_api_max_retries = embedding_api_max_retries
         self.index: Optional[VectorStoreIndex] = None
-        self._embed_model = HuggingFaceEmbedding(
-            model_name=embedding_model_name,
-            device=embedding_device,
-            normalize=normalize_embeddings,
+        if not embedding_api_base_url:
+            raise ValueError("RAG_EMBEDDING_API_BASE_URL must be set for API embeddings")
+        if not embedding_api_key:
+            raise ValueError("RAG_EMBEDDING_API_KEY must be set for API embeddings")
+
+        self._embed_model = OpenAIEmbedding(
             embed_batch_size=batch_size,
-            local_files_only=local_files_only,
+            model_name=embedding_model_name,
+            api_base=embedding_api_base_url,
+            api_key=embedding_api_key,
+            dimensions=embedding_api_dimensions,
+            timeout=embedding_api_timeout,
+            max_retries=embedding_api_max_retries,
         )
 
     def _require_index(self) -> VectorStoreIndex:
@@ -212,9 +225,10 @@ class MedicalVectorStore:
             persist_dir / "metadata.json",
             {
                 "store_type": "native-faiss",
+                "embedding_backend": self.embedding_backend,
                 "embedding_model": self.embedding_model_name,
-                "embedding_device": self.embedding_device,
-                "embedding_local_files_only": self.local_files_only,
+                "embedding_api_base_url": self.embedding_api_base_url,
+                "embedding_api_dimensions": self.embedding_api_dimensions,
                 "use_gpu_faiss": self.use_gpu_faiss,
             },
             indent=2,
