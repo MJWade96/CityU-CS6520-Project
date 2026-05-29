@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import sys
 from pathlib import Path
@@ -216,9 +217,13 @@ def test_medcpt_query_autodl_script_embeds_query_texts_only() -> None:
 
     assert 'MEDCPT_QUERY_MODEL = "ncbi/MedCPT-Query-Encoder"' in source
     assert 'QUERY_INPUT_FORMAT = "retrieval_query_text_only"' in source
+    assert "QueryRewritePipeline" in source
     assert "build_query" not in source
     assert "build_medical_eval_prompt" not in source
-    assert "QueryRewritePipeline" not in source
+    assert "retrieve_top80" not in source
+    assert "hybrid_retrieve_top80" not in source
+    assert "rerank_rows" not in source
+    assert "faiss" not in source
     assert "argparse" not in source
     assert "parse_args" not in source
 
@@ -242,6 +247,47 @@ def test_medcpt_naive_query_text_rows_use_question_field_only() -> None:
             "question": "Which finding is most likely?",
             "query_text": "Which finding is most likely?",
             "query_text_source": "medqa_usmle_question_field",
+            "contains_options": False,
+            "contains_answer_prompt": False,
+        }
+    ]
+
+
+def test_medcpt_advanced_query_text_rows_use_rewritten_query(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.rag.evaluation.eval_shared import EvaluationLLMConfig
+    from app.rag.experiments import run_medcpt_query_embedding_autodl as module
+
+    class FakeRewritePipeline:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        async def arewrite(self, query, **kwargs):
+            return f"{query} rewritten for retrieval", [query]
+
+    monkeypatch.setattr(module, "QueryRewritePipeline", FakeRewritePipeline)
+
+    rows = asyncio.run(
+        module.build_advanced_query_text_rows(
+            [
+                {
+                    "id": "dev-1",
+                    "question": "Which diagnosis is most likely?",
+                    "options": ["Alpha", "Beta"],
+                }
+            ],
+            EvaluationLLMConfig(),
+        )
+    )
+
+    assert rows == [
+        {
+            "question_id": "dev-1",
+            "question": "Which diagnosis is most likely?",
+            "original_query": "Which diagnosis is most likely?",
+            "query_text": "Which diagnosis is most likely? rewritten for retrieval",
+            "query_text_source": "query_rewrite_pipeline",
             "contains_options": False,
             "contains_answer_prompt": False,
         }

@@ -1,13 +1,14 @@
 """Generate reusable MedCPT query embeddings on AutoDL.
 
-This script only embeds already resolved retrieval query texts. It does not run
-query rewrite, retrieval, reranking, FAISS construction, or final LLM prompting.
-Naive runs derive query texts from the MedQA-USMLE question field; advanced runs
-must provide precomputed rewritten query texts in ``query_texts.jsonl`` first.
+This script only performs query-embedding work. It may run query enhancement to
+resolve advanced retrieval query texts, but it does not run retrieval, reranking,
+FAISS construction, final LLM prompting, or answer generation. Naive runs derive
+query texts from the MedQA-USMLE question field.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from dataclasses import asdict
@@ -19,10 +20,16 @@ import numpy as np
 from app.rag.data.benchmarks.medqa_usmle import load_medqa_usmle_split
 from app.rag.data.data_paths import RETRIEVAL_CACHE_DIR, ensure_data_directories
 from app.rag.data.json_utils import save_json_atomic
+from app.rag.evaluation.eval_shared import (
+    ConcurrencyConfig,
+    EvaluationLLMConfig,
+    create_eval_context,
+)
 from app.rag.experiments.phase1_formal_ablation import (
     FormalRunSpec,
     build_formal_matrix,
 )
+from app.rag.retriever.query_rewrite import QueryRewritePipeline
 
 
 DATASET_SPLIT = "dev"
@@ -32,6 +39,7 @@ EMBEDDING_BACKEND = "local_medcpt"
 RUN_IDS_TO_EMBED: Sequence[str] = ()
 BATCH_SIZE = 128
 MEDCPT_QUERY_MAX_LENGTH = 64
+REWRITE_PROGRESS_EVERY = 10
 QUERY_TEXTS_FILENAME = "query_texts.jsonl"
 QUERY_EMBEDDING_MANIFEST_FILENAME = "query_embedding_manifest.json"
 SOURCE_RUNTIME = "autodl"
@@ -48,14 +56,6 @@ def _query_embeddings_path(run: FormalRunSpec) -> Path:
 
 def _query_embedding_manifest_path(run: FormalRunSpec) -> Path:
     return RETRIEVAL_CACHE_DIR / run.run_id / QUERY_EMBEDDING_MANIFEST_FILENAME
-
-
-def _iter_jsonl(path: Path) -> Iterable[Dict[str, Any]]:
-    with path.open("r", encoding="utf-8") as handle:
-        for line in handle:
-            stripped = line.strip()
-            if stripped:
-                yield json.loads(stripped)
 
 
 def _write_jsonl(path: Path, rows: Iterable[Mapping[str, Any]]) -> None:
@@ -101,6 +101,51 @@ def build_naive_query_text_rows(
     return rows
 
 
+async def build_advanced_query_text_rows(
+    questions: Sequence[Mapping[str, Any]],
+    llm_config: EvaluationLLMConfig,
+) -> List[Dict[str, Any]]:
+    """Run only query enhancement needed before advanced query embedding."""
+    query_rewriter = QueryRewritePipeline(
+        use_dict=True,
+        use_llm=True,
+        llm_provider=llm_config.provider,
+        llm_model=llm_config.model,
+        api_key=llm_config.api_key,
+        base_url=llm_config.base_url,
+        llm_temperature=llm_config.temperature,
+        llm_enable_thinking=llm_config.enable_thinking,
+    )
+    ctx = create_eval_context(llm_config, ConcurrencyConfig())
+    rows: List[Dict[str, Any]] = []
+    for index, item in enumerate(questions, start=1):
+        original_query = str(item["question"])
+        rewritten_query, _ = await query_rewriter.arewrite(
+            original_query,
+            rate_limiter=ctx.rate_limiter,
+            api_semaphore=ctx.semaphore,
+            use_llm=True,
+        )
+        rows.append(
+            {
+                "question_id": item.get("id", f"{DATASET_SPLIT}-{index}"),
+                "question": str(item["question"]),
+                "original_query": original_query,
+                "query_text": rewritten_query,
+                "query_text_source": "query_rewrite_pipeline",
+                "contains_options": False,
+                "contains_answer_prompt": False,
+            }
+        )
+        if (
+            index == 1
+            or index % REWRITE_PROGRESS_EVERY == 0
+            or index == len(questions)
+        ):
+            print(f"  rewritten {index:,}/{len(questions):,} queries", flush=True)
+    return rows
+
+
 def _validate_query_text_rows(
     run: FormalRunSpec,
     rows: Sequence[Mapping[str, Any]],
@@ -116,11 +161,12 @@ def _validate_query_text_rows(
             raise ValueError(f"{run.run_id} query_text is empty at row {index}")
 
 
-def resolve_query_text_rows(
+async def resolve_query_text_rows(
     run: FormalRunSpec,
     questions: Sequence[Mapping[str, Any]],
+    llm_config: EvaluationLLMConfig,
 ) -> List[Dict[str, Any]]:
-    """Resolve embedding inputs without invoking rewrite or retrieval side effects."""
+    """Resolve embedding inputs without retrieval or answer-generation side effects."""
     path = _query_texts_path(run)
     if run.pipeline == "naive_rag":
         rows = build_naive_query_text_rows(questions)
@@ -128,14 +174,10 @@ def resolve_query_text_rows(
         return rows
 
     if run.pipeline == "advanced_rag":
-        if not path.exists():
-            raise FileNotFoundError(
-                f"{run.run_id} requires precomputed rewritten query texts at {path}. "
-                "This embedding-only script does not run query enhancement."
-            )
-        rows = list(_iter_jsonl(path))
+        rows = await build_advanced_query_text_rows(questions, llm_config)
         _validate_query_text_rows(run, rows, questions)
-        return [dict(row) for row in rows]
+        _write_jsonl(path, rows)
+        return rows
 
     raise ValueError(f"Unsupported formal pipeline for query embeddings: {run.pipeline}")
 
@@ -206,7 +248,7 @@ def write_query_embedding_manifest(
             "query_encoder_model": MEDCPT_QUERY_MODEL,
             "embedding_backend": EMBEDDING_BACKEND,
             "query_input_format": QUERY_INPUT_FORMAT,
-            "contains_options": False if run.pipeline == "naive_rag" else "precomputed",
+            "contains_options": False,
             "contains_answer_prompt": False,
             "query_texts_path": str(_query_texts_path(run)),
             "query_embeddings_path": str(_query_embeddings_path(run)),
@@ -218,15 +260,16 @@ def write_query_embedding_manifest(
     )
 
 
-def embed_run_queries(
+async def embed_run_queries(
     run: FormalRunSpec,
     questions: Sequence[Mapping[str, Any]],
     *,
     tokenizer: Any,
     model: Any,
     device: str,
+    llm_config: EvaluationLLMConfig,
 ) -> None:
-    rows = resolve_query_text_rows(run, questions)
+    rows = await resolve_query_text_rows(run, questions, llm_config)
     texts = [str(row["query_text"]) for row in rows]
     output_path = _query_embeddings_path(run)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -251,15 +294,27 @@ def embed_run_queries(
     )
 
 
-def main() -> None:
+async def async_main() -> None:
     ensure_data_directories()
     questions = load_medqa_usmle_split(DATASET_SPLIT)
     runs = select_medcpt_runs(build_formal_matrix())
     if not runs:
         raise ValueError("No MedCPT formal runs selected for query embedding")
+    llm_config = EvaluationLLMConfig()
     tokenizer, model, device = _load_medcpt_query_model()
     for run in runs:
-        embed_run_queries(run, questions, tokenizer=tokenizer, model=model, device=device)
+        await embed_run_queries(
+            run,
+            questions,
+            tokenizer=tokenizer,
+            model=model,
+            device=device,
+            llm_config=llm_config,
+        )
+
+
+def main() -> None:
+    asyncio.run(async_main())
 
 
 if __name__ == "__main__":
