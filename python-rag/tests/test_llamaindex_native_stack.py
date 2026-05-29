@@ -109,6 +109,27 @@ def test_primary_configs_default_to_single_faiss_store() -> None:
     assert SampleEvalConfig().vector_store_path.name == "faiss_index"
 
 
+def test_openai_like_kwargs_keep_enable_thinking_inside_extra_body() -> None:
+    import sys
+
+    sys.path.insert(0, str(PROJECT_ROOT.resolve()))
+
+    from llama_index.llms.openai_like import OpenAILike  # pylint: disable=import-outside-toplevel
+
+    from app.rag.evaluation.eval_shared import (  # pylint: disable=import-outside-toplevel
+        EvaluationLLMConfig,
+        get_qwen_openai_like_kwargs,
+    )
+
+    kwargs = get_qwen_openai_like_kwargs(EvaluationLLMConfig(enable_thinking=False))
+    model_kwargs = OpenAILike(**kwargs)._get_model_kwargs(max_tokens=7)
+
+    assert kwargs["additional_kwargs"] == {"extra_body": {"enable_thinking": False}}
+    assert "enable_thinking" not in kwargs["additional_kwargs"]
+    assert model_kwargs["extra_body"] == {"enable_thinking": False}
+    assert "enable_thinking" not in model_kwargs
+
+
 def test_resume_helper_uses_primary_script_names_only() -> None:
     source = read_text(RESUME_FILE)
 

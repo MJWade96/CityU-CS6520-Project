@@ -248,9 +248,11 @@ def get_qwen_openai_like_kwargs(config: EvaluationLLMConfig) -> Dict[str, Any]:
         "timeout": float(os.getenv("RAG_LLM_TIMEOUT", "120.0")),
         "max_retries": int(os.getenv("RAG_LLM_MAX_RETRIES", "5")),
     }
-    additional_kwargs = build_extra_body(enable_thinking=config.enable_thinking)
-    if additional_kwargs:
-        kwargs["additional_kwargs"] = additional_kwargs
+    extra_body = build_extra_body(enable_thinking=config.enable_thinking)
+    if extra_body:
+        # LlamaIndex flattens additional_kwargs into the OpenAI SDK call, so
+        # provider-specific fields must stay nested under extra_body.
+        kwargs["additional_kwargs"] = {"extra_body": extra_body}
     return kwargs
 
 
