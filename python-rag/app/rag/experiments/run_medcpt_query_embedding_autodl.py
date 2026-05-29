@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 import json
 import time
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Sequence
 
@@ -25,10 +25,6 @@ from app.rag.evaluation.eval_shared import (
     EvaluationLLMConfig,
     create_eval_context,
 )
-from app.rag.experiments.phase1_formal_ablation import (
-    FormalRunSpec,
-    build_formal_matrix,
-)
 from app.rag.retriever.query_rewrite import QueryRewritePipeline
 
 
@@ -36,7 +32,6 @@ DATASET_SPLIT = "dev"
 FORMAL_MEDCPT_MODEL = "ncbi/MedCPT"
 MEDCPT_QUERY_MODEL = "ncbi/MedCPT-Query-Encoder"
 EMBEDDING_BACKEND = "local_medcpt"
-RUN_IDS_TO_EMBED: Sequence[str] = ()
 BATCH_SIZE = 2048
 MEDCPT_QUERY_MAX_LENGTH = 64
 REWRITE_PROGRESS_EVERY = 10
@@ -46,16 +41,39 @@ SOURCE_RUNTIME = "autodl"
 QUERY_INPUT_FORMAT = "retrieval_query_text_only"
 
 
-def _query_texts_path(run: FormalRunSpec) -> Path:
-    return RETRIEVAL_CACHE_DIR / run.run_id / QUERY_TEXTS_FILENAME
+@dataclass(frozen=True)
+class QueryEmbeddingSpec:
+    """One MedCPT query embedding cache target independent of formal matrix rows."""
+
+    cache_id: str
+    pipeline: str
+    query_text_source: str
 
 
-def _query_embeddings_path(run: FormalRunSpec) -> Path:
-    return RETRIEVAL_CACHE_DIR / run.run_id / "query_embeddings.npy"
+QUERY_EMBEDDING_SPECS: Sequence[QueryEmbeddingSpec] = (
+    QueryEmbeddingSpec(
+        cache_id="stage1_naive_medcpt",
+        pipeline="naive_rag",
+        query_text_source="medqa_usmle_question_field",
+    ),
+    QueryEmbeddingSpec(
+        cache_id="advanced_medcpt_rewritten_query",
+        pipeline="advanced_rag",
+        query_text_source="query_rewrite_pipeline",
+    ),
+)
 
 
-def _query_embedding_manifest_path(run: FormalRunSpec) -> Path:
-    return RETRIEVAL_CACHE_DIR / run.run_id / QUERY_EMBEDDING_MANIFEST_FILENAME
+def _query_texts_path(spec: QueryEmbeddingSpec) -> Path:
+    return RETRIEVAL_CACHE_DIR / spec.cache_id / QUERY_TEXTS_FILENAME
+
+
+def _query_embeddings_path(spec: QueryEmbeddingSpec) -> Path:
+    return RETRIEVAL_CACHE_DIR / spec.cache_id / "query_embeddings.npy"
+
+
+def _query_embedding_manifest_path(spec: QueryEmbeddingSpec) -> Path:
+    return RETRIEVAL_CACHE_DIR / spec.cache_id / QUERY_EMBEDDING_MANIFEST_FILENAME
 
 
 def _write_jsonl(path: Path, rows: Iterable[Mapping[str, Any]]) -> None:
@@ -63,23 +81,6 @@ def _write_jsonl(path: Path, rows: Iterable[Mapping[str, Any]]) -> None:
     with path.open("w", encoding="utf-8") as handle:
         for row in rows:
             handle.write(json.dumps(row, ensure_ascii=False) + "\n")
-
-
-def select_medcpt_runs(rows: Sequence[FormalRunSpec]) -> List[FormalRunSpec]:
-    """Pick only formal MedCPT runs, with optional script-local run filtering."""
-    selected = [
-        row
-        for row in rows
-        if row.embedding_model == FORMAL_MEDCPT_MODEL
-        and row.embedding_backend == EMBEDDING_BACKEND
-    ]
-    if RUN_IDS_TO_EMBED:
-        wanted = set(RUN_IDS_TO_EMBED)
-        selected = [row for row in selected if row.run_id in wanted]
-        missing = wanted.difference(row.run_id for row in selected)
-        if missing:
-            raise KeyError(f"Unknown MedCPT run ids: {sorted(missing)}")
-    return selected
 
 
 def build_naive_query_text_rows(
@@ -147,39 +148,39 @@ async def build_advanced_query_text_rows(
 
 
 def _validate_query_text_rows(
-    run: FormalRunSpec,
+    spec: QueryEmbeddingSpec,
     rows: Sequence[Mapping[str, Any]],
     questions: Sequence[Mapping[str, Any]],
 ) -> None:
     if len(rows) != len(questions):
         raise ValueError(
-            f"{run.run_id} query text count {len(rows)} does not match "
+            f"{spec.cache_id} query text count {len(rows)} does not match "
             f"{DATASET_SPLIT} question count {len(questions)}"
         )
     for index, row in enumerate(rows, start=1):
         if not str(row.get("query_text") or "").strip():
-            raise ValueError(f"{run.run_id} query_text is empty at row {index}")
+            raise ValueError(f"{spec.cache_id} query_text is empty at row {index}")
 
 
 async def resolve_query_text_rows(
-    run: FormalRunSpec,
+    spec: QueryEmbeddingSpec,
     questions: Sequence[Mapping[str, Any]],
     llm_config: EvaluationLLMConfig,
 ) -> List[Dict[str, Any]]:
     """Resolve embedding inputs without retrieval or answer-generation side effects."""
-    path = _query_texts_path(run)
-    if run.pipeline == "naive_rag":
+    path = _query_texts_path(spec)
+    if spec.pipeline == "naive_rag":
         rows = build_naive_query_text_rows(questions)
         _write_jsonl(path, rows)
         return rows
 
-    if run.pipeline == "advanced_rag":
+    if spec.pipeline == "advanced_rag":
         rows = await build_advanced_query_text_rows(questions, llm_config)
-        _validate_query_text_rows(run, rows, questions)
+        _validate_query_text_rows(spec, rows, questions)
         _write_jsonl(path, rows)
         return rows
 
-    raise ValueError(f"Unsupported formal pipeline for query embeddings: {run.pipeline}")
+    raise ValueError(f"Unsupported pipeline for query embeddings: {spec.pipeline}")
 
 
 def _load_medcpt_query_model() -> Any:
@@ -232,16 +233,16 @@ def embed_query_texts(
 
 
 def write_query_embedding_manifest(
-    run: FormalRunSpec,
+    spec: QueryEmbeddingSpec,
     *,
     query_text_count: int,
     embedding_dim: int,
     elapsed_seconds: float,
 ) -> None:
     save_json_atomic(
-        _query_embedding_manifest_path(run),
+        _query_embedding_manifest_path(spec),
         {
-            "run": asdict(run),
+            "cache": asdict(spec),
             "dataset_split": DATASET_SPLIT,
             "query_text_count": query_text_count,
             "embedding_model": FORMAL_MEDCPT_MODEL,
@@ -250,8 +251,8 @@ def write_query_embedding_manifest(
             "query_input_format": QUERY_INPUT_FORMAT,
             "contains_options": False,
             "contains_answer_prompt": False,
-            "query_texts_path": str(_query_texts_path(run)),
-            "query_embeddings_path": str(_query_embeddings_path(run)),
+            "query_texts_path": str(_query_texts_path(spec)),
+            "query_embeddings_path": str(_query_embeddings_path(spec)),
             "source_runtime": SOURCE_RUNTIME,
             "created_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
             "build_time_seconds": elapsed_seconds,
@@ -261,7 +262,7 @@ def write_query_embedding_manifest(
 
 
 async def embed_run_queries(
-    run: FormalRunSpec,
+    spec: QueryEmbeddingSpec,
     questions: Sequence[Mapping[str, Any]],
     *,
     tokenizer: Any,
@@ -269,12 +270,12 @@ async def embed_run_queries(
     device: str,
     llm_config: EvaluationLLMConfig,
 ) -> None:
-    rows = await resolve_query_text_rows(run, questions, llm_config)
+    rows = await resolve_query_text_rows(spec, questions, llm_config)
     texts = [str(row["query_text"]) for row in rows]
-    output_path = _query_embeddings_path(run)
+    output_path = _query_embeddings_path(spec)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     print(
-        f"Embedding run={run.run_id}, pipeline={run.pipeline}, "
+        f"Embedding cache={spec.cache_id}, pipeline={spec.pipeline}, "
         f"queries={len(texts):,}, output={output_path}",
         flush=True,
     )
@@ -282,14 +283,14 @@ async def embed_run_queries(
     embeddings = embed_query_texts(tokenizer, model, device, texts)
     np.save(output_path, embeddings)
     write_query_embedding_manifest(
-        run,
+        spec,
         query_text_count=len(texts),
         embedding_dim=int(embeddings.shape[1]),
         elapsed_seconds=time.time() - started_at,
     )
     print(
-        f"Finished run={run.run_id}, shape={embeddings.shape}, "
-        f"manifest={_query_embedding_manifest_path(run)}",
+        f"Finished cache={spec.cache_id}, shape={embeddings.shape}, "
+        f"manifest={_query_embedding_manifest_path(spec)}",
         flush=True,
     )
 
@@ -297,14 +298,11 @@ async def embed_run_queries(
 async def async_main() -> None:
     ensure_data_directories()
     questions = load_medqa_usmle_split(DATASET_SPLIT)
-    runs = select_medcpt_runs(build_formal_matrix())
-    if not runs:
-        raise ValueError("No MedCPT formal runs selected for query embedding")
     llm_config = EvaluationLLMConfig()
     tokenizer, model, device = _load_medcpt_query_model()
-    for run in runs:
+    for spec in QUERY_EMBEDDING_SPECS:
         await embed_run_queries(
-            run,
+            spec,
             questions,
             tokenizer=tokenizer,
             model=model,

@@ -218,6 +218,8 @@ def test_medcpt_query_autodl_script_embeds_query_texts_only() -> None:
     assert 'MEDCPT_QUERY_MODEL = "ncbi/MedCPT-Query-Encoder"' in source
     assert 'QUERY_INPUT_FORMAT = "retrieval_query_text_only"' in source
     assert "QueryRewritePipeline" in source
+    assert "build_formal_matrix" not in source
+    assert "select_medcpt_runs" not in source
     assert "build_query" not in source
     assert "build_medical_eval_prompt" not in source
     assert "retrieve_top80" not in source
@@ -226,6 +228,17 @@ def test_medcpt_query_autodl_script_embeds_query_texts_only() -> None:
     assert "faiss" not in source
     assert "argparse" not in source
     assert "parse_args" not in source
+
+
+def test_medcpt_query_autodl_defaults_to_naive_and_advanced_caches() -> None:
+    from app.rag.experiments import run_medcpt_query_embedding_autodl as module
+
+    specs = {spec.cache_id: spec.pipeline for spec in module.QUERY_EMBEDDING_SPECS}
+
+    assert specs == {
+        "stage1_naive_medcpt": "naive_rag",
+        "advanced_medcpt_rewritten_query": "advanced_rag",
+    }
 
 
 def test_medcpt_naive_query_text_rows_use_question_field_only() -> None:
