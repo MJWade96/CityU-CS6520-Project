@@ -154,3 +154,52 @@ def test_formal_runtime_requires_external_medcpt_embeddings_before_local_index()
         runtime.ensure_chunk_embeddings(run, [{"text": "example"}])
 
     assert "Generate" in str(exc_info.value)
+
+
+def test_formal_documents_are_minimal_flat_mapping(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.rag.experiments import formal_ablation_runtime as runtime
+
+    monkeypatch.setattr(
+        runtime,
+        "combine_registered_corpora",
+        lambda selected_sources: {
+            "records": [
+                {
+                    "id": "doc-1",
+                    "title": "Title",
+                    "content": "Content",
+                    "contents": "Title. Content",
+                    "source": "statpearls",
+                    "section": "ignored",
+                }
+            ]
+        },
+    )
+
+    documents = runtime.load_corpus_documents("statpearls")
+
+    assert documents == [
+        {
+            "doc_id": "doc-1",
+            "title": "Title",
+            "source": "statpearls",
+            "text": "Title. Content",
+        }
+    ]
+
+
+def test_medcpt_autodl_script_reuses_medscore_core_without_cli_args() -> None:
+    source = (
+        PROJECT_ROOT
+        / "app"
+        / "rag"
+        / "experiments"
+        / "run_medcpt_embedding_autodl.py"
+    ).read_text(encoding="utf-8")
+
+    assert "class CustomizeSentenceTransformer" in source
+    assert 'Pooling(transformer_model.get_word_embedding_dimension(), "cls")' in source
+    assert 'EMBEDDING_INPUT_FORMAT = "title_content_pair"' in source
+    assert "[[str(record[\"title\"]), str(record[\"content\"])]" in source
+    assert "argparse" not in source
+    assert "parse_args" not in source

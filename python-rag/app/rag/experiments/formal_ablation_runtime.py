@@ -250,19 +250,12 @@ def load_corpus_documents(corpus_version: str) -> List[Dict[str, Any]]:
         text = str(record.get("contents") or record.get("content") or "").strip()
         if not text:
             continue
-        metadata = {
-            key: value
-            for key, value in record.items()
-            if key not in {"content", "contents"}
-        }
-        metadata["_doc_index"] = index
         records.append(
             {
                 "doc_id": str(record.get("id") or f"{corpus_version}-{index}"),
                 "title": record.get("title", ""),
                 "source": record.get("source", "unknown"),
                 "text": text,
-                "metadata": metadata,
             }
         )
     if not records:
@@ -331,7 +324,13 @@ def ensure_dense_index(run: FormalRunSpec) -> Dict[str, Any]:
         index = faiss.IndexFlatIP(embeddings.shape[1])
         index.add(embeddings)
         faiss.write_index(index, str(paths.faiss_index))
+    existing_manifest = (
+        json.loads(paths.manifest.read_text(encoding="utf-8"))
+        if paths.manifest.exists()
+        else {}
+    )
     manifest = {
+        **existing_manifest,
         "corpus_version": run.corpus_version,
         "corpus_file": str(paths.documents),
         "document_count": len(documents),
@@ -339,10 +338,11 @@ def ensure_dense_index(run: FormalRunSpec) -> Dict[str, Any]:
         "embedding_backend": provider.backend,
         "faiss_index_type": FAISS_INDEX_TYPE,
         "embedding_dim": int(embeddings.shape[1]),
-        "source_runtime": "local",
+        "source_runtime": existing_manifest.get("source_runtime", "local"),
         "documents_path": str(paths.documents),
         "chunk_embeddings_path": str(paths.chunk_embeddings),
         "faiss_index_path": str(paths.faiss_index),
+        "faiss_source_runtime": "local",
         "build_time_seconds": time.time() - started_at,
         "built_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
     }
@@ -389,7 +389,7 @@ def dense_search_top80(
                     "source": document.get("source"),
                     "title": document.get("title"),
                     "text": document["text"],
-                    "metadata": document.get("metadata", {}),
+                    "metadata": {},
                 }
             )
         rows.append(
@@ -464,7 +464,11 @@ def ensure_bm25_index(run: FormalRunSpec) -> Any:
         TextNode(
             text=str(document["text"]),
             id_=str(document["doc_id"]),
-            metadata=dict(document.get("metadata", {})),
+            metadata={
+                "doc_id": str(document["doc_id"]),
+                "source": document.get("source"),
+                "title": document.get("title"),
+            },
         )
         for document in documents
     ]
