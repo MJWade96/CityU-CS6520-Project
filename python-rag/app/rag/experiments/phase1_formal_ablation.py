@@ -407,21 +407,29 @@ async def execute_configured_formal_runs() -> List[Dict[str, Any]]:
     if not FORMAL_RUN_IDS_TO_EXECUTE:
         return []
 
-    from app.rag.experiments.formal_ablation_runtime import execute_naive_run
+    from app.rag.experiments.formal_ablation_runtime import (
+        execute_advanced_run,
+        execute_naive_run,
+    )
 
     rows_by_id = {row.run_id: row for row in build_formal_matrix()}
-    questions = load_medqa_usmle_split("dev")
     results: List[Dict[str, Any]] = []
+    questions = load_medqa_usmle_split("dev")
     for run_id in FORMAL_RUN_IDS_TO_EXECUTE:
         if run_id not in rows_by_id:
             raise KeyError(f"Unknown formal run id: {run_id}")
-        row = rows_by_id[run_id]
-        if row.pipeline != "naive_rag":
-            raise NotImplementedError(
-                f"Configured formal execution currently supports naive_rag only: {run_id}"
-            )
         print(f"Executing formal run: {run_id}", flush=True)
-        results.append(await execute_naive_run(row, questions))
+        row = rows_by_id[run_id]
+        if row.pipeline == "naive_rag":
+            results.append(await execute_naive_run(row, questions))
+            continue
+        if row.pipeline == "advanced_rag":
+            results.append(await execute_advanced_run(row, questions))
+            continue
+        else:
+            raise NotImplementedError(
+                f"Configured formal execution does not support pipeline {row.pipeline}: {run_id}"
+            )
     return results
 
 

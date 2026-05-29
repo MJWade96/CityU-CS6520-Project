@@ -6,6 +6,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT.resolve()))
@@ -121,9 +123,34 @@ def test_formal_runtime_declares_real_cache_artifact_paths() -> None:
 
     assert str(index_paths.chunk_embeddings).endswith("chunk_embeddings.npy")
     assert str(index_paths.faiss_index).endswith("faiss.index")
+    assert str(index_paths.bm25_index_dir).endswith("bm25")
     assert str(run_paths.query_embeddings).endswith("query_embeddings.npy")
     assert str(run_paths.retrieval_top80).endswith("retrieval_top80.jsonl")
     assert str(run_paths.final_prompts).endswith("final_prompts.jsonl")
     assert str(run_paths.llm_outputs).endswith("llm_outputs.jsonl")
     assert str(run_paths.token_usage).endswith("token_usage.json")
     assert str(run_paths.estimated_token_cost).endswith("estimated_token_cost.json")
+
+
+def test_formal_runtime_uses_llamaindex_bm25_not_ad_hoc_rank_bm25() -> None:
+    runtime_source = (
+        PROJECT_ROOT / "app" / "rag" / "experiments" / "formal_ablation_runtime.py"
+    ).read_text(encoding="utf-8")
+
+    assert "BM25Retriever.from_defaults" in runtime_source
+    assert "BM25Retriever.from_persist_dir" in runtime_source
+    assert "rank_bm25" not in runtime_source
+    assert "BM25Okapi" not in runtime_source
+    assert "QueryFusionRetriever" in runtime_source
+
+
+def test_formal_runtime_requires_external_medcpt_embeddings_before_local_index() -> None:
+    from app.rag.experiments import formal_ablation_runtime as runtime
+    from app.rag.experiments.phase1_formal_ablation import build_formal_matrix
+
+    run = next(row for row in build_formal_matrix() if row.run_id == "stage1_naive_medcpt")
+
+    with pytest.raises(FileNotFoundError) as exc_info:
+        runtime.ensure_chunk_embeddings(run, [{"text": "example"}])
+
+    assert "Generate" in str(exc_info.value)
