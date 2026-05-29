@@ -203,3 +203,46 @@ def test_medcpt_autodl_script_reuses_medscore_core_without_cli_args() -> None:
     assert "[[str(record[\"title\"]), str(record[\"content\"])]" in source
     assert "argparse" not in source
     assert "parse_args" not in source
+
+
+def test_medcpt_query_autodl_script_embeds_query_texts_only() -> None:
+    source = (
+        PROJECT_ROOT
+        / "app"
+        / "rag"
+        / "experiments"
+        / "run_medcpt_query_embedding_autodl.py"
+    ).read_text(encoding="utf-8")
+
+    assert 'MEDCPT_QUERY_MODEL = "ncbi/MedCPT-Query-Encoder"' in source
+    assert 'QUERY_INPUT_FORMAT = "retrieval_query_text_only"' in source
+    assert "build_query" not in source
+    assert "build_medical_eval_prompt" not in source
+    assert "QueryRewritePipeline" not in source
+    assert "argparse" not in source
+    assert "parse_args" not in source
+
+
+def test_medcpt_naive_query_text_rows_use_question_field_only() -> None:
+    from app.rag.experiments import run_medcpt_query_embedding_autodl as module
+
+    rows = module.build_naive_query_text_rows(
+        [
+            {
+                "id": "dev-1",
+                "question": "Which finding is most likely?",
+                "options": ["Alpha", "Beta"],
+            }
+        ]
+    )
+
+    assert rows == [
+        {
+            "question_id": "dev-1",
+            "question": "Which finding is most likely?",
+            "query_text": "Which finding is most likely?",
+            "query_text_source": "medqa_usmle_question_field",
+            "contains_options": False,
+            "contains_answer_prompt": False,
+        }
+    ]
