@@ -384,8 +384,8 @@ def test_query_rewrite_cache_checkpoints_and_resumes(
         lambda llm_config: FailingRewritePipeline(),
     )
 
-    with pytest.raises(RuntimeError, match="audit blocked"):
-        asyncio.run(module.write_rewrite_cache(spec, questions, EvaluationLLMConfig()))
+    monkeypatch.setattr(module, "RUN_MODE", "rewrite_all")
+    asyncio.run(module.write_rewrite_cache(spec, questions, EvaluationLLMConfig()))
 
     checkpoint_path = output_path.with_name(module.QUERY_TEXTS_CHECKPOINT_FILENAME)
     errors_path = output_path.with_name(module.QUERY_REWRITE_ERRORS_FILENAME)
@@ -397,6 +397,7 @@ def test_query_rewrite_cache_checkpoints_and_resumes(
     ]
     assert [row["question_id"] for row in checkpoint_rows] == ["dev-1"]
     assert error_rows[-1]["question_id"] == "dev-2"
+    assert not output_path.exists()
 
     class SuccessfulRewritePipeline:
         async def arewrite(self, query, **kwargs):
@@ -407,6 +408,7 @@ def test_query_rewrite_cache_checkpoints_and_resumes(
         "create_query_rewriter",
         lambda llm_config: SuccessfulRewritePipeline(),
     )
+    monkeypatch.setattr(module, "RUN_MODE", "retry_errors")
 
     asyncio.run(module.write_rewrite_cache(spec, questions, EvaluationLLMConfig()))
 
