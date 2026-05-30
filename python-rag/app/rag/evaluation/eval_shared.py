@@ -26,16 +26,26 @@ from ..data.json_utils import load_json_safe
 DEFAULT_BASE_URL = "https://api.siliconflow.cn/v1"
 DEFAULT_MODEL = "Qwen/Qwen3-8B"
 DEFAULT_PROVIDER = "Qwen3-8B"
-DEFAULT_API_KEY = ""
+DEFAULT_API_KEY = "sk-jwbxcbszdqdinhqofxikohzyjisdvwnkljbrzkfqufuxcbyy"
 
 
 @dataclass
 class EvaluationLLMConfig:
-    provider: str = os.getenv("RAG_LLM_PROVIDER", DEFAULT_PROVIDER)
-    model: str = os.getenv("RAG_LLM_MODEL", DEFAULT_MODEL)
-    temperature: float = float(os.getenv("RAG_LLM_TEMPERATURE", "0.1"))
-    base_url: str = os.getenv("RAG_LLM_BASE_URL", DEFAULT_BASE_URL)
-    api_key: str = os.getenv("RAG_LLM_API_KEY", DEFAULT_API_KEY)
+    provider: str = field(
+        default_factory=lambda: os.getenv("RAG_LLM_PROVIDER", DEFAULT_PROVIDER)
+    )
+    model: str = field(
+        default_factory=lambda: os.getenv("RAG_LLM_MODEL", DEFAULT_MODEL)
+    )
+    temperature: float = field(
+        default_factory=lambda: float(os.getenv("RAG_LLM_TEMPERATURE", "0.1"))
+    )
+    base_url: str = field(
+        default_factory=lambda: os.getenv("RAG_LLM_BASE_URL", DEFAULT_BASE_URL)
+    )
+    api_key: str = field(
+        default_factory=lambda: os.getenv("RAG_LLM_API_KEY", DEFAULT_API_KEY)
+    )
     enable_thinking: Optional[bool] = field(
         default_factory=lambda: parse_optional_bool_env(
             "RAG_LLM_ENABLE_THINKING", default=False
