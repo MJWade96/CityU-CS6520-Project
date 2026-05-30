@@ -348,3 +348,70 @@ def test_medcpt_advanced_query_text_rows_use_rewritten_query(
             "contains_answer_prompt": False,
         }
     ]
+
+
+def test_query_rewrite_cache_checkpoints_and_resumes(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from app.rag.evaluation.eval_shared import EvaluationLLMConfig
+    from app.rag.experiments import run_query_rewrite_cache_autodl as module
+    from app.rag.experiments.run_medcpt_query_embedding_autodl import (
+        QUERY_EMBEDDING_SPECS,
+    )
+
+    spec = next(
+        spec
+        for spec in QUERY_EMBEDDING_SPECS
+        if spec.cache_id == "advanced_medcpt_rewritten_query"
+    )
+    output_path = tmp_path / "query_texts.jsonl"
+    questions = [
+        {"id": "dev-1", "question": "Question one?"},
+        {"id": "dev-2", "question": "Question two?"},
+    ]
+
+    class FailingRewritePipeline:
+        async def arewrite(self, query, **kwargs):
+            if query == "Question two?":
+                raise RuntimeError("audit blocked")
+            return f"{query} rewritten", [query]
+
+    monkeypatch.setattr(module, "_query_texts_path", lambda _: output_path)
+    monkeypatch.setattr(
+        module,
+        "create_query_rewriter",
+        lambda llm_config: FailingRewritePipeline(),
+    )
+
+    with pytest.raises(RuntimeError, match="audit blocked"):
+        asyncio.run(module.write_rewrite_cache(spec, questions, EvaluationLLMConfig()))
+
+    checkpoint_path = output_path.with_name(module.QUERY_TEXTS_CHECKPOINT_FILENAME)
+    errors_path = output_path.with_name(module.QUERY_REWRITE_ERRORS_FILENAME)
+    checkpoint_rows = [
+        json.loads(line) for line in checkpoint_path.read_text(encoding="utf-8").splitlines()
+    ]
+    error_rows = [
+        json.loads(line) for line in errors_path.read_text(encoding="utf-8").splitlines()
+    ]
+    assert [row["question_id"] for row in checkpoint_rows] == ["dev-1"]
+    assert error_rows[-1]["question_id"] == "dev-2"
+
+    class SuccessfulRewritePipeline:
+        async def arewrite(self, query, **kwargs):
+            return f"{query} rewritten", [query]
+
+    monkeypatch.setattr(
+        module,
+        "create_query_rewriter",
+        lambda llm_config: SuccessfulRewritePipeline(),
+    )
+
+    asyncio.run(module.write_rewrite_cache(spec, questions, EvaluationLLMConfig()))
+
+    final_rows = [
+        json.loads(line) for line in output_path.read_text(encoding="utf-8").splitlines()
+    ]
+    assert [row["question_id"] for row in final_rows] == ["dev-1", "dev-2"]
+    assert not checkpoint_path.exists()
