@@ -589,6 +589,89 @@ def _estimate_tokens(text: str) -> int:
     return max(1, int(len(text) / 4))
 
 
+async def evaluate_final_answers(
+    *,
+    run: FormalRunSpec,
+    selected_questions: Sequence[Dict[str, Any]],
+    contexts_by_question: Sequence[Sequence[Mapping[str, Any]]],
+    llm: EvaluationLLMConfig,
+) -> Dict[str, Any]:
+    """Generate final answers concurrently while reusing shared LLM limiters."""
+    concurrency = ConcurrencyConfig()
+    ctx = create_eval_context(llm, concurrency)
+    progress = {"done": 0, "correct": 0}
+    progress_lock = asyncio.Lock()
+    total = len(selected_questions)
+
+    async def evaluate_one(
+        index: int,
+        item: Dict[str, Any],
+        contexts: Sequence[Mapping[str, Any]],
+    ) -> Dict[str, Any]:
+        prompt = build_final_prompt(item, contexts)
+        response = await call_llm(ctx, prompt)
+        result = build_eval_result(
+            item,
+            response,
+            {
+                "retrieved_docs": len(contexts),
+                "scores": [context["score"] for context in contexts],
+                "contexts": [context["text"] for context in contexts],
+            },
+        )
+        async with progress_lock:
+            progress["done"] += 1
+            progress["correct"] += 1 if result["is_correct"] else 0
+            done = progress["done"]
+            if done == 1 or done % LLM_PROGRESS_EVERY == 0 or done == total:
+                print(
+                    f"  {run.run_id}: answered {done:,}/{total:,}, "
+                    f"accuracy={progress['correct'] / done:.4f}",
+                    flush=True,
+                )
+        return {
+            "index": index,
+            "prompt_row": {
+                "question_id": item.get("id", f"dev-{index}"),
+                "prompt": prompt,
+                "prompt_token_estimate": _estimate_tokens(prompt),
+            },
+            "llm_row": {
+                "question_id": item.get("id", f"dev-{index}"),
+                "response": response,
+                "completion_token_estimate": _estimate_tokens(response),
+                "predicted_answer": result["predicted_answer"],
+                "correct_answer": result["correct_answer"],
+                "is_correct": result["is_correct"],
+            },
+            "result": result,
+        }
+
+    task_results = await asyncio.gather(
+        *(
+            evaluate_one(index, item, contexts_by_question[index - 1])
+            for index, item in enumerate(selected_questions, start=1)
+        )
+    )
+    ordered = sorted(task_results, key=lambda row: row["index"])
+    prompt_rows = [row["prompt_row"] for row in ordered]
+    llm_rows = [row["llm_row"] for row in ordered]
+    detailed_results = [row["result"] for row in ordered]
+    return {
+        "prompt_rows": prompt_rows,
+        "llm_rows": llm_rows,
+        "detailed_results": detailed_results,
+        "correct": sum(1 for row in detailed_results if row["is_correct"]),
+        "prompt_tokens": sum(row["prompt_token_estimate"] for row in prompt_rows),
+        "completion_tokens": sum(
+            row["completion_token_estimate"] for row in llm_rows
+        ),
+        "max_concurrent": concurrency.max_concurrent,
+        "rpm_limit": concurrency.rpm_limit,
+        "tpm_limit": concurrency.tpm_limit,
+    }
+
+
 async def execute_naive_run(
     run: FormalRunSpec,
     questions: Sequence[Dict[str, Any]],
@@ -607,60 +690,18 @@ async def execute_naive_run(
     retrieval_rows = retrieve_top80(run, selected_questions)
     k = _resolve_int_k(run.k)
     llm = llm_config or EvaluationLLMConfig()
-    ctx = create_eval_context(llm, ConcurrencyConfig())
-    prompt_rows: List[Dict[str, Any]] = []
-    llm_rows: List[Dict[str, Any]] = []
-    detailed_results: List[Dict[str, Any]] = []
-    correct = 0
-    prompt_tokens = 0
-    completion_tokens = 0
+    contexts_by_question = [row["contexts"][:k] for row in retrieval_rows]
     started_at = time.time()
-
-    for index, item in enumerate(selected_questions, start=1):
-        retrieval = retrieval_rows[index - 1]
-        contexts = retrieval["contexts"][:k]
-        prompt = build_final_prompt(item, contexts)
-        response = await call_llm(ctx, prompt)
-        result = build_eval_result(
-            item,
-            response,
-            {
-                "retrieved_docs": len(contexts),
-                "scores": [context["score"] for context in contexts],
-                "contexts": [context["text"] for context in contexts],
-            },
-        )
-        correct += 1 if result["is_correct"] else 0
-        prompt_token_estimate = _estimate_tokens(prompt)
-        completion_token_estimate = _estimate_tokens(response)
-        prompt_tokens += prompt_token_estimate
-        completion_tokens += completion_token_estimate
-        prompt_rows.append(
-            {
-                "question_id": item.get("id", f"dev-{index}"),
-                "prompt": prompt,
-                "prompt_token_estimate": prompt_token_estimate,
-            }
-        )
-        llm_rows.append(
-            {
-                "question_id": item.get("id", f"dev-{index}"),
-                "response": response,
-                "completion_token_estimate": completion_token_estimate,
-                "predicted_answer": result["predicted_answer"],
-                "correct_answer": result["correct_answer"],
-                "is_correct": result["is_correct"],
-            }
-        )
-        detailed_results.append(result)
-        if index == 1 or index % LLM_PROGRESS_EVERY == 0 or index == len(selected_questions):
-            print(
-                f"  {run.run_id}: answered {index:,}/{len(selected_questions):,}, "
-                f"accuracy={correct / index:.4f}",
-                flush=True,
-            )
+    generation = await evaluate_final_answers(
+        run=run,
+        selected_questions=selected_questions,
+        contexts_by_question=contexts_by_question,
+        llm=llm,
+    )
 
     elapsed = time.time() - started_at
+    prompt_tokens = generation["prompt_tokens"]
+    completion_tokens = generation["completion_tokens"]
     token_usage = {
         "prompt_tokens_estimated": prompt_tokens,
         "completion_tokens_estimated": completion_tokens,
@@ -671,18 +712,25 @@ async def execute_naive_run(
         "run": asdict(run),
         "status": "completed",
         "total_questions": len(selected_questions),
-        "correct": correct,
-        "accuracy": correct / len(selected_questions) if selected_questions else 0.0,
+        "correct": generation["correct"],
+        "accuracy": (
+            generation["correct"] / len(selected_questions) if selected_questions else 0.0
+        ),
         "latency_seconds": elapsed,
         "questions_per_second": len(selected_questions) / elapsed if elapsed > 0 else 0.0,
         "retrieval_time_seconds": None,
         "rerank_time_seconds": 0.0,
+        "llm_concurrency": {
+            "max_concurrent": generation["max_concurrent"],
+            "rpm_limit": generation["rpm_limit"],
+            "tpm_limit": generation["tpm_limit"],
+        },
         "token_usage": token_usage,
         "artifact_paths": {key: str(value) for key, value in asdict(run_paths).items()},
-        "detailed_results": detailed_results,
+        "detailed_results": generation["detailed_results"],
     }
-    _write_jsonl(run_paths.final_prompts, prompt_rows)
-    _write_jsonl(run_paths.llm_outputs, llm_rows)
+    _write_jsonl(run_paths.final_prompts, generation["prompt_rows"])
+    _write_jsonl(run_paths.llm_outputs, generation["llm_rows"])
     _write_jsonl(run_paths.rerank_outputs, [])
     save_json_atomic(run_paths.token_usage, token_usage)
     save_json_atomic(
@@ -835,58 +883,18 @@ async def execute_advanced_run(
         reranker_output_count=reranker_output_count,
     )
 
-    ctx = create_eval_context(llm, ConcurrencyConfig())
-    prompt_rows: List[Dict[str, Any]] = []
-    llm_rows: List[Dict[str, Any]] = []
-    detailed_results: List[Dict[str, Any]] = []
-    correct = 0
-    prompt_tokens = 0
-    completion_tokens = 0
+    contexts_by_question = [row["contexts"][:k] for row in rerank_rows_result]
     started_at = time.time()
-    for index, item in enumerate(selected_questions, start=1):
-        contexts = rerank_rows_result[index - 1]["contexts"][:k]
-        prompt = build_final_prompt(item, contexts)
-        response = await call_llm(ctx, prompt)
-        result = build_eval_result(
-            item,
-            response,
-            {
-                "retrieved_docs": len(contexts),
-                "scores": [context["score"] for context in contexts],
-                "contexts": [context["text"] for context in contexts],
-            },
-        )
-        correct += 1 if result["is_correct"] else 0
-        prompt_token_estimate = _estimate_tokens(prompt)
-        completion_token_estimate = _estimate_tokens(response)
-        prompt_tokens += prompt_token_estimate
-        completion_tokens += completion_token_estimate
-        prompt_rows.append(
-            {
-                "question_id": item.get("id", f"dev-{index}"),
-                "prompt": prompt,
-                "prompt_token_estimate": prompt_token_estimate,
-            }
-        )
-        llm_rows.append(
-            {
-                "question_id": item.get("id", f"dev-{index}"),
-                "response": response,
-                "completion_token_estimate": completion_token_estimate,
-                "predicted_answer": result["predicted_answer"],
-                "correct_answer": result["correct_answer"],
-                "is_correct": result["is_correct"],
-            }
-        )
-        detailed_results.append(result)
-        if index == 1 or index % LLM_PROGRESS_EVERY == 0 or index == len(selected_questions):
-            print(
-                f"  {run.run_id}: answered {index:,}/{len(selected_questions):,}, "
-                f"accuracy={correct / index:.4f}",
-                flush=True,
-            )
+    generation = await evaluate_final_answers(
+        run=run,
+        selected_questions=selected_questions,
+        contexts_by_question=contexts_by_question,
+        llm=llm,
+    )
 
     generation_elapsed = time.time() - started_at
+    prompt_tokens = generation["prompt_tokens"]
+    completion_tokens = generation["completion_tokens"]
     token_usage = {
         "prompt_tokens_estimated": prompt_tokens,
         "completion_tokens_estimated": completion_tokens,
@@ -897,8 +905,10 @@ async def execute_advanced_run(
         "run": asdict(run),
         "status": "completed",
         "total_questions": len(selected_questions),
-        "correct": correct,
-        "accuracy": correct / len(selected_questions) if selected_questions else 0.0,
+        "correct": generation["correct"],
+        "accuracy": (
+            generation["correct"] / len(selected_questions) if selected_questions else 0.0
+        ),
         "latency_seconds": retrieval_elapsed + rerank_elapsed + generation_elapsed,
         "generation_time_seconds": generation_elapsed,
         "retrieval_time_seconds": retrieval_elapsed,
@@ -906,12 +916,17 @@ async def execute_advanced_run(
         "questions_per_second": (
             len(selected_questions) / generation_elapsed if generation_elapsed > 0 else 0.0
         ),
+        "llm_concurrency": {
+            "max_concurrent": generation["max_concurrent"],
+            "rpm_limit": generation["rpm_limit"],
+            "tpm_limit": generation["tpm_limit"],
+        },
         "token_usage": token_usage,
         "artifact_paths": {key: str(value) for key, value in asdict(run_paths).items()},
-        "detailed_results": detailed_results,
+        "detailed_results": generation["detailed_results"],
     }
-    _write_jsonl(run_paths.final_prompts, prompt_rows)
-    _write_jsonl(run_paths.llm_outputs, llm_rows)
+    _write_jsonl(run_paths.final_prompts, generation["prompt_rows"])
+    _write_jsonl(run_paths.llm_outputs, generation["llm_rows"])
     save_json_atomic(run_paths.token_usage, token_usage)
     save_json_atomic(
         run_paths.estimated_token_cost,

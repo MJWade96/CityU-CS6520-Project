@@ -23,10 +23,10 @@ from ..data.data_paths import MEDQA_FILE
 from ..data.json_utils import load_json_safe
 
 
-DEFAULT_BASE_URL = "https://wishub-x6.ctyun.cn/v1"
-DEFAULT_MODEL = "8606056bfe0c49448d92587452d1f2fc"
-DEFAULT_PROVIDER = "Qwen3-4B"
-DEFAULT_API_KEY = "4dbe3bec3ee548d28b649b324e741939"
+DEFAULT_BASE_URL = "https://api.siliconflow.cn/v1"
+DEFAULT_MODEL = "Qwen/Qwen3-8B"
+DEFAULT_PROVIDER = "Qwen3-8B"
+DEFAULT_API_KEY = ""
 
 
 @dataclass
@@ -73,8 +73,15 @@ def build_extra_body(
 
 @dataclass
 class ConcurrencyConfig:
-    rpm_limit: int = int(os.getenv("RAG_EVAL_RPM_LIMIT", "60"))
-    max_concurrent: int = int(os.getenv("RAG_EVAL_MAX_CONCURRENT", "4"))
+    rpm_limit: int = field(
+        default_factory=lambda: int(os.getenv("RAG_EVAL_RPM_LIMIT", "1000"))
+    )
+    tpm_limit: int = field(
+        default_factory=lambda: int(os.getenv("RAG_EVAL_TPM_LIMIT", "50000"))
+    )
+    max_concurrent: int = field(
+        default_factory=lambda: int(os.getenv("RAG_EVAL_MAX_CONCURRENT", "4"))
+    )
 
     @property
     def requests_per_second(self) -> float:
@@ -213,6 +220,38 @@ class RateLimiter:
             await asyncio.sleep(wait_time)
 
 
+class TokenRateLimiter:
+    """Token bucket limiter for estimated prompt plus completion budget."""
+
+    def __init__(self, tokens_per_second: float, burst: int):
+        self.tokens_per_second = tokens_per_second
+        self.burst = max(1, burst)
+        self.tokens = self.burst
+        self.last_update = time.monotonic()
+        self._lock = asyncio.Lock()
+
+    async def acquire(self, token_count: int) -> None:
+        requested = max(1, min(token_count, self.burst))
+        while True:
+            async with self._lock:
+                now = time.monotonic()
+                elapsed = now - self.last_update
+                self.tokens = min(
+                    self.burst, self.tokens + elapsed * self.tokens_per_second
+                )
+                self.last_update = now
+
+                if self.tokens >= requested:
+                    self.tokens -= requested
+                    return
+
+                wait_time = max(
+                    (requested - self.tokens) / self.tokens_per_second, 0.01
+                )
+
+            await asyncio.sleep(wait_time)
+
+
 def create_async_client(config: EvaluationLLMConfig) -> AsyncOpenAI:
     """Create the shared async OpenAI-compatible client."""
     timeout = float(os.getenv("RAG_LLM_TIMEOUT", "120.0"))
@@ -226,7 +265,7 @@ def create_async_client(config: EvaluationLLMConfig) -> AsyncOpenAI:
 
 
 def get_qwen_completion_kwargs(config: EvaluationLLMConfig) -> Dict[str, Any]:
-    """Return the shared Qwen3-4B completion parameters."""
+    """Return the shared Qwen completion parameters."""
     kwargs = {
         "model": config.model,
         "temperature": config.temperature,
@@ -238,7 +277,7 @@ def get_qwen_completion_kwargs(config: EvaluationLLMConfig) -> Dict[str, Any]:
 
 
 def get_qwen_openai_like_kwargs(config: EvaluationLLMConfig) -> Dict[str, Any]:
-    """Return the shared Qwen3-4B parameters for LlamaIndex OpenAILike."""
+    """Return the shared Qwen parameters for LlamaIndex OpenAILike."""
     kwargs: Dict[str, Any] = {
         "model": config.model,
         "temperature": config.temperature,
@@ -263,6 +302,7 @@ class EvalContext:
     client: AsyncOpenAI
     semaphore: asyncio.Semaphore
     rate_limiter: RateLimiter
+    token_rate_limiter: Optional[TokenRateLimiter]
     llm_config: EvaluationLLMConfig
 
 
@@ -270,6 +310,12 @@ def create_eval_context(
     config: EvaluationLLMConfig, concurrency: ConcurrencyConfig
 ) -> EvalContext:
     """Create shared evaluation context with client and rate limiting."""
+    token_rate_limiter = None
+    if concurrency.tpm_limit > 0:
+        token_rate_limiter = TokenRateLimiter(
+            tokens_per_second=concurrency.tpm_limit / 60 * 0.9,
+            burst=concurrency.tpm_limit,
+        )
     return EvalContext(
         client=create_async_client(config),
         semaphore=asyncio.Semaphore(concurrency.max_concurrent),
@@ -277,8 +323,15 @@ def create_eval_context(
             requests_per_second=concurrency.requests_per_second,
             burst=concurrency.max_concurrent,
         ),
+        token_rate_limiter=token_rate_limiter,
         llm_config=config,
     )
+
+
+def estimate_llm_request_tokens(prompt: str) -> int:
+    """Conservatively estimate one chat request for TPM throttling."""
+    completion_reserve = int(os.getenv("RAG_LLM_COMPLETION_TOKEN_RESERVE", "512"))
+    return max(1, int(len(prompt) / 4)) + max(0, completion_reserve)
 
 
 async def call_llm(
@@ -296,6 +349,10 @@ async def call_llm(
         try:
             async with ctx.semaphore:
                 await ctx.rate_limiter.acquire()
+                if ctx.token_rate_limiter:
+                    await ctx.token_rate_limiter.acquire(
+                        estimate_llm_request_tokens(prompt)
+                    )
                 completion = await ctx.client.chat.completions.create(
                     messages=[{"role": "user", "content": prompt}],
                     **get_qwen_completion_kwargs(ctx.llm_config),

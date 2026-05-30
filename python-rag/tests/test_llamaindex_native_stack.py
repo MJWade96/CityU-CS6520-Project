@@ -130,6 +130,28 @@ def test_openai_like_kwargs_keep_enable_thinking_inside_extra_body() -> None:
     assert "enable_thinking" not in model_kwargs
 
 
+def test_llm_defaults_use_siliconflow_qwen3_8b_with_requested_limits() -> None:
+    import sys
+
+    sys.path.insert(0, str(PROJECT_ROOT.resolve()))
+
+    from app.rag.evaluation.eval_shared import (  # pylint: disable=import-outside-toplevel
+        ConcurrencyConfig,
+        EvaluationLLMConfig,
+    )
+
+    llm = EvaluationLLMConfig()
+    concurrency = ConcurrencyConfig()
+
+    assert llm.provider == "Qwen3-8B"
+    assert llm.model == "Qwen/Qwen3-8B"
+    assert llm.base_url == "https://api.siliconflow.cn/v1"
+    assert llm.temperature == 0.1
+    assert llm.enable_thinking is False
+    assert concurrency.rpm_limit == 1000
+    assert concurrency.tpm_limit == 50000
+
+
 def test_resume_helper_uses_primary_script_names_only() -> None:
     source = read_text(RESUME_FILE)
 
