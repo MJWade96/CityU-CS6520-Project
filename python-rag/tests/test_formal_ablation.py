@@ -217,9 +217,33 @@ def test_medcpt_query_autodl_script_embeds_query_texts_only() -> None:
 
     assert 'MEDCPT_QUERY_MODEL = "ncbi/MedCPT-Query-Encoder"' in source
     assert 'QUERY_INPUT_FORMAT = "retrieval_query_text_only"' in source
-    assert "QueryRewritePipeline" in source
+    assert "QueryRewritePipeline" not in source
     assert "build_formal_matrix" not in source
     assert "select_medcpt_runs" not in source
+    assert "build_query" not in source
+    assert "build_medical_eval_prompt" not in source
+    assert "retrieve_top80" not in source
+    assert "hybrid_retrieve_top80" not in source
+    assert "rerank_rows" not in source
+    assert "faiss" not in source
+    assert "argparse" not in source
+    assert "parse_args" not in source
+
+
+def test_query_rewrite_cache_script_only_rewrites_queries() -> None:
+    source = (
+        PROJECT_ROOT
+        / "app"
+        / "rag"
+        / "experiments"
+        / "run_query_rewrite_cache_autodl.py"
+    ).read_text(encoding="utf-8")
+
+    assert "QueryRewritePipeline" in source
+    assert "MEDCPT_QUERY_MODEL" not in source
+    assert "AutoModel" not in source
+    assert "embed_query_texts" not in source
+    assert "np.save" not in source
     assert "build_query" not in source
     assert "build_medical_eval_prompt" not in source
     assert "retrieve_top80" not in source
@@ -266,11 +290,30 @@ def test_medcpt_naive_query_text_rows_use_question_field_only() -> None:
     ]
 
 
+def test_medcpt_advanced_query_embedding_requires_rewrite_cache(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from app.rag.experiments import run_medcpt_query_embedding_autodl as module
+
+    spec = next(
+        spec
+        for spec in module.QUERY_EMBEDDING_SPECS
+        if spec.cache_id == "advanced_medcpt_rewritten_query"
+    )
+    monkeypatch.setattr(module, "_query_texts_path", lambda _: tmp_path / "missing.jsonl")
+
+    with pytest.raises(FileNotFoundError) as exc_info:
+        module.resolve_query_text_rows(spec, [{"id": "dev-1", "question": "Question?"}])
+
+    assert "run_query_rewrite_cache_autodl.py" in str(exc_info.value)
+
+
 def test_medcpt_advanced_query_text_rows_use_rewritten_query(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from app.rag.evaluation.eval_shared import EvaluationLLMConfig
-    from app.rag.experiments import run_medcpt_query_embedding_autodl as module
+    from app.rag.experiments import run_query_rewrite_cache_autodl as module
 
     class FakeRewritePipeline:
         def __init__(self, **kwargs):
