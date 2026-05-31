@@ -41,6 +41,7 @@ from app.rag.experiments.phase1_formal_ablation import (
     FAISS_INDEX_TYPE,
     RETRIEVAL_CACHE_TOP_K,
     FormalRunSpec,
+    has_unresolved_selection,
 )
 from app.rag.retriever.runtime_config import (
     DEFAULT_API_RERANKER_MODEL,
@@ -57,6 +58,17 @@ EMBED_BATCH_SIZE = 128
 LLM_PROGRESS_EVERY = 10
 API_EMBEDDING_TIMEOUT = 120.0
 API_EMBEDDING_MAX_RETRIES = 5
+
+
+def assert_resolved_formal_run(run: FormalRunSpec) -> None:
+    """Prevent unresolved matrix placeholders from falling back to runtime defaults."""
+    if has_unresolved_selection(run):
+        raise ValueError(
+            f"Formal run {run.run_id} still contains unresolved selection placeholders. "
+            "Resolve prior-stage winners before executing it."
+        )
+
+
 @dataclass(frozen=True)
 class DenseIndexPaths:
     """Shared paths for one corpus and embedding cache."""
@@ -651,6 +663,7 @@ async def execute_naive_run(
     """Execute a dense-only formal run over the provided dev questions."""
     if run.pipeline != "naive_rag":
         raise ValueError(f"execute_naive_run only supports naive_rag, got {run.pipeline}")
+    assert_resolved_formal_run(run)
 
     selected_questions = list(questions[:FORMAL_DEV_QUESTION_LIMIT] if FORMAL_DEV_QUESTION_LIMIT else questions)
     run_paths = formal_run_paths(run)
@@ -832,6 +845,7 @@ async def execute_advanced_run(
     """Execute a formal advanced run with query rewrite, hybrid retrieval, and rerank."""
     if run.pipeline != "advanced_rag":
         raise ValueError(f"execute_advanced_run only supports advanced_rag, got {run.pipeline}")
+    assert_resolved_formal_run(run)
 
     selected_questions = list(questions[:FORMAL_DEV_QUESTION_LIMIT] if FORMAL_DEV_QUESTION_LIMIT else questions)
     run_paths = formal_run_paths(run)

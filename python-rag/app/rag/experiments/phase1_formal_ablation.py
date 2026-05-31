@@ -61,6 +61,7 @@ CACHE_KEYS = (
     "token_usage",
     "estimated_token_cost",
 )
+UNRESOLVED_SELECTION_TOKENS = ("stage1_top", "stage2_top", "best_")
 
 
 @dataclass(frozen=True)
@@ -291,6 +292,12 @@ def build_formal_matrix() -> List[FormalRunSpec]:
 
 def build_cache_manifest(rows: Sequence[FormalRunSpec]) -> Dict[str, Any]:
     """Declare every reusable artifact recommended for formal ablations."""
+    # Reuse runtime path helpers so the planning manifest cannot drift from execution.
+    from app.rag.experiments.formal_ablation_runtime import (
+        dense_index_paths,
+        formal_run_paths,
+    )
+
     manifest: Dict[str, Any] = {
         "cache_top_k": RETRIEVAL_CACHE_TOP_K,
         "cache_keys": list(CACHE_KEYS),
@@ -303,25 +310,33 @@ def build_cache_manifest(rows: Sequence[FormalRunSpec]) -> Dict[str, Any]:
         "runs": {},
     }
     for row in rows:
-        run_dir = RUNS_DIR / row.run_id
+        index_paths = dense_index_paths(row)
+        run_paths = formal_run_paths(row)
         manifest["runs"][row.run_id] = {
-            "chunk_embeddings": str(
-                RESULT_INDEXES_DIR / row.run_id / "chunk_embeddings.jsonl"
-            ),
-            "query_embeddings": str(
-                RETRIEVAL_CACHE_DIR / row.run_id / "query_embeddings.jsonl"
-            ),
-            "faiss_index": str(RESULT_INDEXES_DIR / row.run_id / "faiss_index"),
-            "retrieval_top80": str(
-                RETRIEVAL_CACHE_DIR / row.run_id / "retrieval_top80.jsonl"
-            ),
-            "rerank_outputs": str(RERANK_CACHE_DIR / row.run_id / "rerank_outputs.jsonl"),
-            "final_prompts": str(run_dir / "final_prompts.jsonl"),
-            "llm_outputs": str(run_dir / "llm_outputs.jsonl"),
-            "token_usage": str(run_dir / "token_usage.json"),
-            "estimated_token_cost": str(run_dir / "estimated_token_cost.json"),
+            "chunk_embeddings": str(index_paths.chunk_embeddings),
+            "query_embeddings": str(run_paths.query_embeddings),
+            "faiss_index": str(index_paths.faiss_index),
+            "retrieval_top80": str(run_paths.retrieval_top80),
+            "rerank_outputs": str(run_paths.rerank_outputs),
+            "final_prompts": str(run_paths.final_prompts),
+            "llm_outputs": str(run_paths.llm_outputs),
+            "token_usage": str(run_paths.token_usage),
+            "estimated_token_cost": str(run_paths.estimated_token_cost),
         }
     return manifest
+
+
+def has_unresolved_selection(run: FormalRunSpec) -> bool:
+    """Return true for matrix rows that still depend on previous-stage winners."""
+    if run.selection_rule:
+        return True
+    values = (
+        str(run.k),
+        str(run.alpha),
+        str(run.reranker_input_count),
+        str(run.reranker_output_count),
+    )
+    return any(token in value for value in values for token in UNRESOLVED_SELECTION_TOKENS)
 
 
 def build_final_test_plan() -> Dict[str, Any]:
@@ -420,6 +435,11 @@ async def execute_configured_formal_runs() -> List[Dict[str, Any]]:
             raise KeyError(f"Unknown formal run id: {run_id}")
         print(f"Executing formal run: {run_id}", flush=True)
         row = rows_by_id[run_id]
+        if has_unresolved_selection(row):
+            raise ValueError(
+                f"Formal run {run_id} still contains unresolved selection placeholders. "
+                "Resolve prior-stage winners before executing it."
+            )
         if row.pipeline == "naive_rag":
             results.append(await execute_naive_run(row, questions))
             continue

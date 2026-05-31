@@ -65,8 +65,10 @@ def test_formal_matrix_uses_dev_and_includes_required_embeddings() -> None:
 
 def test_cache_manifest_covers_recommendation_cache_items() -> None:
     from app.rag.experiments import phase1_formal_ablation as module
+    from app.rag.experiments import formal_ablation_runtime as runtime
 
-    manifest = module.build_cache_manifest(module.build_formal_matrix())
+    rows = module.build_formal_matrix()
+    manifest = module.build_cache_manifest(rows)
 
     assert set(module.CACHE_KEYS) == {
         "chunk_embeddings",
@@ -82,6 +84,15 @@ def test_cache_manifest_covers_recommendation_cache_items() -> None:
     assert manifest["cache_top_k"] == 80
     first_run = next(iter(manifest["runs"].values()))
     assert set(module.CACHE_KEYS).issubset(first_run)
+
+    medcpt_run = next(row for row in rows if row.run_id == "stage1_naive_medcpt")
+    medcpt_manifest = manifest["runs"][medcpt_run.run_id]
+    index_paths = runtime.dense_index_paths(medcpt_run)
+    run_paths = runtime.formal_run_paths(medcpt_run)
+    assert medcpt_manifest["chunk_embeddings"] == str(index_paths.chunk_embeddings)
+    assert medcpt_manifest["faiss_index"] == str(index_paths.faiss_index)
+    assert medcpt_manifest["query_embeddings"] == str(run_paths.query_embeddings)
+    assert medcpt_manifest["retrieval_top80"] == str(run_paths.retrieval_top80)
 
 
 def test_formal_framework_does_not_use_legacy_medqa(monkeypatch) -> None:
@@ -135,6 +146,20 @@ def test_formal_runtime_declares_real_cache_artifact_paths() -> None:
     assert str(run_paths.llm_outputs).endswith("llm_outputs.jsonl")
     assert str(run_paths.token_usage).endswith("token_usage.json")
     assert str(run_paths.estimated_token_cost).endswith("estimated_token_cost.json")
+
+
+def test_formal_runtime_rejects_unresolved_selection_rows() -> None:
+    from app.rag.experiments import formal_ablation_runtime as runtime
+    from app.rag.experiments.phase1_formal_ablation import build_formal_matrix
+
+    unresolved_run = next(
+        row
+        for row in build_formal_matrix()
+        if row.run_id == "stage2_naive_stage1_top1_embedding_k3"
+    )
+
+    with pytest.raises(ValueError, match="unresolved selection placeholders"):
+        runtime.assert_resolved_formal_run(unresolved_run)
 
 
 def test_formal_runtime_uses_llamaindex_bm25_not_ad_hoc_rank_bm25() -> None:
