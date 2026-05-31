@@ -13,6 +13,7 @@ SAMPLE_FILE = EXPERIMENTS_DIR / "sample_validation.py"
 ENHANCED_FILE = EXPERIMENTS_DIR / "enhanced_eval.py"
 RESUME_FILE = EXPERIMENTS_DIR / "run_with_resume.py"
 REQUIREMENTS_FILE = PROJECT_ROOT / "requirements.txt"
+README_FILE = PROJECT_ROOT / "README.md"
 SAMPLE_IMPL_FILE = PROJECT_ROOT / "app" / "rag" / "evaluation" / "sample_validation_eval.py"
 ROOT_ENTRYPOINT_NAMES = {
     "complete_eval.py",
@@ -70,6 +71,19 @@ def test_experiment_entrypoints_are_not_root_level_scripts() -> None:
     for script_name in ROOT_ENTRYPOINT_NAMES:
         assert not (PROJECT_ROOT / script_name).exists()
         assert (EXPERIMENTS_DIR / script_name).exists()
+
+
+def test_formal_entrypoint_documents_plan_only_execution() -> None:
+    readme = read_text(README_FILE)
+    source = read_text(EXPERIMENTS_DIR / "run_formal_ablation.py")
+
+    assert "python -m app.rag.experiments.run_formal_ablation" in readme
+    assert "Executed formal runs: 0" in readme
+    assert "does not run the formal accuracy jobs" in readme
+    assert "stage1_top" in readme
+    assert "best_alpha" in readme
+    assert "__package__" in source
+    assert "sys.path.insert" in source
 
 
 def test_parallel_llamaindex_specific_modules_are_removed() -> None:
