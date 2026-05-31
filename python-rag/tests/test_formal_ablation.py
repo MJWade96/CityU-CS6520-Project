@@ -101,15 +101,19 @@ def test_formal_framework_does_not_use_legacy_medqa(monkeypatch) -> None:
 
 def test_medcpt_stays_in_experiment_framework_not_primary_retriever() -> None:
     from app.rag.experiments import phase1_formal_ablation as module
-    from app.rag.experiments import formal_ablation_runtime as runtime
 
+    runtime_source = (
+        PROJECT_ROOT / "app" / "rag" / "experiments" / "formal_ablation_runtime.py"
+    ).read_text(encoding="utf-8")
     vector_store_source = (
         PROJECT_ROOT / "app" / "rag" / "retriever" / "vector_store.py"
     ).read_text(encoding="utf-8")
 
     assert any(provider.name == "medcpt" for provider in module.EMBEDDING_PROVIDERS)
-    assert runtime.MEDCPT_QUERY_MODEL == "ncbi/MedCPT-Query-Encoder"
-    assert runtime.MEDCPT_ARTICLE_MODEL == "ncbi/MedCPT-Article-Encoder"
+    assert "AutoModel.from_pretrained" not in runtime_source
+    assert "AutoTokenizer.from_pretrained" not in runtime_source
+    assert "torch.cuda.is_available" not in runtime_source
+    assert "_embed_medcpt_texts" not in runtime_source
     assert "MedCPT" not in vector_store_source
     assert "local_medcpt" not in vector_store_source
 

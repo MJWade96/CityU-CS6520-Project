@@ -2,7 +2,7 @@
 
 This module keeps experiment-only embedding caches out of the primary RAG
 pipeline. The main retriever stack remains API-only through LlamaIndex; MedCPT
-is only used here to generate offline experiment artifacts.
+formal runs consume prebuilt offline experiment artifacts.
 """
 
 from __future__ import annotations
@@ -57,13 +57,6 @@ EMBED_BATCH_SIZE = 128
 LLM_PROGRESS_EVERY = 10
 API_EMBEDDING_TIMEOUT = 120.0
 API_EMBEDDING_MAX_RETRIES = 5
-MEDCPT_QUERY_MODEL = "ncbi/MedCPT-Query-Encoder"
-MEDCPT_ARTICLE_MODEL = "ncbi/MedCPT-Article-Encoder"
-MEDCPT_BATCH_SIZE = 16
-MEDCPT_QUERY_MAX_LENGTH = 64
-MEDCPT_ARTICLE_MAX_LENGTH = 512
-
-
 @dataclass(frozen=True)
 class DenseIndexPaths:
     """Shared paths for one corpus and embedding cache."""
@@ -187,51 +180,15 @@ def _embed_api_texts(texts: Sequence[str], model_name: str) -> np.ndarray:
     return _normalize_rows(np.asarray(vectors, dtype="float32"))
 
 
-def _embed_medcpt_texts(texts: Sequence[str], *, is_query: bool) -> np.ndarray:
-    import torch
-    from transformers import AutoModel, AutoTokenizer
-
-    model_name = MEDCPT_QUERY_MODEL if is_query else MEDCPT_ARTICLE_MODEL
-    max_length = MEDCPT_QUERY_MAX_LENGTH if is_query else MEDCPT_ARTICLE_MAX_LENGTH
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModel.from_pretrained(model_name)
-    model.eval()
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    model.to(device)
-
-    vectors: List[np.ndarray] = []
-    with torch.no_grad():
-        for start in range(0, len(texts), MEDCPT_BATCH_SIZE):
-            batch = list(texts[start : start + MEDCPT_BATCH_SIZE])
-            encoded = tokenizer(
-                batch,
-                truncation=True,
-                padding=True,
-                return_tensors="pt",
-                max_length=max_length,
-            )
-            encoded = {key: value.to(device) for key, value in encoded.items()}
-            embeds = model(**encoded).last_hidden_state[:, 0, :].detach().cpu().numpy()
-            vectors.append(embeds.astype("float32"))
-            print(
-                f"  MedCPT embedded {min(start + len(batch), len(texts)):,}/{len(texts):,} texts",
-                flush=True,
-            )
-    return _normalize_rows(np.vstack(vectors))
-
-
 def embed_texts(
     texts: Sequence[str],
     *,
     model_name: str,
     backend: str,
-    is_query: bool,
 ) -> np.ndarray:
     """Single embedding dispatch point so backends cannot leak into main RAG code."""
     if backend == "siliconflow_api":
         return _embed_api_texts(texts, model_name)
-    if backend == "local_medcpt":
-        return _embed_medcpt_texts(texts, is_query=is_query)
     raise ValueError(f"Unsupported formal embedding backend: {backend}")
 
 
@@ -298,7 +255,6 @@ def ensure_chunk_embeddings(
         texts,
         model_name=provider.model,
         backend=provider.backend,
-        is_query=False,
     )
     np.save(paths.chunk_embeddings, embeddings)
     return embeddings
@@ -363,12 +319,26 @@ def dense_search_top80(
     index = faiss.read_index(str(index_paths.faiss_index))
     provider = _provider_by_model(run.embedding_model)
     resolved_query_texts = list(query_texts or [str(item["question"]) for item in questions])
-    query_embeddings = embed_texts(
-        resolved_query_texts,
-        model_name=provider.model,
-        backend=provider.backend,
-        is_query=True,
-    )
+    if provider.backend == "local_medcpt":
+        if not paths.query_embeddings.exists():
+            raise FileNotFoundError(
+                "MedCPT query embeddings are missing. Generate "
+                f"{paths.query_embeddings} on AutoDL with "
+                "run_medcpt_query_embedding_autodl.py, then copy it back before "
+                "running formal retrieval."
+            )
+        query_embeddings = np.load(paths.query_embeddings)
+        if query_embeddings.shape[0] != len(resolved_query_texts):
+            raise ValueError(
+                f"{paths.query_embeddings} row count {query_embeddings.shape[0]} "
+                f"does not match query count {len(resolved_query_texts)}"
+            )
+    else:
+        query_embeddings = embed_texts(
+            resolved_query_texts,
+            model_name=provider.model,
+            backend=provider.backend,
+        )
     paths.retrieval_dir.mkdir(parents=True, exist_ok=True)
     np.save(paths.query_embeddings, query_embeddings)
 
