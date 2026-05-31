@@ -394,20 +394,18 @@ def retrieve_top80(
     paths = formal_run_paths(run)
     if paths.retrieval_top80.exists() and paths.query_embeddings.exists():
         return list(_iter_jsonl(paths.retrieval_top80))
-    rows = dense_search_top80(run, questions)
-    _write_jsonl(paths.retrieval_top80, rows)
-    return rows
+    return dense_search_top80(run, questions)
 
 
-def _resolve_int_k(value: Any, default: int = 5) -> int:
+def _resolve_int_k(value: Any) -> int:
     if isinstance(value, int):
         return value
     if isinstance(value, str) and value.isdigit():
         return int(value)
-    return default
+    raise ValueError(f"Expected an integer k value, got {value!r}")
 
 
-def _resolve_multiplier_count(value: Any, k: int, default_multiplier: int = 4) -> int:
+def _resolve_multiplier_count(value: Any, k: int) -> int:
     if isinstance(value, int):
         return value
     if isinstance(value, str):
@@ -416,16 +414,16 @@ def _resolve_multiplier_count(value: Any, k: int, default_multiplier: int = 4) -
             return int(normalized[:-1]) * k
         if normalized.isdigit():
             return int(normalized)
-    return default_multiplier * k
+    raise ValueError(f"Expected an integer or Nk multiplier count, got {value!r}")
 
 
-def _resolve_float(value: Any, default: float = 0.5) -> float:
+def _resolve_float(value: Any) -> float:
     if isinstance(value, (float, int)):
         return float(value)
     try:
         return float(str(value))
     except (TypeError, ValueError):
-        return default
+        raise ValueError(f"Expected a numeric alpha value, got {value!r}") from None
 
 
 def ensure_bm25_index(run: FormalRunSpec) -> Any:
@@ -502,12 +500,19 @@ def hybrid_retrieve_top80(
     run: FormalRunSpec,
     questions: Sequence[Dict[str, Any]],
     *,
-    query_texts: Sequence[str],
+    query_texts: Optional[Sequence[str]] = None,
 ) -> List[Dict[str, Any]]:
     """Use LlamaIndex QueryFusionRetriever to combine dense and BM25 top-80 caches."""
     paths = formal_run_paths(run)
     if paths.retrieval_top80.exists() and paths.query_embeddings.exists():
         return list(_iter_jsonl(paths.retrieval_top80))
+    if query_texts is None:
+        raise ValueError("query_texts are required when advanced retrieval cache is absent")
+    if len(query_texts) != len(questions):
+        raise ValueError(
+            f"query_texts length {len(query_texts)} does not match "
+            f"question count {len(questions)}"
+        )
 
     started_at = time.time()
     dense_rows = dense_search_top80(run, questions, query_texts=query_texts)
@@ -654,6 +659,75 @@ async def evaluate_final_answers(
     }
 
 
+def _build_token_usage(generation: Mapping[str, Any]) -> Dict[str, Any]:
+    prompt_tokens = generation["prompt_tokens"]
+    completion_tokens = generation["completion_tokens"]
+    return {
+        "prompt_tokens_estimated": prompt_tokens,
+        "completion_tokens_estimated": completion_tokens,
+        "total_tokens_estimated": prompt_tokens + completion_tokens,
+        "estimator": "char_count_div_4",
+    }
+
+
+def _write_generation_artifacts(
+    run_paths: FormalRunPaths,
+    generation: Mapping[str, Any],
+    token_usage: Mapping[str, Any],
+) -> None:
+    """Centralize final QA artifacts so naive and advanced runs stay in sync."""
+    _write_jsonl(run_paths.final_prompts, generation["prompt_rows"])
+    _write_jsonl(run_paths.llm_outputs, generation["llm_rows"])
+    save_json_atomic(run_paths.token_usage, token_usage)
+    save_json_atomic(
+        run_paths.estimated_token_cost,
+        {
+            "status": "not_priced",
+            "reason": "Provider price table is not encoded in the experiment runner.",
+            "token_usage": token_usage,
+        },
+    )
+
+
+def _completed_run_summary(
+    *,
+    run: FormalRunSpec,
+    run_paths: FormalRunPaths,
+    selected_questions: Sequence[Dict[str, Any]],
+    generation: Mapping[str, Any],
+    token_usage: Mapping[str, Any],
+    latency_seconds: float,
+    retrieval_time_seconds: Optional[float],
+    rerank_time_seconds: float,
+    questions_per_second: float,
+    generation_time_seconds: Optional[float] = None,
+) -> Dict[str, Any]:
+    summary = {
+        "run": asdict(run),
+        "status": "completed",
+        "total_questions": len(selected_questions),
+        "correct": generation["correct"],
+        "accuracy": (
+            generation["correct"] / len(selected_questions) if selected_questions else 0.0
+        ),
+        "latency_seconds": latency_seconds,
+        "questions_per_second": questions_per_second,
+        "retrieval_time_seconds": retrieval_time_seconds,
+        "rerank_time_seconds": rerank_time_seconds,
+        "llm_concurrency": {
+            "max_concurrent": generation["max_concurrent"],
+            "rpm_limit": generation["rpm_limit"],
+            "tpm_limit": generation["tpm_limit"],
+        },
+        "token_usage": token_usage,
+        "artifact_paths": {key: str(value) for key, value in asdict(run_paths).items()},
+        "detailed_results": generation["detailed_results"],
+    }
+    if generation_time_seconds is not None:
+        summary["generation_time_seconds"] = generation_time_seconds
+    return summary
+
+
 async def execute_naive_run(
     run: FormalRunSpec,
     questions: Sequence[Dict[str, Any]],
@@ -665,7 +739,9 @@ async def execute_naive_run(
         raise ValueError(f"execute_naive_run only supports naive_rag, got {run.pipeline}")
     assert_resolved_formal_run(run)
 
-    selected_questions = list(questions[:FORMAL_DEV_QUESTION_LIMIT] if FORMAL_DEV_QUESTION_LIMIT else questions)
+    selected_questions = list(
+        questions[:FORMAL_DEV_QUESTION_LIMIT] if FORMAL_DEV_QUESTION_LIMIT else questions
+    )
     run_paths = formal_run_paths(run)
     for directory in (run_paths.run_dir, run_paths.retrieval_dir, run_paths.rerank_dir):
         directory.mkdir(parents=True, exist_ok=True)
@@ -683,47 +759,20 @@ async def execute_naive_run(
     )
 
     elapsed = time.time() - started_at
-    prompt_tokens = generation["prompt_tokens"]
-    completion_tokens = generation["completion_tokens"]
-    token_usage = {
-        "prompt_tokens_estimated": prompt_tokens,
-        "completion_tokens_estimated": completion_tokens,
-        "total_tokens_estimated": prompt_tokens + completion_tokens,
-        "estimator": "char_count_div_4",
-    }
-    summary = {
-        "run": asdict(run),
-        "status": "completed",
-        "total_questions": len(selected_questions),
-        "correct": generation["correct"],
-        "accuracy": (
-            generation["correct"] / len(selected_questions) if selected_questions else 0.0
-        ),
-        "latency_seconds": elapsed,
-        "questions_per_second": len(selected_questions) / elapsed if elapsed > 0 else 0.0,
-        "retrieval_time_seconds": None,
-        "rerank_time_seconds": 0.0,
-        "llm_concurrency": {
-            "max_concurrent": generation["max_concurrent"],
-            "rpm_limit": generation["rpm_limit"],
-            "tpm_limit": generation["tpm_limit"],
-        },
-        "token_usage": token_usage,
-        "artifact_paths": {key: str(value) for key, value in asdict(run_paths).items()},
-        "detailed_results": generation["detailed_results"],
-    }
-    _write_jsonl(run_paths.final_prompts, generation["prompt_rows"])
-    _write_jsonl(run_paths.llm_outputs, generation["llm_rows"])
-    _write_jsonl(run_paths.rerank_outputs, [])
-    save_json_atomic(run_paths.token_usage, token_usage)
-    save_json_atomic(
-        run_paths.estimated_token_cost,
-        {
-            "status": "not_priced",
-            "reason": "Provider price table is not encoded in the experiment runner.",
-            "token_usage": token_usage,
-        },
+    token_usage = _build_token_usage(generation)
+    summary = _completed_run_summary(
+        run=run,
+        run_paths=run_paths,
+        selected_questions=selected_questions,
+        generation=generation,
+        token_usage=token_usage,
+        latency_seconds=elapsed,
+        retrieval_time_seconds=None,
+        rerank_time_seconds=0.0,
+        questions_per_second=len(selected_questions) / elapsed if elapsed > 0 else 0.0,
     )
+    _write_generation_artifacts(run_paths, generation, token_usage)
+    _write_jsonl(run_paths.rerank_outputs, [])
     save_json_atomic(run_paths.result_summary, summary)
     return summary
 
@@ -847,19 +896,30 @@ async def execute_advanced_run(
         raise ValueError(f"execute_advanced_run only supports advanced_rag, got {run.pipeline}")
     assert_resolved_formal_run(run)
 
-    selected_questions = list(questions[:FORMAL_DEV_QUESTION_LIMIT] if FORMAL_DEV_QUESTION_LIMIT else questions)
+    selected_questions = list(
+        questions[:FORMAL_DEV_QUESTION_LIMIT] if FORMAL_DEV_QUESTION_LIMIT else questions
+    )
     run_paths = formal_run_paths(run)
     for directory in (run_paths.run_dir, run_paths.retrieval_dir, run_paths.rerank_dir):
         directory.mkdir(parents=True, exist_ok=True)
 
     llm = llm_config or EvaluationLLMConfig()
-    query_texts = await _rewrite_queries(selected_questions, llm)
     retrieval_started_at = time.time()
-    retrieval_rows = hybrid_retrieve_top80(run, selected_questions, query_texts=query_texts)
+    if run_paths.retrieval_top80.exists() and run_paths.query_embeddings.exists():
+        retrieval_rows = hybrid_retrieve_top80(run, selected_questions)
+    else:
+        query_texts = await _rewrite_queries(selected_questions, llm)
+        retrieval_rows = hybrid_retrieve_top80(
+            run,
+            selected_questions,
+            query_texts=query_texts,
+        )
     retrieval_elapsed = time.time() - retrieval_started_at
     k = _resolve_int_k(run.k)
     reranker_input_count = _resolve_multiplier_count(run.reranker_input_count, k)
-    reranker_output_count = _resolve_int_k(run.reranker_output_count, default=k)
+    reranker_output_count = (
+        k if run.reranker_output_count == "k" else _resolve_int_k(run.reranker_output_count)
+    )
     rerank_rows_result, rerank_elapsed = rerank_rows(
         run,
         retrieval_rows,
@@ -877,48 +937,21 @@ async def execute_advanced_run(
     )
 
     generation_elapsed = time.time() - started_at
-    prompt_tokens = generation["prompt_tokens"]
-    completion_tokens = generation["completion_tokens"]
-    token_usage = {
-        "prompt_tokens_estimated": prompt_tokens,
-        "completion_tokens_estimated": completion_tokens,
-        "total_tokens_estimated": prompt_tokens + completion_tokens,
-        "estimator": "char_count_div_4",
-    }
-    summary = {
-        "run": asdict(run),
-        "status": "completed",
-        "total_questions": len(selected_questions),
-        "correct": generation["correct"],
-        "accuracy": (
-            generation["correct"] / len(selected_questions) if selected_questions else 0.0
-        ),
-        "latency_seconds": retrieval_elapsed + rerank_elapsed + generation_elapsed,
-        "generation_time_seconds": generation_elapsed,
-        "retrieval_time_seconds": retrieval_elapsed,
-        "rerank_time_seconds": rerank_elapsed,
-        "questions_per_second": (
+    token_usage = _build_token_usage(generation)
+    summary = _completed_run_summary(
+        run=run,
+        run_paths=run_paths,
+        selected_questions=selected_questions,
+        generation=generation,
+        token_usage=token_usage,
+        latency_seconds=retrieval_elapsed + rerank_elapsed + generation_elapsed,
+        retrieval_time_seconds=retrieval_elapsed,
+        rerank_time_seconds=rerank_elapsed,
+        questions_per_second=(
             len(selected_questions) / generation_elapsed if generation_elapsed > 0 else 0.0
         ),
-        "llm_concurrency": {
-            "max_concurrent": generation["max_concurrent"],
-            "rpm_limit": generation["rpm_limit"],
-            "tpm_limit": generation["tpm_limit"],
-        },
-        "token_usage": token_usage,
-        "artifact_paths": {key: str(value) for key, value in asdict(run_paths).items()},
-        "detailed_results": generation["detailed_results"],
-    }
-    _write_jsonl(run_paths.final_prompts, generation["prompt_rows"])
-    _write_jsonl(run_paths.llm_outputs, generation["llm_rows"])
-    save_json_atomic(run_paths.token_usage, token_usage)
-    save_json_atomic(
-        run_paths.estimated_token_cost,
-        {
-            "status": "not_priced",
-            "reason": "Provider price table is not encoded in the experiment runner.",
-            "token_usage": token_usage,
-        },
+        generation_time_seconds=generation_elapsed,
     )
+    _write_generation_artifacts(run_paths, generation, token_usage)
     save_json_atomic(run_paths.result_summary, summary)
     return summary
