@@ -102,7 +102,7 @@ def test_index_metadata_records_phase1_reproducibility_fields(tmp_path: Path) ->
 
 
 def test_phase1_runtime_metadata_distinguishes_embedding_and_llm_api() -> None:
-    import run_phase1_ablation as module
+    from app.rag.experiments import run_phase1_ablation as module
     from app.rag.evaluation.eval_shared import EvaluationLLMConfig
 
     llm_config = EvaluationLLMConfig(
@@ -126,7 +126,7 @@ def test_phase1_runtime_metadata_distinguishes_embedding_and_llm_api() -> None:
 
 
 def test_phase1_embedding_api_validation_reports_missing_config(monkeypatch) -> None:
-    import run_phase1_ablation as module
+    from app.rag.experiments import run_phase1_ablation as module
 
     monkeypatch.setattr(module, "EMBEDDING_BACKEND", "api")
     monkeypatch.setattr(module, "EMBEDDING_API_BASE_URL", "")

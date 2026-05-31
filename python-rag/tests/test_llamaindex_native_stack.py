@@ -7,12 +7,22 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 STORE_FILE = PROJECT_ROOT / "app" / "rag" / "retriever" / "vector_store.py"
 EVAL_FILE = PROJECT_ROOT / "app" / "rag" / "evaluation" / "naive_rag_eval.py"
 BUILD_FILE = PROJECT_ROOT / "app" / "rag" / "data" / "medical_corpus" / "build_vector_index.py"
-COMPLETE_EVAL_FILE = PROJECT_ROOT / "complete_eval.py"
-SAMPLE_FILE = PROJECT_ROOT / "sample_validation.py"
-ENHANCED_FILE = PROJECT_ROOT / "enhanced_eval.py"
-RESUME_FILE = PROJECT_ROOT / "run_with_resume.py"
+EXPERIMENTS_DIR = PROJECT_ROOT / "app" / "rag" / "experiments"
+COMPLETE_EVAL_FILE = EXPERIMENTS_DIR / "complete_eval.py"
+SAMPLE_FILE = EXPERIMENTS_DIR / "sample_validation.py"
+ENHANCED_FILE = EXPERIMENTS_DIR / "enhanced_eval.py"
+RESUME_FILE = EXPERIMENTS_DIR / "run_with_resume.py"
 REQUIREMENTS_FILE = PROJECT_ROOT / "requirements.txt"
 SAMPLE_IMPL_FILE = PROJECT_ROOT / "app" / "rag" / "evaluation" / "sample_validation_eval.py"
+ROOT_ENTRYPOINT_NAMES = {
+    "complete_eval.py",
+    "enhanced_eval.py",
+    "evaluate_no_rag.py",
+    "run_formal_ablation.py",
+    "run_phase1_ablation.py",
+    "run_with_resume.py",
+    "sample_validation.py",
+}
 
 
 def read_text(path: Path) -> str:
@@ -54,6 +64,12 @@ def test_primary_entrypoints_route_through_canonical_modules() -> None:
     assert build_source.index("load_resume_checkpoint") < build_source.index("MedicalVectorStore(")
     assert "from app.rag.evaluation.naive_rag_eval import NaiveRAGEvalConfig, run_complete_evaluation" in complete_source
     assert "from app.rag.evaluation.sample_validation_eval import SampleEvalConfig, run_sample_comparison" in sample_source
+
+
+def test_experiment_entrypoints_are_not_root_level_scripts() -> None:
+    for script_name in ROOT_ENTRYPOINT_NAMES:
+        assert not (PROJECT_ROOT / script_name).exists()
+        assert (EXPERIMENTS_DIR / script_name).exists()
 
 
 def test_parallel_llamaindex_specific_modules_are_removed() -> None:

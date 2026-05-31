@@ -1,17 +1,19 @@
 # Medical RAG Evaluation Toolkit
 
-This repository is centered on corpus preparation and evaluation workflows for the medical RAG experiments. The supported runtime surface is the CLI scripts under `python-rag/`.
+This repository is centered on corpus preparation and evaluation workflows for the medical RAG experiments. Experiment orchestration entrypoints live under `app/rag/experiments/`, matching the architecture boundary in `docs/architecture.md`.
 
 ## Overview
 
-The project now uses a single native LlamaIndex retrieval stack behind the original entrypoint names:
+The project now uses a single native LlamaIndex retrieval stack behind the experiment entrypoints:
 
-- `build_vector_index.py`: build the FAISS-backed native index used by all RAG scripts.
-- `complete_eval.py`: primary RAG evaluation using API embeddings, `OpenAILike`, `FaissVectorStore`, and `VectorStoreIndex` query capability.
-- `enhanced_eval.py`: enhanced RAG evaluation using native hybrid retrieval, query rewrite, and reranking.
-- `sample_validation.py`: small no-RAG vs RAG comparison using the same native store.
-- `evaluate_no_rag.py`: direct LLM baseline without retrieval.
-- `run_with_resume.py`: restart supported evaluation scripts from checkpoints.
+- `app/rag/data/medical_corpus/build_vector_index.py`: build the FAISS-backed native index used by RAG evaluations.
+- `app/rag/experiments/complete_eval.py`: primary RAG evaluation using API embeddings, `OpenAILike`, `FaissVectorStore`, and `VectorStoreIndex` query capability.
+- `app/rag/experiments/enhanced_eval.py`: enhanced RAG evaluation using native hybrid retrieval, query rewrite, and reranking.
+- `app/rag/experiments/sample_validation.py`: small no-RAG vs RAG comparison using the same native store.
+- `app/rag/experiments/evaluate_no_rag.py`: direct LLM baseline without retrieval.
+- `app/rag/experiments/run_phase1_ablation.py`: phase 1 smoke runner for corpus and retrieval ablation wiring.
+- `app/rag/experiments/run_formal_ablation.py`: formal phase 1 ablation framework entrypoint.
+- `app/rag/experiments/run_with_resume.py`: restart supported evaluation entrypoints from checkpoints.
 
 ## Setup
 
@@ -30,33 +32,33 @@ The data root is resolved by `app/rag/data/data_paths.py`: if `python-rag/data/`
 
 ```bash
 # Optional data preparation
-python download_statpearls.py
-python combine_corpora.py
+python -m app.rag.data.medical_corpus.download_statpearls
+python -m app.rag.data.medical_corpus.combine_corpora
 
 # Rebuild the native FAISS-backed index after pulling migration changes
-python build_vector_index.py
+python -m app.rag.data.medical_corpus.build_vector_index
 
 # Quick sanity check before full runs
-python sample_validation.py
+python -m app.rag.experiments.sample_validation
 
 # Main evaluations
-python evaluate_no_rag.py
-python complete_eval.py
+python -m app.rag.experiments.evaluate_no_rag
+python -m app.rag.experiments.complete_eval
 ```
 
 ## Script Prerequisites
 
-- `build_vector_index.py` requires `<data-root>/corpus/combined_corpus.json` because it rebuilds the persisted index from the combined corpus.
-- `complete_eval.py`, `enhanced_eval.py`, and `sample_validation.py` require `<data-root>/vector_store/faiss_index` plus `<data-root>/evaluation/medqa.json`.
-- `evaluate_no_rag.py` only needs `<data-root>/evaluation/medqa.json` and valid LLM settings.
+- `app/rag/data/medical_corpus/build_vector_index.py` requires `<data-root>/corpus/combined_corpus.json` because it rebuilds the persisted index from the combined corpus.
+- `app/rag/experiments/complete_eval.py`, `app/rag/experiments/enhanced_eval.py`, and `app/rag/experiments/sample_validation.py` require `<data-root>/vector_store/faiss_index` plus `<data-root>/evaluation/medqa.json`.
+- `app/rag/experiments/evaluate_no_rag.py` only needs `<data-root>/evaluation/medqa.json` and valid LLM settings.
 
 If a supported long evaluation is interrupted, run:
 
 ```bash
-python run_with_resume.py
+python -m app.rag.experiments.run_with_resume
 ```
 
-`run_with_resume.py` defaults to auto-detecting interrupted runs for `complete_eval.py`, `sample_validation.py`, and `evaluate_no_rag.py`.
+`app/rag/experiments/run_with_resume.py` defaults to auto-detecting interrupted runs for `complete_eval.py`, `sample_validation.py`, and `evaluate_no_rag.py`.
 
 ## Active Code Paths
 
@@ -68,8 +70,8 @@ The current scripts share a small core set of modules:
 - `app/rag/data/corpus_loader.py`: shared combined-corpus parsing and metadata mapping.
 - `app/rag/evaluation/no_rag_eval.py`: baseline evaluation flow.
 - `app/rag/evaluation/naive_rag_eval.py`: native RAG evaluation flow behind the primary entrypoint names.
-- `app/rag/evaluation/enhanced_rag_eval.py`: enhanced native RAG evaluation flow behind `enhanced_eval.py`.
-- `app/rag/evaluation/sample_validation_eval.py`: sample-comparison implementation behind `sample_validation.py`.
+- `app/rag/evaluation/enhanced_rag_eval.py`: enhanced native RAG evaluation flow behind `app/rag/experiments/enhanced_eval.py`.
+- `app/rag/evaluation/sample_validation_eval.py`: sample-comparison implementation behind `app/rag/experiments/sample_validation.py`.
 - `app/rag/retriever/vector_store.py`: native FAISS-backed storage, retrieval, and query-engine helpers.
 - `app/rag/retriever/runtime_config.py`: API embedding model and endpoint resolution.
 
@@ -82,21 +84,15 @@ python-rag/
 │   └── rag/
 │       ├── data/
 │       ├── evaluation/
+│       ├── experiments/
 │       ├── retriever/
 │       └── utils/
-├── build_vector_index.py
-├── combine_corpora.py
-├── complete_eval.py
-├── download_statpearls.py
-├── enhanced_eval.py
-├── evaluate_no_rag.py
-├── run_with_resume.py
-├── sample_validation.py
+├── results/
 └── README.md
 ```
 
 ## Notes
 
 1. Evaluation artifacts are written under `results/evaluation/`.
-2. The on-disk index format behind `<data-root>/vector_store/faiss_index` is now the native LlamaIndex-backed format, so rebuild it with `python build_vector_index.py` after pulling this migration.
+2. The on-disk index format behind `<data-root>/vector_store/faiss_index` is now the native LlamaIndex-backed format, so rebuild it with `python -m app.rag.data.medical_corpus.build_vector_index` after pulling this migration.
 3. Corpus-preparation scripts and evaluation scripts do not share identical prerequisites; only index builders need `combined_corpus.json`.
