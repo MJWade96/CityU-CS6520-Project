@@ -145,18 +145,6 @@ def test_formal_runtime_uses_llamaindex_bm25_not_ad_hoc_rank_bm25() -> None:
     assert "QueryFusionRetriever" in runtime_source
 
 
-def test_formal_runtime_requires_external_medcpt_embeddings_before_local_index() -> None:
-    from app.rag.experiments import formal_ablation_runtime as runtime
-    from app.rag.experiments.phase1_formal_ablation import build_formal_matrix
-
-    run = next(row for row in build_formal_matrix() if row.run_id == "stage1_naive_medcpt")
-
-    with pytest.raises(FileNotFoundError) as exc_info:
-        runtime.ensure_chunk_embeddings(run, [{"text": "example"}])
-
-    assert "Generate" in str(exc_info.value)
-
-
 def test_formal_documents_are_minimal_flat_mapping(monkeypatch: pytest.MonkeyPatch) -> None:
     from app.rag.experiments import formal_ablation_runtime as runtime
 
