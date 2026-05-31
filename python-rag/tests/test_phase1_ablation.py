@@ -101,41 +101,6 @@ def test_index_metadata_records_phase1_reproducibility_fields(tmp_path: Path) ->
     assert config.build_metadata_file.exists()
 
 
-def test_phase1_runtime_metadata_distinguishes_embedding_and_llm_api() -> None:
-    from app.rag.experiments import run_phase1_ablation as module
-    from app.rag.evaluation.eval_shared import EvaluationLLMConfig
-
-    llm_config = EvaluationLLMConfig(
-        provider="test-provider",
-        model="test-model",
-        base_url="https://example.test/v1",
-        api_key="secret-key",
-    )
-
-    embedding_runtime = module.describe_embedding_runtime()
-    llm_runtime = module.describe_llm_runtime(llm_config)
-
-    assert embedding_runtime["backend"] == "api"
-    assert embedding_runtime["adapter"].endswith("OpenAIEmbedding")
-    assert embedding_runtime["api_used"] is True
-    assert "api_key" not in embedding_runtime
-    assert llm_runtime["client"].endswith("OpenAILike")
-    assert llm_runtime["api_used"] is True
-    assert llm_runtime["base_url"] == "https://example.test/v1"
-    assert "api_key" not in llm_runtime
-
-
-def test_phase1_embedding_api_validation_reports_missing_config(monkeypatch) -> None:
-    from app.rag.experiments import run_phase1_ablation as module
-
-    monkeypatch.setattr(module, "EMBEDDING_BACKEND", "api")
-    monkeypatch.setattr(module, "EMBEDDING_API_BASE_URL", "")
-    monkeypatch.setattr(module, "EMBEDDING_API_KEY", "")
-
-    with pytest.raises(ValueError, match="RAG_EMBEDDING_API_BASE_URL"):
-        module.validate_phase1_embedding_runtime()
-
-
 def test_vector_store_uses_official_openai_embedding(monkeypatch) -> None:
     from app.rag.retriever import vector_store as module
 

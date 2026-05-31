@@ -16,6 +16,7 @@ sys.path.insert(0, str(PROJECT_ROOT.resolve()))
 
 def test_medqa_usmle_adapter_loads_dev_and_test_shapes(tmp_path: Path) -> None:
     from app.rag.data.benchmarks.medqa_usmle import load_medqa_usmle_jsonl
+    from app.rag.evaluation.eval_shared import load_questions
 
     split_file = tmp_path / "dev.jsonl"
     split_file.write_text(
@@ -33,12 +34,14 @@ def test_medqa_usmle_adapter_loads_dev_and_test_shapes(tmp_path: Path) -> None:
     )
 
     records = load_medqa_usmle_jsonl(split_file, split="dev")
+    shared_records = load_questions(str(split_file))
 
     assert records[0]["id"] == "dev-1"
     assert records[0]["options"] == ["Alpha", "Beta"]
     assert records[0]["answer_index"] == 1
     assert records[0]["answer_idx"] == "B"
     assert records[0]["split"] == "dev"
+    assert shared_records == records
 
 
 def test_formal_matrix_uses_dev_and_includes_required_embeddings() -> None:
@@ -65,7 +68,6 @@ def test_formal_matrix_uses_dev_and_includes_required_embeddings() -> None:
 
 def test_cache_manifest_covers_recommendation_cache_items() -> None:
     from app.rag.experiments import phase1_formal_ablation as module
-    from app.rag.experiments import formal_ablation_runtime as runtime
 
     rows = module.build_formal_matrix()
     manifest = module.build_cache_manifest(rows)
@@ -87,12 +89,10 @@ def test_cache_manifest_covers_recommendation_cache_items() -> None:
 
     medcpt_run = next(row for row in rows if row.run_id == "stage1_naive_medcpt")
     medcpt_manifest = manifest["runs"][medcpt_run.run_id]
-    index_paths = runtime.dense_index_paths(medcpt_run)
-    run_paths = runtime.formal_run_paths(medcpt_run)
-    assert medcpt_manifest["chunk_embeddings"] == str(index_paths.chunk_embeddings)
-    assert medcpt_manifest["faiss_index"] == str(index_paths.faiss_index)
-    assert medcpt_manifest["query_embeddings"] == str(run_paths.query_embeddings)
-    assert medcpt_manifest["retrieval_top80"] == str(run_paths.retrieval_top80)
+    assert medcpt_manifest["chunk_embeddings"].endswith("chunk_embeddings.npy")
+    assert medcpt_manifest["faiss_index"].endswith("faiss.index")
+    assert medcpt_manifest["query_embeddings"].endswith("query_embeddings.npy")
+    assert medcpt_manifest["retrieval_top80"].endswith("retrieval_top80.jsonl")
 
 
 def test_formal_framework_does_not_use_legacy_medqa(monkeypatch) -> None:
@@ -113,193 +113,34 @@ def test_formal_framework_does_not_use_legacy_medqa(monkeypatch) -> None:
 def test_medcpt_stays_in_experiment_framework_not_primary_retriever() -> None:
     from app.rag.experiments import phase1_formal_ablation as module
 
-    runtime_source = (
-        PROJECT_ROOT / "app" / "rag" / "experiments" / "formal_ablation_runtime.py"
-    ).read_text(encoding="utf-8")
     vector_store_source = (
         PROJECT_ROOT / "app" / "rag" / "retriever" / "vector_store.py"
     ).read_text(encoding="utf-8")
 
     assert any(provider.name == "medcpt" for provider in module.EMBEDDING_PROVIDERS)
-    assert "AutoModel.from_pretrained" not in runtime_source
-    assert "AutoTokenizer.from_pretrained" not in runtime_source
-    assert "torch.cuda.is_available" not in runtime_source
-    assert "_embed_medcpt_texts" not in runtime_source
+    assert not (
+        PROJECT_ROOT / "app" / "rag" / "experiments" / "formal_ablation_runtime.py"
+    ).exists()
     assert "MedCPT" not in vector_store_source
     assert "local_medcpt" not in vector_store_source
 
 
-def test_formal_runtime_declares_real_cache_artifact_paths() -> None:
-    from app.rag.experiments import formal_ablation_runtime as runtime
+def test_formal_matrix_uses_typed_values_not_runtime_string_parameters() -> None:
     from app.rag.experiments.phase1_formal_ablation import build_formal_matrix
 
-    run = next(row for row in build_formal_matrix() if row.run_id == "stage1_naive_bge_m3")
-    run_paths = runtime.formal_run_paths(run)
-    index_paths = runtime.dense_index_paths(run)
+    rows = build_formal_matrix()
+    resolved = [row for row in rows if not row.selection_rule]
+    unresolved = [row for row in rows if row.selection_rule]
 
-    assert str(index_paths.chunk_embeddings).endswith("chunk_embeddings.npy")
-    assert str(index_paths.faiss_index).endswith("faiss.index")
-    assert str(index_paths.bm25_index_dir).endswith("bm25")
-    assert str(run_paths.query_embeddings).endswith("query_embeddings.npy")
-    assert str(run_paths.retrieval_top80).endswith("retrieval_top80.jsonl")
-    assert str(run_paths.final_prompts).endswith("final_prompts.jsonl")
-    assert str(run_paths.llm_outputs).endswith("llm_outputs.jsonl")
-    assert str(run_paths.token_usage).endswith("token_usage.json")
-    assert str(run_paths.estimated_token_cost).endswith("estimated_token_cost.json")
-
-
-def test_formal_runtime_rejects_unresolved_selection_rows() -> None:
-    from app.rag.experiments import formal_ablation_runtime as runtime
-    from app.rag.experiments.phase1_formal_ablation import build_formal_matrix
-
-    unresolved_run = next(
-        row
-        for row in build_formal_matrix()
-        if row.run_id == "stage2_naive_stage1_top1_embedding_k3"
+    assert all(isinstance(row.k, int) for row in resolved)
+    assert all(
+        row.reranker_input_count is None or isinstance(row.reranker_input_count, int)
+        for row in resolved
     )
-
-    with pytest.raises(ValueError, match="unresolved selection placeholders"):
-        runtime.assert_resolved_formal_run(unresolved_run)
-
-
-def test_formal_runtime_uses_llamaindex_bm25_not_ad_hoc_rank_bm25() -> None:
-    runtime_source = (
+    assert all(row.embedding_model is None for row in unresolved)
+    assert not (
         PROJECT_ROOT / "app" / "rag" / "experiments" / "formal_ablation_runtime.py"
-    ).read_text(encoding="utf-8")
-
-    assert "BM25Retriever.from_defaults" in runtime_source
-    assert "BM25Retriever.from_persist_dir" in runtime_source
-    assert "rank_bm25" not in runtime_source
-    assert "BM25Okapi" not in runtime_source
-    assert "QueryFusionRetriever" in runtime_source
-
-
-def test_formal_runtime_rejects_invalid_resolved_parameters() -> None:
-    from app.rag.experiments import formal_ablation_runtime as runtime
-
-    with pytest.raises(ValueError, match="integer k"):
-        runtime._resolve_int_k("bad-k")
-    with pytest.raises(ValueError, match="Nk multiplier"):
-        runtime._resolve_multiplier_count("bad-count", 5)
-    with pytest.raises(ValueError, match="numeric alpha"):
-        runtime._resolve_float("bad-alpha")
-
-
-def test_advanced_run_reuses_retrieval_cache_without_rewriting_queries(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    from app.rag.evaluation.eval_shared import EvaluationLLMConfig
-    from app.rag.experiments import formal_ablation_runtime as runtime
-    from app.rag.experiments.phase1_formal_ablation import FormalRunSpec
-
-    run = FormalRunSpec(
-        stage="test",
-        run_id="cached_advanced",
-        pipeline="advanced_rag",
-        corpus_version="statpearls",
-        embedding_model="BAAI/bge-m3",
-        embedding_backend="siliconflow_api",
-        faiss_index_type="FlatIP",
-        k=1,
-        alpha=0.5,
-        reranker_input_count=2,
-        reranker_output_count=1,
-        query_enhancement_setting="on",
-        generator_model="Qwen3-8B",
-        prompt_version="medical_mcq_v1",
-        dataset_split="dev",
-        random_seed=6520,
-    )
-    run_paths = runtime.FormalRunPaths(
-        run_dir=tmp_path / "run",
-        retrieval_dir=tmp_path / "retrieval",
-        rerank_dir=tmp_path / "rerank",
-        query_embeddings=tmp_path / "retrieval" / "query_embeddings.npy",
-        retrieval_top80=tmp_path / "retrieval" / "retrieval_top80.jsonl",
-        rerank_outputs=tmp_path / "rerank" / "rerank_outputs.jsonl",
-        final_prompts=tmp_path / "run" / "final_prompts.jsonl",
-        llm_outputs=tmp_path / "run" / "llm_outputs.jsonl",
-        token_usage=tmp_path / "run" / "token_usage.json",
-        estimated_token_cost=tmp_path / "run" / "estimated_token_cost.json",
-        result_summary=tmp_path / "run" / "result_summary.json",
-    )
-    run_paths.retrieval_dir.mkdir(parents=True)
-    cached_row = {
-        "question_id": "dev-1",
-        "question": "Question?",
-        "rewritten_query": "cached rewritten query",
-        "contexts": [{"score": 1.0, "text": "cached context"}],
-    }
-    run_paths.retrieval_top80.write_text(
-        json.dumps(cached_row, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
-    run_paths.query_embeddings.write_bytes(b"cache marker")
-
-    async def fail_rewrite(*args, **kwargs):
-        raise AssertionError("query rewrite should not run when retrieval cache exists")
-
-    async def fake_generation(**kwargs):
-        return {
-            "prompt_rows": [],
-            "llm_rows": [],
-            "detailed_results": [{"is_correct": True}],
-            "correct": 1,
-            "prompt_tokens": 4,
-            "completion_tokens": 2,
-            "max_concurrent": 1,
-            "rpm_limit": 1,
-            "tpm_limit": 1,
-        }
-
-    monkeypatch.setattr(runtime, "formal_run_paths", lambda _: run_paths)
-    monkeypatch.setattr(runtime, "_rewrite_queries", fail_rewrite)
-    monkeypatch.setattr(runtime, "rerank_rows", lambda *args, **kwargs: ([cached_row], 0.0))
-    monkeypatch.setattr(runtime, "evaluate_final_answers", fake_generation)
-
-    summary = asyncio.run(
-        runtime.execute_advanced_run(
-            run,
-            [{"id": "dev-1", "question": "Question?", "options": ["A"], "answer_index": 0}],
-            llm_config=EvaluationLLMConfig(api_key="test-key"),
-        )
-    )
-
-    assert summary["status"] == "completed"
-    assert summary["token_usage"]["total_tokens_estimated"] == 6
-
-
-def test_formal_documents_are_minimal_flat_mapping(monkeypatch: pytest.MonkeyPatch) -> None:
-    from app.rag.experiments import formal_ablation_runtime as runtime
-
-    monkeypatch.setattr(
-        runtime,
-        "combine_registered_corpora",
-        lambda selected_sources: {
-            "records": [
-                {
-                    "id": "doc-1",
-                    "title": "Title",
-                    "content": "Content",
-                    "contents": "Title. Content",
-                    "source": "statpearls",
-                    "section": "ignored",
-                }
-            ]
-        },
-    )
-
-    documents = runtime.load_corpus_documents("statpearls")
-
-    assert documents == [
-        {
-            "doc_id": "doc-1",
-            "title": "Title",
-            "source": "statpearls",
-            "text": "Title. Content",
-        }
-    ]
+    ).exists()
 
 
 def test_medcpt_autodl_script_reuses_medscore_core_without_cli_args() -> None:

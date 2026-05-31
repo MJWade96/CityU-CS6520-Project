@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from openai import AsyncOpenAI
 
+from ..data.benchmarks.medqa_usmle import load_medqa_usmle_jsonl
 from ..data.data_paths import MEDQA_FILE
 from ..data.json_utils import load_json_safe
 
@@ -99,10 +100,13 @@ class ConcurrencyConfig:
 
 
 def load_questions(question_file: Optional[str] = None) -> List[Dict]:
-    """Load MedQA questions from JSON."""
+    """Load MedQA questions from JSON or the normalized MedQA-USMLE jsonl splits."""
     question_path = Path(question_file or MEDQA_FILE)
     if not question_path.exists():
         raise FileNotFoundError(f"Question file not found: {question_path}")
+
+    if question_path.suffix == ".jsonl":
+        return load_medqa_usmle_jsonl(question_path, split=question_path.stem)
 
     return load_json_safe(question_path)
 

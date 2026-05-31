@@ -11,7 +11,6 @@ The project now uses a single native LlamaIndex retrieval stack behind the exper
 - `app/rag/experiments/enhanced_eval.py`: enhanced RAG evaluation using native hybrid retrieval, query rewrite, and reranking.
 - `app/rag/experiments/sample_validation.py`: small no-RAG vs RAG comparison using the same native store.
 - `app/rag/experiments/evaluate_no_rag.py`: direct LLM baseline without retrieval.
-- `app/rag/experiments/run_phase1_ablation.py`: phase 1 smoke runner for corpus and retrieval ablation wiring.
 - `app/rag/experiments/run_formal_ablation.py`: formal phase 1 ablation framework entrypoint; by default it writes the framework, matrix, and cache manifest only.
 - `app/rag/experiments/run_with_resume.py`: restart supported evaluation entrypoints from checkpoints.
 
@@ -51,9 +50,9 @@ python -m app.rag.experiments.run_formal_ablation
 
 ## Formal Phase 1 Ablation
 
-`python -m app.rag.experiments.run_formal_ablation` writes the formal framework JSON, matrix CSV, and cache manifest under `results/runs/`. The default `FORMAL_RUN_IDS_TO_EXECUTE` is empty, so the command reports `Executed formal runs: 0` and does not run the formal accuracy jobs.
+`python -m app.rag.experiments.run_formal_ablation` writes the formal framework JSON, matrix CSV, and cache manifest under `results/runs/`. It is intentionally plan-only; formal execution uses the existing naive and enhanced evaluator entrypoints rather than a duplicate formal runtime.
 
-Only fully resolved formal rows should be executed. Rows that still depend on earlier-stage winners, such as `stage1_top...`, `stage2_top...`, `best_k`, or `best_alpha`, are rejected by the formal runtime until those concrete selections are resolved.
+Only fully resolved formal rows should be executed. Rows that still depend on earlier-stage winners keep concrete typed fields empty in the matrix until those selections are resolved.
 
 ## Script Prerequisites
 

@@ -20,7 +20,6 @@ ROOT_ENTRYPOINT_NAMES = {
     "enhanced_eval.py",
     "evaluate_no_rag.py",
     "run_formal_ablation.py",
-    "run_phase1_ablation.py",
     "run_with_resume.py",
     "sample_validation.py",
 }
@@ -78,12 +77,10 @@ def test_formal_entrypoint_documents_plan_only_execution() -> None:
     source = read_text(EXPERIMENTS_DIR / "run_formal_ablation.py")
 
     assert "python -m app.rag.experiments.run_formal_ablation" in readme
-    assert "Executed formal runs: 0" in readme
-    assert "does not run the formal accuracy jobs" in readme
-    assert "stage1_top" in readme
-    assert "best_alpha" in readme
-    assert "__package__" in source
-    assert "sys.path.insert" in source
+    assert "plan-only" in readme
+    assert "existing naive and enhanced evaluator entrypoints" in readme
+    assert "__package__" not in source
+    assert "sys.path.insert" not in source
 
 
 def test_parallel_llamaindex_specific_modules_are_removed() -> None:

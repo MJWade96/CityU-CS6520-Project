@@ -6,7 +6,6 @@ and cache manifest without reusing the old smoke entrypoint or legacy MedQA file
 
 from __future__ import annotations
 
-import asyncio
 import csv
 import time
 from dataclasses import asdict, dataclass
@@ -14,7 +13,6 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 from app.rag.data.benchmarks.medqa_usmle import load_medqa_usmle_counts
-from app.rag.data.benchmarks.medqa_usmle import load_medqa_usmle_split
 from app.rag.data.data_paths import (
     MEDQA_FILE,
     MEDQA_USMLE_DEV_FILE,
@@ -34,7 +32,6 @@ from app.rag.retriever.runtime_config import (
 
 RUN_ID = "phase1_formal_ablation"
 EXECUTION_MODE = "plan_only"
-FORMAL_RUN_IDS_TO_EXECUTE: Sequence[str] = ()
 RANDOM_SEED = 6520
 PROMPT_VERSION = "medical_mcq_v1"
 GENERATOR_MODEL = "Qwen3-8B"
@@ -115,13 +112,13 @@ class FormalRunSpec:
     run_id: str
     pipeline: str
     corpus_version: str
-    embedding_model: str
-    embedding_backend: str
+    embedding_model: Optional[str]
+    embedding_backend: Optional[str]
     faiss_index_type: str
-    k: Any
-    alpha: Any
-    reranker_input_count: Any
-    reranker_output_count: Any
+    k: Optional[int]
+    alpha: Optional[float]
+    reranker_input_count: Optional[int]
+    reranker_output_count: Optional[int]
     query_enhancement_setting: str
     generator_model: str
     prompt_version: str
@@ -147,22 +144,22 @@ def _run_spec(
     run_id: str,
     pipeline: str,
     corpus_version: str = "statpearls_textbooks",
-    embedding: str = "bge_m3",
-    k: Any = BASELINE_K,
-    alpha: Any = None,
-    reranker_input_count: Any = None,
-    reranker_output_count: Any = None,
+    embedding: Optional[str] = "bge_m3",
+    k: Optional[int] = BASELINE_K,
+    alpha: Optional[float] = None,
+    reranker_input_count: Optional[int] = None,
+    reranker_output_count: Optional[int] = None,
     query_enhancement_setting: str = "off",
     selection_rule: str = "",
 ) -> FormalRunSpec:
-    provider = _provider(embedding)
+    provider = _provider(embedding) if embedding is not None else None
     return FormalRunSpec(
         stage=stage,
         run_id=run_id,
         pipeline=pipeline,
         corpus_version=corpus_version,
-        embedding_model=provider.model,
-        embedding_backend=provider.backend,
+        embedding_model=provider.model if provider else None,
+        embedding_backend=provider.backend if provider else None,
         faiss_index_type=FAISS_INDEX_TYPE,
         k=k,
         alpha=alpha,
@@ -200,8 +197,8 @@ def build_formal_matrix() -> List[FormalRunSpec]:
                 pipeline="advanced_rag",
                 corpus_version=corpus_name,
                 alpha=BASELINE_ALPHA,
-                reranker_input_count=f"{BASELINE_RERANKER_MULTIPLIER}k",
-                reranker_output_count="k",
+                reranker_input_count=BASELINE_RERANKER_MULTIPLIER * BASELINE_K,
+                reranker_output_count=BASELINE_K,
                 query_enhancement_setting="on",
             )
         )
@@ -227,7 +224,7 @@ def build_formal_matrix() -> List[FormalRunSpec]:
                     stage="2_k_screening",
                     run_id=f"stage2_naive_stage1_top{rank}_embedding_k{k}",
                     pipeline="naive_rag",
-                    embedding="bge_m3",
+                    embedding=None,
                     k=k,
                     alpha=None,
                     reranker_input_count=0,
@@ -245,10 +242,11 @@ def build_formal_matrix() -> List[FormalRunSpec]:
                 stage="3_advanced_review",
                 run_id=f"stage3_advanced_stage2_top{rank}_embedding_k",
                 pipeline="advanced_rag",
-                k=f"stage2_top{rank}_k",
+                embedding=None,
+                k=None,
                 alpha=BASELINE_ALPHA,
-                reranker_input_count=f"{BASELINE_RERANKER_MULTIPLIER}k",
-                reranker_output_count="k",
+                reranker_input_count=None,
+                reranker_output_count=None,
                 query_enhancement_setting="on",
                 selection_rule=(
                     f"use stage-2 ranked (embedding, k) combination #{rank}; "
@@ -263,10 +261,11 @@ def build_formal_matrix() -> List[FormalRunSpec]:
                 stage="4_alpha_ablation",
                 run_id=f"stage4_advanced_alpha_{_slug(alpha)}",
                 pipeline="advanced_rag",
-                k="best_k",
+                embedding=None,
+                k=None,
                 alpha=alpha,
-                reranker_input_count=f"{BASELINE_RERANKER_MULTIPLIER}k",
-                reranker_output_count="k",
+                reranker_input_count=None,
+                reranker_output_count=None,
                 query_enhancement_setting="on",
                 selection_rule="use best embedding and k selected from stage 3",
             )
@@ -278,12 +277,16 @@ def build_formal_matrix() -> List[FormalRunSpec]:
                 stage="5_reranker_input_ablation",
                 run_id=f"stage5_advanced_reranker_input_{multiplier}k",
                 pipeline="advanced_rag",
-                k="best_k",
-                alpha="best_alpha",
-                reranker_input_count=f"{multiplier}k",
-                reranker_output_count="k",
+                embedding=None,
+                k=None,
+                alpha=None,
+                reranker_input_count=None,
+                reranker_output_count=None,
                 query_enhancement_setting="on",
-                selection_rule="use best embedding, k, and alpha selected from stage 4",
+                selection_rule=(
+                    f"use best embedding, k, and alpha selected from stage 4; "
+                    f"reranker input is {multiplier} * resolved k"
+                ),
             )
         )
 
@@ -292,12 +295,6 @@ def build_formal_matrix() -> List[FormalRunSpec]:
 
 def build_cache_manifest(rows: Sequence[FormalRunSpec]) -> Dict[str, Any]:
     """Declare every reusable artifact recommended for formal ablations."""
-    # Reuse runtime path helpers so the planning manifest cannot drift from execution.
-    from app.rag.experiments.formal_ablation_runtime import (
-        dense_index_paths,
-        formal_run_paths,
-    )
-
     manifest: Dict[str, Any] = {
         "cache_top_k": RETRIEVAL_CACHE_TOP_K,
         "cache_keys": list(CACHE_KEYS),
@@ -310,18 +307,24 @@ def build_cache_manifest(rows: Sequence[FormalRunSpec]) -> Dict[str, Any]:
         "runs": {},
     }
     for row in rows:
-        index_paths = dense_index_paths(row)
-        run_paths = formal_run_paths(row)
+        embedding_slug = _slug(row.embedding_model or "unresolved_embedding")
+        index_root = (
+            RESULT_INDEXES_DIR
+            / f"{_slug(row.corpus_version)}__{embedding_slug}__{FAISS_INDEX_TYPE}"
+        )
+        retrieval_dir = RETRIEVAL_CACHE_DIR / row.run_id
+        rerank_dir = RERANK_CACHE_DIR / row.run_id
+        run_dir = RUNS_DIR / row.run_id
         manifest["runs"][row.run_id] = {
-            "chunk_embeddings": str(index_paths.chunk_embeddings),
-            "query_embeddings": str(run_paths.query_embeddings),
-            "faiss_index": str(index_paths.faiss_index),
-            "retrieval_top80": str(run_paths.retrieval_top80),
-            "rerank_outputs": str(run_paths.rerank_outputs),
-            "final_prompts": str(run_paths.final_prompts),
-            "llm_outputs": str(run_paths.llm_outputs),
-            "token_usage": str(run_paths.token_usage),
-            "estimated_token_cost": str(run_paths.estimated_token_cost),
+            "chunk_embeddings": str(index_root / "chunk_embeddings.npy"),
+            "query_embeddings": str(retrieval_dir / "query_embeddings.npy"),
+            "faiss_index": str(index_root / "faiss.index"),
+            "retrieval_top80": str(retrieval_dir / "retrieval_top80.jsonl"),
+            "rerank_outputs": str(rerank_dir / "rerank_outputs.jsonl"),
+            "final_prompts": str(run_dir / "final_prompts.jsonl"),
+            "llm_outputs": str(run_dir / "llm_outputs.jsonl"),
+            "token_usage": str(run_dir / "token_usage.json"),
+            "estimated_token_cost": str(run_dir / "estimated_token_cost.json"),
         }
     return manifest
 
@@ -335,6 +338,7 @@ def has_unresolved_selection(run: FormalRunSpec) -> bool:
         str(run.alpha),
         str(run.reranker_input_count),
         str(run.reranker_output_count),
+        str(run.embedding_model),
     )
     return any(token in value for value in values for token in UNRESOLVED_SELECTION_TOKENS)
 
@@ -417,45 +421,8 @@ def run_formal_ablation_framework() -> Dict[str, Any]:
     return manifest
 
 
-async def execute_configured_formal_runs() -> List[Dict[str, Any]]:
-    """Execute explicitly selected formal runs after the framework is written."""
-    if not FORMAL_RUN_IDS_TO_EXECUTE:
-        return []
-
-    from app.rag.experiments.formal_ablation_runtime import (
-        execute_advanced_run,
-        execute_naive_run,
-    )
-
-    rows_by_id = {row.run_id: row for row in build_formal_matrix()}
-    results: List[Dict[str, Any]] = []
-    questions = load_medqa_usmle_split("dev")
-    for run_id in FORMAL_RUN_IDS_TO_EXECUTE:
-        if run_id not in rows_by_id:
-            raise KeyError(f"Unknown formal run id: {run_id}")
-        print(f"Executing formal run: {run_id}", flush=True)
-        row = rows_by_id[run_id]
-        if has_unresolved_selection(row):
-            raise ValueError(
-                f"Formal run {run_id} still contains unresolved selection placeholders. "
-                "Resolve prior-stage winners before executing it."
-            )
-        if row.pipeline == "naive_rag":
-            results.append(await execute_naive_run(row, questions))
-            continue
-        if row.pipeline == "advanced_rag":
-            results.append(await execute_advanced_run(row, questions))
-            continue
-        else:
-            raise NotImplementedError(
-                f"Configured formal execution does not support pipeline {row.pipeline}: {run_id}"
-            )
-    return results
-
-
 def main() -> None:
     manifest = run_formal_ablation_framework()
-    executed_results = asyncio.run(execute_configured_formal_runs())
     print("=" * 60)
     print("Formal Ablation Framework Ready")
     print("=" * 60)
@@ -465,7 +432,7 @@ def main() -> None:
     print(f"Matrix rows: {len(manifest['matrix'])}")
     print(f"Framework JSON: {manifest['artifact_paths']['framework_json']}")
     print(f"Matrix CSV: {manifest['artifact_paths']['matrix_csv']}")
-    print(f"Executed formal runs: {len(executed_results)}")
+    print("Formal execution: use existing naive/enhanced evaluator entrypoints")
 
 
 if __name__ == "__main__":
