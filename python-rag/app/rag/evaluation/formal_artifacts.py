@@ -53,6 +53,14 @@ def completed_question_ids(path: Path) -> Set[str]:
     }
 
 
+def append_jsonl_if_question_missing(path: Path, row: Mapping[str, Any]) -> None:
+    """Append a row unless the final JSONL already contains its question id."""
+    question_id = row.get("question_id")
+    if question_id is not None and str(question_id) in completed_question_ids(path):
+        return
+    append_jsonl_with_checkpoint(path, row)
+
+
 def write_json(path: Path, payload: Mapping[str, Any]) -> None:
     """Persist JSON through the project's atomic writer."""
     save_json_atomic(path, dict(payload), indent=2, ensure_ascii=False)

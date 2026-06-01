@@ -166,7 +166,7 @@ async def _run_formal_naive_evaluation(
             continue
 
         query_text = str(item["question"])
-        formal_artifacts.append_jsonl_with_checkpoint(
+        formal_artifacts.append_jsonl_if_question_missing(
             query_texts_path,
             {
                 "question_id": current_question_id,

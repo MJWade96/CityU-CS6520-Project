@@ -457,7 +457,7 @@ async def _run_formal_enhanced_evaluation(
                 use_llm=uses_llm_rewrite,
             )
             query_text_source = "query_rewrite_pipeline"
-        formal_artifacts.append_jsonl_with_checkpoint(
+        formal_artifacts.append_jsonl_if_question_missing(
             query_texts_path,
             {
                 "question_id": current_question_id,
