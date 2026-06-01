@@ -25,6 +25,9 @@ API_INDEX_REQUIRED_FILES = (
     "index_store.json",
     "default__vector_store.json",
 )
+FORMAL_API_EMBEDDING_BATCH_SIZE = 64
+FORMAL_API_EMBEDDING_NUM_WORKERS = 4
+FORMAL_API_INDEX_USE_ASYNC = True
 
 
 def _index_root(row: FormalRunSpec) -> Path:
@@ -111,6 +114,9 @@ def _ensure_api_index(row: FormalRunSpec, index_dir: Path) -> Path:
             embedding_model=str(row.embedding_model),
             corpus_version=row.corpus_version,
             faiss_index_type=row.faiss_index_type,
+            batch_size=FORMAL_API_EMBEDDING_BATCH_SIZE,
+            embedding_api_num_workers=FORMAL_API_EMBEDDING_NUM_WORKERS,
+            index_use_async=FORMAL_API_INDEX_USE_ASYNC,
         )
     )
     _write_index_manifest(row, index_dir, status="completed", build_metadata=build_metadata)

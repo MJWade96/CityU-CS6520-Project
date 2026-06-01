@@ -25,9 +25,11 @@ from app.rag.retriever.vector_store import MedicalVectorStore
 CORPUS_FILE = COMBINED_CORPUS_FILE
 INDEX_DIR = FAISS_INDEX_DIR
 EMBEDDING_MODEL = DEFAULT_EMBEDDING_MODEL
-BATCH_SIZE = 256
+BATCH_SIZE = 64
 INSERT_BATCH_SIZE = 8192
 USE_GPU_FAISS = False
+EMBEDDING_API_NUM_WORKERS = 4
+INDEX_USE_ASYNC = True
 EMBEDDING_API_BASE_URL = first_env_value(
     "RAG_EMBEDDING_API_BASE_URL",
     default=DEFAULT_EMBEDDING_API_BASE_URL,
@@ -55,6 +57,8 @@ class IndexBuildConfig:
     embedding_api_dimensions: Optional[int] = EMBEDDING_API_DIMENSIONS
     embedding_api_timeout: float = EMBEDDING_API_TIMEOUT
     embedding_api_max_retries: int = EMBEDDING_API_MAX_RETRIES
+    embedding_api_num_workers: Optional[int] = EMBEDDING_API_NUM_WORKERS
+    index_use_async: bool = INDEX_USE_ASYNC
     faiss_index_type: str = "FlatIP"
     corpus_version: str = "default"
 
@@ -132,6 +136,8 @@ def checkpoint_payload(
         "embedding_api_dimensions": config.embedding_api_dimensions,
         "embedding_api_timeout": config.embedding_api_timeout,
         "embedding_api_max_retries": config.embedding_api_max_retries,
+        "embedding_api_num_workers": config.embedding_api_num_workers,
+        "index_use_async": config.index_use_async,
         "use_gpu_faiss": config.use_gpu_faiss,
         "faiss_index_type": config.faiss_index_type,
         "elapsed_seconds": elapsed,
@@ -163,6 +169,8 @@ def load_resume_checkpoint(
         "embedding_api_dimensions": config.embedding_api_dimensions,
         "embedding_api_timeout": config.embedding_api_timeout,
         "embedding_api_max_retries": config.embedding_api_max_retries,
+        "embedding_api_num_workers": config.embedding_api_num_workers,
+        "index_use_async": config.index_use_async,
         "use_gpu_faiss": config.use_gpu_faiss,
         "faiss_index_type": config.faiss_index_type,
     }
@@ -203,6 +211,8 @@ def save_build_metadata(
         "embedding_api_dimensions": config.embedding_api_dimensions,
         "embedding_api_timeout": config.embedding_api_timeout,
         "embedding_api_max_retries": config.embedding_api_max_retries,
+        "embedding_api_num_workers": config.embedding_api_num_workers,
+        "index_use_async": config.index_use_async,
         "use_gpu_faiss": config.use_gpu_faiss,
         "store_type": "native-faiss",
         "faiss_index_type": config.faiss_index_type,
@@ -229,6 +239,8 @@ def build_index(config: IndexBuildConfig = DEFAULT_INDEX_BUILD_CONFIG) -> Dict[s
     print(f"Embedding API base URL: {config.embedding_api_base_url}")
     print(f"Output: {config.index_dir}")
     print(f"Embedding batch size: {config.batch_size}")
+    print(f"Embedding async workers: {config.embedding_api_num_workers}")
+    print(f"LlamaIndex async build: {config.index_use_async}")
     print(f"GPU FAISS: {config.use_gpu_faiss}")
     print(f"FAISS index type: {config.faiss_index_type}")
     print(f"Index insert batch size: {config.insert_batch_size}", flush=True)
@@ -245,6 +257,8 @@ def build_index(config: IndexBuildConfig = DEFAULT_INDEX_BUILD_CONFIG) -> Dict[s
         embedding_api_dimensions=config.embedding_api_dimensions,
         embedding_api_timeout=config.embedding_api_timeout,
         embedding_api_max_retries=config.embedding_api_max_retries,
+        embedding_api_num_workers=config.embedding_api_num_workers,
+        index_use_async=config.index_use_async,
     )
     start_document = 0
     prior_elapsed = 0.0

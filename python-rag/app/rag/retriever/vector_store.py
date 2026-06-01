@@ -56,6 +56,8 @@ class MedicalVectorStore:
         embedding_api_dimensions: Optional[int] = None,
         embedding_api_timeout: float = 120.0,
         embedding_api_max_retries: int = 5,
+        embedding_api_num_workers: Optional[int] = None,
+        index_use_async: bool = False,
     ):
         self.embedding_backend = "api"
         self.embedding_model_name = embedding_model_name
@@ -66,6 +68,8 @@ class MedicalVectorStore:
         self.embedding_api_dimensions = embedding_api_dimensions
         self.embedding_api_timeout = embedding_api_timeout
         self.embedding_api_max_retries = embedding_api_max_retries
+        self.embedding_api_num_workers = embedding_api_num_workers
+        self.index_use_async = index_use_async
         self.index: Optional[VectorStoreIndex] = None
         if not embedding_api_base_url:
             raise ValueError("RAG_EMBEDDING_API_BASE_URL must be set for API embeddings")
@@ -80,6 +84,7 @@ class MedicalVectorStore:
             dimensions=embedding_api_dimensions,
             timeout=embedding_api_timeout,
             max_retries=embedding_api_max_retries,
+            num_workers=embedding_api_num_workers,
         )
 
     def _require_index(self) -> VectorStoreIndex:
@@ -136,6 +141,7 @@ class MedicalVectorStore:
             embed_model=self._embed_model,
             show_progress=show_progress,
             insert_batch_size=insert_batch_size,
+            use_async=self.index_use_async,
         )
 
     def add_documents(
@@ -162,7 +168,11 @@ class MedicalVectorStore:
             self._require_index()._transformations,
             show_progress=show_progress,
         )
-        self._require_index().insert_nodes(nodes, show_progress=show_progress)
+        self._require_index().insert_nodes(
+            nodes,
+            show_progress=show_progress,
+            use_async=self.index_use_async,
+        )
         for document in documents:
             self._require_index().docstore.set_document_hash(
                 document.id_,
@@ -229,6 +239,8 @@ class MedicalVectorStore:
                 "embedding_model": self.embedding_model_name,
                 "embedding_api_base_url": self.embedding_api_base_url,
                 "embedding_api_dimensions": self.embedding_api_dimensions,
+                "embedding_api_num_workers": self.embedding_api_num_workers,
+                "index_use_async": self.index_use_async,
                 "use_gpu_faiss": self.use_gpu_faiss,
             },
             indent=2,

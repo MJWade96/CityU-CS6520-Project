@@ -123,6 +123,7 @@ def test_vector_store_uses_official_openai_embedding(monkeypatch) -> None:
     assert calls["api_base"] == "https://api.siliconflow.cn/v1"
     assert calls["api_key"] == "secret"
     assert calls["embed_batch_size"] == 8
+    assert "num_workers" in calls
 
 
 def test_reranker_uses_official_siliconflow_postprocessor(monkeypatch) -> None:

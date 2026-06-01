@@ -55,7 +55,9 @@ def test_primary_entrypoints_route_through_canonical_modules() -> None:
     assert "from app.rag.retriever.vector_store import MedicalVectorStore" in build_source
     assert "CHECKPOINT_FILE" in build_source
     assert "Building FAISS index" in build_source
-    assert "BATCH_SIZE = 256" in build_source
+    assert "BATCH_SIZE = 64" in build_source
+    assert "EMBEDDING_API_NUM_WORKERS = 4" in build_source
+    assert "INDEX_USE_ASYNC = True" in build_source
     assert "INSERT_BATCH_SIZE = 8192" in build_source
     assert "USE_GPU_FAISS = False" in build_source
     assert "show_progress=True" in build_source
@@ -260,6 +262,8 @@ def test_native_vector_store_uses_api_embedding_and_explicit_gpu_faiss() -> None
     assert "insert_nodes" in source
     assert "self.index.insert(document)" not in source
     assert "OpenAIEmbedding" in source
+    assert "num_workers=embedding_api_num_workers" in source
+    assert "use_async=self.index_use_async" in source
     assert "HuggingFaceEmbedding" not in source
     assert "use_gpu_faiss" in source
     assert "index_cpu_to_gpu" in source
