@@ -262,3 +262,65 @@ def test_medcpt_formal_retriever_consumes_autodl_artifacts(
 
     assert results[0][0].page_content == "second"
     assert results[0][1] == pytest.approx(1.0)
+
+
+def test_medcpt_formal_retriever_components_require_explicit_llm(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from llama_index.core.llms.mock import MockLLM
+
+    from app.rag.evaluation import formal_medcpt_adapter as module
+    from app.rag.evaluation.formal_medcpt_adapter import MedCPTFormalRetriever
+
+    index_root = tmp_path / "indexes" / "statpearls__ncbi_medcpt__FlatIP"
+    query_root = tmp_path / "retrieval" / "stage1_naive_medcpt"
+    index_root.mkdir(parents=True)
+    query_root.mkdir(parents=True)
+    np.save(index_root / "chunk_embeddings.npy", np.asarray([[1.0, 0.0], [0.0, 1.0]], dtype="float32"))
+    np.save(query_root / "query_embeddings.npy", np.asarray([[0.0, 1.0]], dtype="float32"))
+    (index_root / "manifest.json").write_text(
+        json.dumps({"selected_sources": ["statpearls"]}),
+        encoding="utf-8",
+    )
+    (query_root / "query_texts.jsonl").write_text(
+        json.dumps({"question_id": "dev-1", "query_text": "second"}) + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "RETRIEVAL_CACHE_DIR", tmp_path / "retrieval")
+    monkeypatch.setattr(
+        module,
+        "combine_registered_corpora",
+        lambda selected_sources: {
+            "records": [
+                {"id": "doc-1", "contents": "first text", "source": "statpearls"},
+                {"id": "doc-2", "contents": "second text", "source": "statpearls"},
+            ]
+        },
+    )
+    retriever = MedCPTFormalRetriever.load(
+        corpus_version="statpearls",
+        index_root=index_root,
+        query_cache_id="stage1_naive_medcpt",
+    )
+
+    with pytest.raises(ValueError, match="explicit LlamaIndex LLM"):
+        retriever.retrieve_components(
+            question_id="dev-1",
+            query_text="second",
+            k=1,
+            weights=(0.5, 0.5),
+            llm=None,
+        )
+
+    dense, sparse, fusion = retriever.retrieve_components(
+        question_id="dev-1",
+        query_text="second",
+        k=1,
+        weights=(0.5, 0.5),
+        llm=MockLLM(),
+    )
+
+    assert dense
+    assert sparse
+    assert fusion

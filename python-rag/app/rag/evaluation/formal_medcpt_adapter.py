@@ -200,9 +200,11 @@ class MedCPTFormalRetriever:
         query_text: str,
         k: int,
         weights: Tuple[float, float],
-        llm: Any = None,
+        llm: Any,
     ) -> Tuple[List[NodeWithScore], List[NodeWithScore], List[NodeWithScore]]:
         """Return dense, BM25, and QueryFusion results for Advanced formal rows."""
+        if llm is None:
+            raise ValueError("MedCPT formal QueryFusion requires an explicit LlamaIndex LLM")
         dense_retriever = _MedCPTDenseRetriever(
             self,
             question_id=question_id,
