@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Sequence
 
@@ -18,6 +18,7 @@ import numpy as np
 from app.rag.data.benchmarks.medqa_usmle import load_medqa_usmle_split
 from app.rag.data.data_paths import RETRIEVAL_CACHE_DIR, ensure_data_directories
 from app.rag.data.json_utils import save_json_atomic
+from app.rag.experiments.formal_query_embedding_specs import QueryEmbeddingSpec
 
 
 DATASET_SPLIT = "dev"
@@ -30,15 +31,6 @@ QUERY_TEXTS_FILENAME = "query_texts.jsonl"
 QUERY_EMBEDDING_MANIFEST_FILENAME = "query_embedding_manifest.json"
 SOURCE_RUNTIME = "autodl"
 QUERY_INPUT_FORMAT = "retrieval_query_text_only"
-
-
-@dataclass(frozen=True)
-class QueryEmbeddingSpec:
-    """One MedCPT query embedding cache target independent of formal matrix rows."""
-
-    cache_id: str
-    pipeline: str
-    query_text_source: str
 
 
 QUERY_EMBEDDING_SPECS: Sequence[QueryEmbeddingSpec] = (

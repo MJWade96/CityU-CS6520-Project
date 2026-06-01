@@ -25,6 +25,8 @@ pip install -r requirements.txt
 
 Configure the LLM and embedding environment through the constants and environment variables used by `app/rag/evaluation/eval_shared.py` and `app/rag/retriever/runtime_config.py`.
 
+Formal ablation BGE and MedCPT embeddings are artifact-driven: generate local `chunk_embeddings.npy` and `query_embeddings.npy` on AutoDL, copy `results/indexes/` and `results/retrieval_cache/` back to the PC, then run the formal executor there. Reranking and final generation remain API-backed.
+
 The data root is resolved by `app/rag/data/data_paths.py`: if `python-rag/data/` exists it is used directly; otherwise the scripts fall back to the sibling directory `RAG_Medical_Data/` next to `python-rag/`, unless `RAG_DATA_DIR` is set.
 
 ## Common Workflow
@@ -46,6 +48,16 @@ python -m app.rag.experiments.complete_eval
 
 # Formal phase 1 ablation execution
 python -m app.rag.experiments.run_formal_ablation
+```
+
+For AutoDL local embedding artifacts:
+
+```bash
+python -m app.rag.experiments.run_query_rewrite_cache_autodl
+python -m app.rag.experiments.run_local_bge_embedding_autodl
+python -m app.rag.experiments.run_local_bge_query_embedding_autodl
+python -m app.rag.experiments.run_medcpt_embedding_autodl
+python -m app.rag.experiments.run_medcpt_query_embedding_autodl
 ```
 
 ## Formal Phase 1 Ablation

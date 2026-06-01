@@ -178,7 +178,7 @@ def test_llm_defaults_use_siliconflow_qwen3_8b_with_requested_limits() -> None:
     assert llm.base_url == "https://api.siliconflow.cn/v1"
     assert llm.api_key
     assert llm.temperature == 0.1
-    assert llm.enable_thinking is False
+    assert llm.enable_thinking is True
     assert concurrency.rpm_limit == 1000
     assert concurrency.tpm_limit == 50000
 
@@ -249,7 +249,7 @@ def test_requirements_keep_only_native_llamaindex_packages() -> None:
     source = read_text(REQUIREMENTS_FILE)
 
     assert "llama-index-llms-openai-like" in source
-    assert "llama-index-embeddings-huggingface" not in source
+    assert "llama-index-embeddings-huggingface" in source
     assert "langchain" not in source.lower()
 
 

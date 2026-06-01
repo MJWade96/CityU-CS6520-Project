@@ -1,9 +1,9 @@
-"""Generate reusable rewritten query text cache on AutoDL.
+"""Generate reusable rewritten query text caches.
 
 This script only resolves advanced retrieval query texts. It writes the
-``query_texts.jsonl`` file consumed later by ``run_medcpt_query_embedding_autodl.py``
-and does not load MedCPT, run retrieval, rerank, build FAISS, or prompt the final
-answering LLM.
+``query_texts.jsonl`` files consumed later by local AutoDL embedding scripts and
+does not load embedding models, run retrieval, rerank, build FAISS, or prompt the
+final answering LLM.
 """
 
 from __future__ import annotations
@@ -28,18 +28,28 @@ from app.rag.experiments.run_medcpt_query_embedding_autodl import (
     _validate_query_text_rows,
     _write_jsonl,
 )
+from app.rag.experiments.run_local_bge_query_embedding_autodl import (
+    BGE_QUERY_EMBEDDING_SPECS,
+)
 from app.rag.retriever.query_rewrite import QueryRewritePipeline
 
 
 REWRITE_PROGRESS_EVERY = 10
-REWRITE_CACHE_IDS: Sequence[str] = ("advanced_medcpt_rewritten_query",)
+REWRITE_CACHE_IDS: Sequence[str] = tuple(
+    spec.cache_id
+    for spec in tuple(QUERY_EMBEDDING_SPECS) + tuple(BGE_QUERY_EMBEDDING_SPECS)
+    if spec.pipeline == "advanced_rag"
+)
 RUN_MODE = "rewrite_all"  # "rewrite_all" or "retry_errors"
 QUERY_TEXTS_CHECKPOINT_FILENAME = "query_texts.checkpoint.jsonl"
 QUERY_REWRITE_ERRORS_FILENAME = "query_rewrite_errors.jsonl"
 
 
 def _selected_rewrite_specs() -> List[QueryEmbeddingSpec]:
-    specs_by_id = {spec.cache_id: spec for spec in QUERY_EMBEDDING_SPECS}
+    specs_by_id = {
+        spec.cache_id: spec
+        for spec in tuple(QUERY_EMBEDDING_SPECS) + tuple(BGE_QUERY_EMBEDDING_SPECS)
+    }
     selected: List[QueryEmbeddingSpec] = []
     for cache_id in REWRITE_CACHE_IDS:
         if cache_id not in specs_by_id:
@@ -313,12 +323,39 @@ async def write_rewrite_cache(
     print(f"Finished query rewrite cache={spec.cache_id}, output={output_path}", flush=True)
 
 
+async def write_rewrite_caches(
+    specs: Sequence[QueryEmbeddingSpec],
+    questions: Sequence[Mapping[str, Any]],
+    llm_config: EvaluationLLMConfig,
+) -> None:
+    """Build one rewrite result and fan it out to equivalent local embedding caches."""
+    if not specs:
+        return
+
+    base_spec = specs[0]
+    await write_rewrite_cache(base_spec, questions, llm_config)
+    base_output = _query_texts_path(base_spec)
+    if not base_output.exists():
+        return
+
+    rows = [dict(row) for row in _iter_jsonl(base_output)]
+    _validate_query_text_rows(base_spec, rows, questions)
+    for spec in specs[1:]:
+        output_path = _query_texts_path(spec)
+        if output_path.exists():
+            existing_rows = [dict(row) for row in _iter_jsonl(output_path)]
+            _validate_query_text_rows(spec, existing_rows, questions)
+            print(f"Skip existing query rewrite cache={spec.cache_id}", flush=True)
+            continue
+        _write_jsonl(output_path, rows)
+        print(f"Copied query rewrite cache={spec.cache_id}, output={output_path}", flush=True)
+
+
 async def async_main() -> None:
     ensure_data_directories()
     questions = load_medqa_usmle_split(DATASET_SPLIT)
     llm_config = EvaluationLLMConfig()
-    for spec in _selected_rewrite_specs():
-        await write_rewrite_cache(spec, questions, llm_config)
+    await write_rewrite_caches(_selected_rewrite_specs(), questions, llm_config)
 
 
 def main() -> None:

@@ -14,6 +14,7 @@ from app.rag.experiments.phase1_formal_ablation import (
     CORPUS_VARIANTS,
     FAISS_INDEX_TYPE,
     FormalRunSpec,
+    LOCAL_EMBEDDING_BACKENDS,
     _slug,
 )
 
@@ -123,12 +124,12 @@ def _ensure_api_index(row: FormalRunSpec, index_dir: Path) -> Path:
     return index_dir
 
 
-def _ensure_medcpt_artifact(row: FormalRunSpec, index_dir: Path) -> Path:
+def _ensure_local_embedding_artifact(row: FormalRunSpec, index_dir: Path) -> Path:
     required = (index_dir / "chunk_embeddings.npy", index_dir / "manifest.json")
     missing = [str(path) for path in required if not path.exists()]
     if missing:
         raise FileNotFoundError(
-            "MedCPT formal rows require precomputed AutoDL artifacts. "
+            "Local formal embedding rows require precomputed AutoDL artifacts. "
             f"Missing: {', '.join(missing)}"
         )
     return index_dir
@@ -143,8 +144,8 @@ def ensure_formal_index(row: FormalRunSpec) -> Path:
     index_dir = _index_root(row)
     index_dir.mkdir(parents=True, exist_ok=True)
 
-    if row.embedding_backend == "local_medcpt":
-        return _ensure_medcpt_artifact(row, index_dir)
+    if row.embedding_backend in LOCAL_EMBEDDING_BACKENDS:
+        return _ensure_local_embedding_artifact(row, index_dir)
     if row.embedding_backend == "siliconflow_api":
         return _ensure_api_index(row, index_dir)
     raise ValueError(f"Unsupported embedding backend for formal index: {row.embedding_backend}")

@@ -54,6 +54,7 @@ CACHE_KEYS = (
     "token_usage",
     "estimated_token_cost",
 )
+LOCAL_EMBEDDING_BACKENDS = ("local_hf_embedding", "local_medcpt")
 
 
 @dataclass(frozen=True)
@@ -72,8 +73,8 @@ EMBEDDING_PROVIDERS = (
     EmbeddingProviderSpec(
         name="bge_m3",
         model="BAAI/bge-m3",
-        backend="siliconflow_api",
-        deployment="OpenAI-compatible API embedding",
+        backend="local_hf_embedding",
+        deployment="AutoDL local HuggingFace embedding artifacts",
         api_base_url=first_env_value(
             "RAG_EMBEDDING_API_BASE_URL",
             default=DEFAULT_EMBEDDING_API_BASE_URL,
@@ -89,8 +90,8 @@ EMBEDDING_PROVIDERS = (
     EmbeddingProviderSpec(
         name="bge_large_en_v1_5",
         model="BAAI/bge-large-en-v1.5",
-        backend="siliconflow_api",
-        deployment="OpenAI-compatible API embedding",
+        backend="local_hf_embedding",
+        deployment="AutoDL local HuggingFace embedding artifacts",
         api_base_url=first_env_value(
             "RAG_EMBEDDING_API_BASE_URL",
             default=DEFAULT_EMBEDDING_API_BASE_URL,

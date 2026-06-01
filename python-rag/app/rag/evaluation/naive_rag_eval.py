@@ -30,7 +30,9 @@ from .eval_shared import (
     split_questions,
     update_progress,
 )
-from .formal_medcpt_adapter import MedCPTFormalRetriever
+from app.rag.experiments.phase1_formal_ablation import LOCAL_EMBEDDING_BACKENDS
+
+from .formal_local_embedding_adapter import LocalEmbeddingFormalRetriever
 from . import formal_artifacts
 
 
@@ -141,10 +143,10 @@ async def _run_formal_naive_evaluation(
         ),
     )
 
-    medcpt_retriever: Optional[MedCPTFormalRetriever] = None
+    local_embedding_retriever: Optional[LocalEmbeddingFormalRetriever] = None
     vectorstore: Optional[MedicalVectorStore] = None
-    if metadata.get("embedding_backend") == "local_medcpt":
-        medcpt_retriever = MedCPTFormalRetriever.load(
+    if metadata.get("embedding_backend") in LOCAL_EMBEDDING_BACKENDS:
+        local_embedding_retriever = LocalEmbeddingFormalRetriever.load(
             corpus_version=str(metadata["corpus_version"]),
             index_root=config.vector_store_path,
             query_cache_id=str(metadata["query_cache_id"]),
@@ -178,9 +180,9 @@ async def _run_formal_naive_evaluation(
             },
         )
         retrieval_started = time.time()
-        if medcpt_retriever is not None:
+        if local_embedding_retriever is not None:
             retrieved = await asyncio.to_thread(
-                medcpt_retriever.retrieve,
+                local_embedding_retriever.retrieve,
                 question_id=current_question_id,
                 query_text=query_text,
                 k=retrieval_top_k,

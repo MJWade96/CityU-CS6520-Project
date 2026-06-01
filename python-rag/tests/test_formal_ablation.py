@@ -56,6 +56,8 @@ def test_formal_matrix_uses_dev_and_includes_required_embeddings() -> None:
     assert "BAAI/bge-m3" in embeddings
     assert "BAAI/bge-large-en-v1.5" in embeddings
     assert "ncbi/MedCPT" in embeddings
+    bge_rows = [row for row in rows if row.embedding_model == "BAAI/bge-m3"]
+    assert {row.embedding_backend for row in bge_rows} == {"local_hf_embedding"}
     assert {
         "0_corpus_ablation",
         "1_embedding_screening",
@@ -110,7 +112,7 @@ def test_formal_framework_does_not_use_legacy_medqa(monkeypatch) -> None:
     )
 
 
-def test_medcpt_stays_in_experiment_framework_not_primary_retriever() -> None:
+def test_local_embeddings_stay_in_experiment_framework_not_primary_retriever() -> None:
     from app.rag.experiments import phase1_formal_ablation as module
 
     vector_store_source = (
@@ -118,11 +120,17 @@ def test_medcpt_stays_in_experiment_framework_not_primary_retriever() -> None:
     ).read_text(encoding="utf-8")
 
     assert any(provider.name == "medcpt" for provider in module.EMBEDDING_PROVIDERS)
+    assert any(
+        provider.backend == "local_hf_embedding"
+        for provider in module.EMBEDDING_PROVIDERS
+        if provider.model.startswith("BAAI/")
+    )
     assert not (
         PROJECT_ROOT / "app" / "rag" / "experiments" / "formal_ablation_runtime.py"
     ).exists()
     assert "MedCPT" not in vector_store_source
     assert "local_medcpt" not in vector_store_source
+    assert "local_hf_embedding" not in vector_store_source
 
 
 def test_formal_matrix_uses_typed_values_not_runtime_string_parameters() -> None:
@@ -217,6 +225,37 @@ def test_medcpt_query_autodl_defaults_to_naive_and_advanced_caches() -> None:
         "stage1_naive_medcpt": "naive_rag",
         "advanced_medcpt_rewritten_query": "advanced_rag",
     }
+
+
+def test_local_bge_autodl_scripts_have_no_cli_and_cover_formal_specs() -> None:
+    from app.rag.experiments import run_local_bge_query_embedding_autodl as module
+
+    corpus_source = (
+        PROJECT_ROOT
+        / "app"
+        / "rag"
+        / "experiments"
+        / "run_local_bge_embedding_autodl.py"
+    ).read_text(encoding="utf-8")
+    query_source = (
+        PROJECT_ROOT
+        / "app"
+        / "rag"
+        / "experiments"
+        / "run_local_bge_query_embedding_autodl.py"
+    ).read_text(encoding="utf-8")
+    specs = {spec.cache_id: spec.pipeline for spec in module.BGE_QUERY_EMBEDDING_SPECS}
+
+    assert "HuggingFaceEmbedding" in corpus_source
+    assert "HuggingFaceEmbedding" in query_source
+    assert "argparse" not in corpus_source
+    assert "parse_args" not in corpus_source
+    assert "argparse" not in query_source
+    assert "parse_args" not in query_source
+    assert "stage1_naive_bge_m3__baai_bge-m3" in specs
+    assert "stage1_naive_bge_large_en_v1_5__baai_bge-large-en-v1p5" in specs
+    assert "stage3_advanced_stage2_top1_embedding_k__baai_bge-m3" in specs
+    assert specs["stage3_advanced_stage2_top1_embedding_k__baai_bge-m3"] == "advanced_rag"
 
 
 def test_medcpt_naive_query_text_rows_use_question_field_only() -> None:
@@ -371,3 +410,47 @@ def test_query_rewrite_cache_checkpoints_and_resumes(
     ]
     assert [row["question_id"] for row in final_rows] == ["dev-1", "dev-2"]
     assert not checkpoint_path.exists()
+
+
+def test_query_rewrite_cache_fans_out_shared_rows(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from app.rag.evaluation.eval_shared import EvaluationLLMConfig
+    from app.rag.experiments import run_query_rewrite_cache_autodl as module
+    from app.rag.experiments.formal_query_embedding_specs import QueryEmbeddingSpec
+
+    specs = [
+        QueryEmbeddingSpec("advanced_a", "advanced_rag", "query_rewrite_pipeline"),
+        QueryEmbeddingSpec("advanced_b", "advanced_rag", "query_rewrite_pipeline"),
+    ]
+    questions = [{"id": "dev-1", "question": "Question one?"}]
+    output_paths = {
+        "advanced_a": tmp_path / "advanced_a" / "query_texts.jsonl",
+        "advanced_b": tmp_path / "advanced_b" / "query_texts.jsonl",
+    }
+    rewrite_calls = {"count": 0}
+
+    class FakeRewritePipeline:
+        async def arewrite(self, query, **kwargs):
+            rewrite_calls["count"] += 1
+            return f"{query} rewritten", [query]
+
+    monkeypatch.setattr(module, "_query_texts_path", lambda spec: output_paths[spec.cache_id])
+    monkeypatch.setattr(
+        module,
+        "create_query_rewriter",
+        lambda llm_config: FakeRewritePipeline(),
+    )
+    monkeypatch.setattr(module, "RUN_MODE", "rewrite_all")
+
+    asyncio.run(module.write_rewrite_caches(specs, questions, EvaluationLLMConfig()))
+
+    rows_a = [
+        json.loads(line) for line in output_paths["advanced_a"].read_text(encoding="utf-8").splitlines()
+    ]
+    rows_b = [
+        json.loads(line) for line in output_paths["advanced_b"].read_text(encoding="utf-8").splitlines()
+    ]
+    assert rewrite_calls["count"] == 1
+    assert rows_a == rows_b

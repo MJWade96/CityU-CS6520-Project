@@ -22,6 +22,7 @@ from ..retriever.runtime_config import (
     first_env_value,
 )
 from ..retriever.vector_store import MedicalVectorStore, RetrievedDocument
+from app.rag.experiments.phase1_formal_ablation import LOCAL_EMBEDDING_BACKENDS
 from ..utils.progress_manager import EvaluationProgressManager
 from .eval_shared import (
     ConcurrencyConfig,
@@ -41,7 +42,7 @@ from .eval_shared import (
     split_questions,
 )
 from . import formal_artifacts
-from .formal_medcpt_adapter import MedCPTFormalRetriever
+from .formal_local_embedding_adapter import LocalEmbeddingFormalRetriever
 from .naive_rag_eval import (
     build_query,
     create_llm,
@@ -389,10 +390,10 @@ async def _run_formal_enhanced_evaluation(
     )
 
     llm = create_llm(config.llm)
-    medcpt_retriever: Optional[MedCPTFormalRetriever] = None
+    local_embedding_retriever: Optional[LocalEmbeddingFormalRetriever] = None
     hybrid: Optional[HybridRetriever] = None
-    if metadata.get("embedding_backend") == "local_medcpt":
-        medcpt_retriever = MedCPTFormalRetriever.load(
+    if metadata.get("embedding_backend") in LOCAL_EMBEDDING_BACKENDS:
+        local_embedding_retriever = LocalEmbeddingFormalRetriever.load(
             corpus_version=str(metadata["corpus_version"]),
             index_root=config.vector_store_path,
             query_cache_id=str(metadata["query_cache_id"]),
@@ -437,10 +438,10 @@ async def _run_formal_enhanced_evaluation(
 
         original_query = str(item["question"])
         rewrite_history: List[str] = []
-        if medcpt_retriever is not None:
+        if local_embedding_retriever is not None:
             uses_llm_rewrite = False
-            query_text = medcpt_retriever.cached_query_text(current_question_id)
-            query_text_source = "medcpt_rewritten_query_cache"
+            query_text = local_embedding_retriever.cached_query_text(current_question_id)
+            query_text_source = "local_embedding_query_cache"
         else:
             uses_llm_rewrite = should_use_llm_query_rewrite(
                 original_query,
@@ -449,7 +450,7 @@ async def _run_formal_enhanced_evaluation(
             )
             query_text = original_query
             query_text_source = "medqa_usmle_question_field"
-        if config.use_query_rewrite and medcpt_retriever is None:
+        if config.use_query_rewrite and local_embedding_retriever is None:
             query_text, rewrite_history = await query_rewriter.arewrite(
                 original_query,
                 rate_limiter=ctx.rate_limiter,
@@ -475,9 +476,9 @@ async def _run_formal_enhanced_evaluation(
         )
 
         retrieval_started = time.time()
-        if medcpt_retriever is not None:
+        if local_embedding_retriever is not None:
             dense_nodes, sparse_nodes, fusion_nodes = await asyncio.to_thread(
-                medcpt_retriever.retrieve_components,
+                local_embedding_retriever.retrieve_components,
                 question_id=current_question_id,
                 query_text=query_text,
                 k=config.resolved_retrieval_top_k,

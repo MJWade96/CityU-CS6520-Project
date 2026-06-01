@@ -55,7 +55,9 @@ def test_build_eval_configs_use_dev_split_and_formal_metadata(tmp_path: Path) ->
     assert naive_config.test_size == 2
     assert naive_config.manual_top_k == naive_row.k
     assert naive_config.formal_run_id == naive_row.run_id
-    assert naive_config.formal_metadata["query_cache_id"] == naive_row.run_id
+    assert naive_config.formal_metadata["query_cache_id"] == (
+        "stage1_naive_bge_m3__baai_bge-m3"
+    )
 
     assert enhanced_config.question_file == MEDQA_USMLE_DEV_FILE
     assert enhanced_config.dev_size == 0

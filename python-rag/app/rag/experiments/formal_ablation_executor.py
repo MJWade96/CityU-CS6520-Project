@@ -19,11 +19,13 @@ from app.rag.experiments.formal_index_materializer import ensure_formal_index
 from app.rag.experiments.phase1_formal_ablation import (
     BASELINE_RERANKER_MULTIPLIER,
     EMBEDDING_PROVIDERS,
+    LOCAL_EMBEDDING_BACKENDS,
     RERANKER_INPUT_MULTIPLIERS,
     RUN_ID,
     FormalRunSpec,
     build_cache_manifest,
     build_formal_matrix,
+    _slug,
     write_csv,
 )
 
@@ -218,11 +220,15 @@ def resolve_stage_runs(
 
 
 def _query_cache_id(row: FormalRunSpec) -> str:
-    if row.embedding_backend != "local_medcpt":
+    if row.embedding_backend not in LOCAL_EMBEDDING_BACKENDS:
         return row.run_id
     if row.pipeline == "advanced_rag":
-        return "advanced_medcpt_rewritten_query"
-    return "stage1_naive_medcpt"
+        if row.embedding_backend == "local_medcpt":
+            return "advanced_medcpt_rewritten_query"
+        return f"{row.run_id}__{_slug(row.embedding_model)}"
+    if row.embedding_backend == "local_medcpt":
+        return "stage1_naive_medcpt"
+    return f"{row.run_id}__{_slug(row.embedding_model)}"
 
 
 def _formal_metadata(row: FormalRunSpec, index_path: Path) -> Dict[str, Any]:

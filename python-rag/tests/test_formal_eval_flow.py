@@ -223,8 +223,8 @@ def test_medcpt_formal_retriever_consumes_autodl_artifacts(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
-    from app.rag.evaluation import formal_medcpt_adapter as module
-    from app.rag.evaluation.formal_medcpt_adapter import MedCPTFormalRetriever
+    from app.rag.evaluation import formal_local_embedding_adapter as module
+    from app.rag.evaluation.formal_local_embedding_adapter import LocalEmbeddingFormalRetriever
 
     index_root = tmp_path / "indexes" / "statpearls__ncbi_medcpt__FlatIP"
     query_root = tmp_path / "retrieval" / "stage1_naive_medcpt"
@@ -252,7 +252,7 @@ def test_medcpt_formal_retriever_consumes_autodl_artifacts(
         },
     )
 
-    retriever = MedCPTFormalRetriever.load(
+    retriever = LocalEmbeddingFormalRetriever.load(
         corpus_version="statpearls",
         index_root=index_root,
         query_cache_id="stage1_naive_medcpt",
@@ -270,8 +270,8 @@ def test_medcpt_formal_retriever_components_require_explicit_llm(
 ) -> None:
     from llama_index.core.llms.mock import MockLLM
 
-    from app.rag.evaluation import formal_medcpt_adapter as module
-    from app.rag.evaluation.formal_medcpt_adapter import MedCPTFormalRetriever
+    from app.rag.evaluation import formal_local_embedding_adapter as module
+    from app.rag.evaluation.formal_local_embedding_adapter import LocalEmbeddingFormalRetriever
 
     index_root = tmp_path / "indexes" / "statpearls__ncbi_medcpt__FlatIP"
     query_root = tmp_path / "retrieval" / "stage1_naive_medcpt"
@@ -298,7 +298,7 @@ def test_medcpt_formal_retriever_components_require_explicit_llm(
             ]
         },
     )
-    retriever = MedCPTFormalRetriever.load(
+    retriever = LocalEmbeddingFormalRetriever.load(
         corpus_version="statpearls",
         index_root=index_root,
         query_cache_id="stage1_naive_medcpt",
