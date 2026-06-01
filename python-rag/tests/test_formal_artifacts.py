@@ -14,6 +14,8 @@ sys.path.insert(0, str(PROJECT_ROOT.resolve()))
 def test_jsonl_helpers_append_load_and_report_completed_ids(tmp_path: Path) -> None:
     from app.rag.evaluation.formal_artifacts import (
         append_jsonl,
+        append_jsonl_with_checkpoint,
+        checkpoint_path,
         completed_question_ids,
         load_jsonl,
     )
@@ -31,6 +33,11 @@ def test_jsonl_helpers_append_load_and_report_completed_ids(tmp_path: Path) -> N
         {"question_id": "dev-2", "value": "beta"},
     ]
     assert completed_question_ids(path) == {"dev-1", "dev-2"}
+
+    checkpointed_path = tmp_path / "cache" / "checkpointed.jsonl"
+    append_jsonl_with_checkpoint(checkpointed_path, {"question_id": "dev-3"})
+    assert load_jsonl(checkpointed_path) == [{"question_id": "dev-3"}]
+    assert load_jsonl(checkpoint_path(checkpointed_path)) == [{"question_id": "dev-3"}]
 
 
 def test_json_and_path_helpers_use_formal_locations(

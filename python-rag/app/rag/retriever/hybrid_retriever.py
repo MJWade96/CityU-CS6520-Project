@@ -35,10 +35,12 @@ class HybridRetriever:
         self,
         *,
         dense_retriever: Any,
+        bm25_retriever: Any,
         fusion_retriever: Any,
         config: HybridRetrieverConfig,
     ):
         self.dense_retriever = dense_retriever
+        self.bm25_retriever = bm25_retriever
         self.fusion_retriever = fusion_retriever
         self.config = config
 
@@ -71,6 +73,7 @@ class HybridRetriever:
         )
         return cls(
             dense_retriever=dense_retriever,
+            bm25_retriever=bm25_retriever,
             fusion_retriever=fusion_retriever,
             config=HybridRetrieverConfig(
                 similarity_top_k=similarity_top_k,
@@ -83,6 +86,13 @@ class HybridRetriever:
     def retrieve(self, query: str, *, use_hybrid: bool = True) -> List[Any]:
         retriever = self.fusion_retriever if use_hybrid else self.dense_retriever
         return list(retriever.retrieve(query))
+
+    def retrieve_components(self, query: str) -> Tuple[List[Any], List[Any], List[Any]]:
+        """Expose dense, BM25, and fused results for formal cache artifacts."""
+        dense = list(self.dense_retriever.retrieve(query))
+        sparse = list(self.bm25_retriever.retrieve(query))
+        fusion = list(self.fusion_retriever.retrieve(query))
+        return dense, sparse, fusion
 
     def search(
         self,

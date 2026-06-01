@@ -21,6 +21,16 @@ def append_jsonl(path: Path, row: Mapping[str, Any]) -> None:
         handle.write(json.dumps(dict(row), ensure_ascii=False) + "\n")
 
 
+def checkpoint_path(path: Path) -> Path:
+    return path.with_name(f"{path.stem}.checkpoint{path.suffix}")
+
+
+def append_jsonl_with_checkpoint(path: Path, row: Mapping[str, Any]) -> None:
+    """Append matching final/checkpoint rows without duplicating write logic."""
+    append_jsonl(path, row)
+    append_jsonl(checkpoint_path(path), row)
+
+
 def load_jsonl(path: Path) -> List[Dict[str, Any]]:
     """Load a JSONL file, returning an empty list when no artifact exists yet."""
     if not path.exists():

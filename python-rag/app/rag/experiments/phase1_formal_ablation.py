@@ -1,8 +1,4 @@
-"""Formal phase-1 ablation framework.
-
-The runner is intentionally plan-first: it builds the formal experiment matrix
-and cache manifest without reusing the old smoke entrypoint or legacy MedQA file.
-"""
+"""Formal phase-1 ablation matrix and artifact planning support."""
 
 from __future__ import annotations
 
@@ -31,7 +27,7 @@ from app.rag.retriever.runtime_config import (
 
 
 RUN_ID = "phase1_formal_ablation"
-EXECUTION_MODE = "plan_only"
+EXECUTION_MODE = "executor_default"
 RANDOM_SEED = 6520
 PROMPT_VERSION = "medical_mcq_v1"
 GENERATOR_MODEL = "Qwen3-8B"
@@ -58,7 +54,6 @@ CACHE_KEYS = (
     "token_usage",
     "estimated_token_cost",
 )
-UNRESOLVED_SELECTION_TOKENS = ("stage1_top", "stage2_top", "best_")
 
 
 @dataclass(frozen=True)
@@ -329,20 +324,6 @@ def build_cache_manifest(rows: Sequence[FormalRunSpec]) -> Dict[str, Any]:
     return manifest
 
 
-def has_unresolved_selection(run: FormalRunSpec) -> bool:
-    """Return true for matrix rows that still depend on previous-stage winners."""
-    if run.selection_rule:
-        return True
-    values = (
-        str(run.k),
-        str(run.alpha),
-        str(run.reranker_input_count),
-        str(run.reranker_output_count),
-        str(run.embedding_model),
-    )
-    return any(token in value for value in values for token in UNRESOLVED_SELECTION_TOKENS)
-
-
 def build_final_test_plan() -> Dict[str, Any]:
     """Keep final test comparison separate from dev ablation selection."""
     return {
@@ -372,12 +353,12 @@ def write_csv(path: Path, rows: Iterable[FormalRunSpec]) -> None:
 
 
 def build_formal_ablation_manifest() -> Dict[str, Any]:
-    """Build the formal framework manifest without running accuracy evaluation."""
+    """Build the formal framework manifest for executor-visible planning artifacts."""
     rows = build_formal_matrix()
     dataset_counts = load_medqa_usmle_counts()
     return {
         "run_id": RUN_ID,
-        "status": "framework_ready_not_executed",
+        "status": "framework_ready",
         "execution_mode": EXECUTION_MODE,
         "created_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "legacy_medqa_file_not_used": str(MEDQA_FILE),
@@ -403,7 +384,7 @@ def build_formal_ablation_manifest() -> Dict[str, Any]:
 
 
 def run_formal_ablation_framework() -> Dict[str, Any]:
-    """Write the framework manifest and matrix artifacts under ignored results/runs."""
+    """Write framework manifest and matrix artifacts under ignored results/runs."""
     ensure_data_directories()
     manifest = build_formal_ablation_manifest()
     json_path = RUNS_DIR / "formal_ablation_framework.json"
@@ -432,7 +413,7 @@ def main() -> None:
     print(f"Matrix rows: {len(manifest['matrix'])}")
     print(f"Framework JSON: {manifest['artifact_paths']['framework_json']}")
     print(f"Matrix CSV: {manifest['artifact_paths']['matrix_csv']}")
-    print("Formal execution: use existing naive/enhanced evaluator entrypoints")
+    print("Formal execution: use app.rag.experiments.run_formal_ablation")
 
 
 if __name__ == "__main__":

@@ -11,7 +11,7 @@ The project now uses a single native LlamaIndex retrieval stack behind the exper
 - `app/rag/experiments/enhanced_eval.py`: enhanced RAG evaluation using native hybrid retrieval, query rewrite, and reranking.
 - `app/rag/experiments/sample_validation.py`: small no-RAG vs RAG comparison using the same native store.
 - `app/rag/experiments/evaluate_no_rag.py`: direct LLM baseline without retrieval.
-- `app/rag/experiments/run_formal_ablation.py`: formal phase 1 ablation framework entrypoint; by default it writes the framework, matrix, and cache manifest only.
+- `app/rag/experiments/run_formal_ablation.py`: formal phase 1 ablation executor over the existing Naive and Advanced evaluator stacks.
 - `app/rag/experiments/run_with_resume.py`: restart supported evaluation entrypoints from checkpoints.
 
 ## Setup
@@ -44,15 +44,15 @@ python -m app.rag.experiments.sample_validation
 python -m app.rag.experiments.evaluate_no_rag
 python -m app.rag.experiments.complete_eval
 
-# Formal phase 1 framework artifacts only; this does not run accuracy evaluation
+# Formal phase 1 ablation execution
 python -m app.rag.experiments.run_formal_ablation
 ```
 
 ## Formal Phase 1 Ablation
 
-`python -m app.rag.experiments.run_formal_ablation` writes the formal framework JSON, matrix CSV, and cache manifest under `results/runs/`. It is intentionally plan-only; formal execution uses the existing naive and enhanced evaluator entrypoints rather than a duplicate formal runtime.
+`python -m app.rag.experiments.run_formal_ablation` executes the formal dev-split ablation stages by default. It writes the matrix, cache manifest, stage checkpoints, stage summaries, per-run artifacts, and run metrics under `results/runs/`, `results/retrieval_cache/`, and `results/rerank_cache/`.
 
-Only fully resolved formal rows should be executed. Rows that still depend on earlier-stage winners keep concrete typed fields empty in the matrix until those selections are resolved.
+Only fully resolved formal rows are dispatched. Rows that depend on earlier-stage winners keep concrete typed fields empty in the matrix; `formal_ablation_executor.py` resolves them after the prior stage summaries are available.
 
 ## Script Prerequisites
 

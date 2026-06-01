@@ -15,7 +15,7 @@ import openai
 import httpx
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from openai import AsyncOpenAI
 
@@ -126,6 +126,11 @@ def split_questions(
     return dev_set, test_set
 
 
+def question_id(item: Mapping[str, Any], index: int, split: str = "dev") -> str:
+    """Resolve stable question ids for formal artifacts and generated MedQA rows."""
+    return str(item.get("id") or f"{split}-{index}")
+
+
 def format_options(options: Sequence[str]) -> str:
     if not options:
         return "A. Not provided\nB. Not provided\nC. Not provided\nD. Not provided"
@@ -172,6 +177,46 @@ def build_medical_eval_prompt(
         ]
     )
     return "\n".join(prompt_parts)
+
+
+def format_retrieved_contexts(contexts: Sequence[str]) -> str:
+    """Format retrieved snippets once so formal Naive and Advanced prompts match."""
+    return "\n\n".join(
+        f"[{index}] {context}"
+        for index, context in enumerate(contexts, start=1)
+        if str(context).strip()
+    )
+
+
+def serialize_node_candidates(nodes: Sequence[Any]) -> List[Dict[str, Any]]:
+    """Serialize LlamaIndex node scores once for formal retrieval artifacts."""
+    rows: List[Dict[str, Any]] = []
+    for rank, node_with_score in enumerate(nodes, start=1):
+        node = node_with_score.node
+        rows.append(
+            {
+                "rank": rank,
+                "score": float(node_with_score.score or 0.0),
+                "text": node.get_content(),
+                "metadata": dict(node.metadata),
+            }
+        )
+    return rows
+
+
+def serialize_document_candidates(
+    documents: Sequence[Tuple[Any, float]],
+) -> List[Dict[str, Any]]:
+    """Serialize ``RetrievedDocument`` score pairs for formal artifacts."""
+    return [
+        {
+            "rank": rank,
+            "score": float(score),
+            "text": document.page_content,
+            "metadata": dict(document.metadata),
+        }
+        for rank, (document, score) in enumerate(documents, start=1)
+    ]
 
 
 def get_correct_answer_letter(item: Dict) -> str:

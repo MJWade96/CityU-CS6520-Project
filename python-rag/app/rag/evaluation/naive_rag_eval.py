@@ -16,13 +16,22 @@ from .config import EvaluationRunNames, NAIVE_RAG_RUN_NAMES, NaiveRAGEvalConfig
 from .eval_shared import (
     EvaluationLLMConfig,
     RateLimiter,
+    build_medical_eval_prompt,
+    call_llm,
     build_eval_result,
+    create_eval_context,
     format_options,
+    format_retrieved_contexts,
     get_qwen_openai_like_kwargs,
     load_questions,
+    question_id,
+    serialize_document_candidates,
+    serialize_node_candidates,
     split_questions,
     update_progress,
 )
+from .formal_medcpt_adapter import MedCPTFormalRetriever
+from . import formal_artifacts
 
 
 def build_query(question: str, options: List[str]) -> str:
@@ -71,6 +80,212 @@ def load_vector_store(index_path: Path) -> MedicalVectorStore:
     )
     vectorstore.load(str(index_path))
     return vectorstore
+
+
+def _formal_run_manifest(
+    config: NaiveRAGEvalConfig,
+    *,
+    status: str,
+    processed_questions: int,
+    total_questions: int,
+    accuracy: float,
+    files: Dict[str, str],
+) -> Dict[str, Any]:
+    metadata = dict(config.formal_metadata or {})
+    return {
+        **metadata,
+        "run_id": config.formal_run_id,
+        "status": status,
+        "processed_questions": processed_questions,
+        "total_questions": total_questions,
+        "accuracy": accuracy,
+        "files": files,
+    }
+
+
+async def _run_formal_naive_evaluation(
+    config: NaiveRAGEvalConfig,
+    questions: List[Dict[str, Any]],
+    top_k: int,
+) -> Dict[str, Any]:
+    """Formal Naive path: retrieve with question text, then call the shared LLM."""
+    assert config.formal_run_id is not None
+    metadata = config.formal_metadata or {}
+    run_path = formal_artifacts.run_dir(config.formal_run_id)
+    retrieval_path = formal_artifacts.retrieval_cache_dir(
+        str(metadata.get("query_cache_id") or config.formal_run_id)
+    )
+    query_texts_path = retrieval_path / "query_texts.jsonl"
+    retrieval_top10_path = retrieval_path / "retrieval_top10.jsonl"
+    selected_contexts_path = run_path / "selected_contexts.jsonl"
+    final_prompts_path = run_path / "final_prompts.jsonl"
+    llm_outputs_path = run_path / "llm_outputs.jsonl"
+    evaluation_outputs_path = run_path / "evaluation_outputs.jsonl"
+    files = {
+        "query_texts": str(query_texts_path),
+        "retrieval_top10": str(retrieval_top10_path),
+        "selected_contexts": str(selected_contexts_path),
+        "final_prompts": str(final_prompts_path),
+        "llm_outputs": str(llm_outputs_path),
+        "evaluation_outputs": str(evaluation_outputs_path),
+    }
+    formal_artifacts.write_run_manifest(
+        config.formal_run_id,
+        _formal_run_manifest(
+            config,
+            status="running",
+            processed_questions=0,
+            total_questions=len(questions),
+            accuracy=0.0,
+            files=files,
+        ),
+    )
+
+    medcpt_retriever: Optional[MedCPTFormalRetriever] = None
+    vectorstore: Optional[MedicalVectorStore] = None
+    if metadata.get("embedding_backend") == "local_medcpt":
+        medcpt_retriever = MedCPTFormalRetriever.load(
+            corpus_version=str(metadata["corpus_version"]),
+            index_root=config.vector_store_path,
+            query_cache_id=str(metadata["query_cache_id"]),
+        )
+    else:
+        vectorstore = load_vector_store(config.vector_store_path)
+
+    ctx = create_eval_context(config.llm, config.concurrency)
+    completed_ids = formal_artifacts.completed_question_ids(evaluation_outputs_path)
+    existing_results = formal_artifacts.load_jsonl(evaluation_outputs_path)
+    results: List[Dict[str, Any]] = [dict(row["result"]) for row in existing_results]
+    correct = sum(1 for result in results if result.get("is_correct"))
+    start_time = time.time()
+    retrieval_top_k = max(10, top_k)
+
+    for index, item in enumerate(questions, start=1):
+        current_question_id = question_id(item, index)
+        if current_question_id in completed_ids:
+            continue
+
+        query_text = str(item["question"])
+        formal_artifacts.append_jsonl_with_checkpoint(
+            query_texts_path,
+            {
+                "question_id": current_question_id,
+                "question": query_text,
+                "query_text": query_text,
+                "query_text_source": "medqa_usmle_question_field",
+                "contains_options": False,
+                "contains_answer_prompt": False,
+            },
+        )
+        retrieval_started = time.time()
+        if medcpt_retriever is not None:
+            retrieved = await asyncio.to_thread(
+                medcpt_retriever.retrieve,
+                question_id=current_question_id,
+                query_text=query_text,
+                k=retrieval_top_k,
+            )
+            candidates = serialize_document_candidates(retrieved)
+        else:
+            assert vectorstore is not None
+            nodes = await asyncio.to_thread(vectorstore.retrieve, query_text, retrieval_top_k)
+            candidates = serialize_node_candidates(nodes)
+        retrieval_elapsed = time.time() - retrieval_started
+        formal_artifacts.append_jsonl_with_checkpoint(
+            retrieval_top10_path,
+            {
+                "question_id": current_question_id,
+                "query_text": query_text,
+                "candidates": candidates,
+                "retrieval_time_seconds": retrieval_elapsed,
+            },
+        )
+
+        selected = candidates[:top_k]
+        formal_artifacts.append_jsonl_with_checkpoint(
+            selected_contexts_path,
+            {"question_id": current_question_id, "selected_contexts": selected},
+        )
+        context = format_retrieved_contexts([candidate["text"] for candidate in selected])
+        prompt = build_medical_eval_prompt(item["question"], item.get("options", []), context)
+        formal_artifacts.append_jsonl_with_checkpoint(
+            final_prompts_path,
+            {"question_id": current_question_id, "prompt": prompt},
+        )
+        response = await call_llm(ctx, prompt)
+        formal_artifacts.append_jsonl_with_checkpoint(
+            llm_outputs_path,
+            {"question_id": current_question_id, "response": response},
+        )
+        result = build_eval_result(
+            item,
+            response,
+            {
+                "retrieved_docs": len(selected),
+                "scores": [candidate["score"] for candidate in selected],
+                "contexts": [candidate["text"] for candidate in selected],
+            },
+        )
+        results.append(result)
+        if result["is_correct"]:
+            correct += 1
+        formal_artifacts.append_jsonl_with_checkpoint(
+            evaluation_outputs_path,
+            {"question_id": current_question_id, "result": result},
+        )
+        processed = len(results)
+        if processed == len(questions) or processed % 5 == 0:
+            print(
+                f"[formal][{config.formal_run_id}] {processed}/{len(questions)} "
+                f"acc={correct / processed:.4f}",
+                flush=True,
+            )
+
+    elapsed = time.time() - start_time
+    metrics = {
+        "run_id": config.formal_run_id,
+        "dataset_name": "Formal Dev Set",
+        "top_k": top_k,
+        "total_questions": len(questions),
+        "processed_questions": len(results),
+        "correct": correct,
+        "accuracy": correct / len(results) if results else 0.0,
+        "elapsed_time": elapsed,
+        "questions_per_second": len(results) / elapsed if elapsed > 0 else 0.0,
+        "detailed_results": results,
+    }
+    formal_artifacts.write_metrics(config.formal_run_id, metrics)
+    formal_artifacts.write_run_manifest(
+        config.formal_run_id,
+        _formal_run_manifest(
+            config,
+            status="completed",
+            processed_questions=len(results),
+            total_questions=len(questions),
+            accuracy=metrics["accuracy"],
+            files={**files, "metrics": str(run_path / "metrics.json")},
+        ),
+    )
+    formal_artifacts.write_json(
+        retrieval_path / "manifest.json",
+        {
+            "cache_id": retrieval_path.name,
+            "status": "completed",
+            "pipeline": "naive_rag",
+            "processed_questions": len(results),
+            "files": {
+                "query_texts": str(query_texts_path),
+                "retrieval_top10": str(retrieval_top10_path),
+            },
+        },
+    )
+    return {
+        "best_k": top_k,
+        "dev_scores": {},
+        "test_results": metrics,
+        "recall_scores": {},
+        "output_paths": {"run_dir": run_path},
+    }
 
 
 def evaluate_sync_dataset(
@@ -286,10 +501,15 @@ def calculate_recall_at_k(
 
 async def run_complete_evaluation(config: NaiveRAGEvalConfig) -> Dict[str, Any]:
     """Execute the complete native RAG flow behind the primary entrypoint names."""
-    vectorstore = load_vector_store(config.vector_store_path)
     run_names = NAIVE_RAG_RUN_NAMES
     questions = load_questions(str(config.question_file))
     dev_set, test_set = split_questions(questions, config.dev_size, config.test_size)
+    if config.formal_run_id is not None:
+        if config.manual_top_k is None:
+            raise ValueError("Formal Naive RAG requires a concrete manual_top_k")
+        return await _run_formal_naive_evaluation(config, test_set, config.manual_top_k)
+
+    vectorstore = load_vector_store(config.vector_store_path)
 
     progress_mgr = EvaluationProgressManager(output_dir=str(config.output_dir))
     artifact_paths = progress_mgr.create_run_artifacts(run_names.artifact_prefix)

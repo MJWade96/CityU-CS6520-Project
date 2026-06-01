@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from ..data.data_paths import (
     EVALUATION_RESULTS_DIR,
@@ -32,6 +32,8 @@ class NaiveRAGEvalConfig:
     output_dir: Path = EVALUATION_RESULTS_DIR
     llm: EvaluationLLMConfig = field(default_factory=EvaluationLLMConfig)
     concurrency: ConcurrencyConfig = field(default_factory=ConcurrencyConfig)
+    formal_run_id: Optional[str] = None
+    formal_metadata: Optional[Dict[str, Any]] = None
 
 
 @dataclass(frozen=True)

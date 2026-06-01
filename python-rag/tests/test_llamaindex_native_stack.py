@@ -72,13 +72,14 @@ def test_experiment_entrypoints_are_not_root_level_scripts() -> None:
         assert (EXPERIMENTS_DIR / script_name).exists()
 
 
-def test_formal_entrypoint_documents_plan_only_execution() -> None:
+def test_formal_entrypoint_documents_execution() -> None:
     readme = read_text(README_FILE)
     source = read_text(EXPERIMENTS_DIR / "run_formal_ablation.py")
 
     assert "python -m app.rag.experiments.run_formal_ablation" in readme
-    assert "plan-only" in readme
-    assert "existing naive and enhanced evaluator entrypoints" in readme
+    assert "executes the formal dev-split ablation stages by default" in readme
+    assert "formal_ablation_executor.py" in readme
+    assert "app.rag.experiments.formal_ablation_executor" in source
     assert "__package__" not in source
     assert "sys.path.insert" not in source
 

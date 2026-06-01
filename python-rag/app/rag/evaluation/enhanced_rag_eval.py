@@ -21,18 +21,27 @@ from ..retriever.runtime_config import (
     DEFAULT_RERANKER_API_URL,
     first_env_value,
 )
-from ..retriever.vector_store import MedicalVectorStore
+from ..retriever.vector_store import MedicalVectorStore, RetrievedDocument
 from ..utils.progress_manager import EvaluationProgressManager
 from .eval_shared import (
     ConcurrencyConfig,
     EvaluationLLMConfig,
     RateLimiter,
+    build_medical_eval_prompt,
+    call_llm,
+    create_eval_context,
     build_eval_result,
+    format_retrieved_contexts,
     get_correct_answer_letter,
     load_questions,
     parse_optional_bool_env,
+    question_id,
+    serialize_document_candidates,
+    serialize_node_candidates,
     split_questions,
 )
+from . import formal_artifacts
+from .formal_medcpt_adapter import MedCPTFormalRetriever
 from .naive_rag_eval import (
     build_query,
     create_llm,
@@ -146,6 +155,8 @@ class EnhancedEvaluationConfig:
             int(os.getenv("RAG_ENHANCED_EVAL_QUESTION_START_LOG_PREVIEW_CHARS", "120")),
         )
     )
+    formal_run_id: Optional[str] = None
+    formal_metadata: Optional[Dict[str, Any]] = None
 
     @property
     def resolved_retrieval_top_k(self) -> int:
@@ -294,6 +305,332 @@ def _build_progress_config(
         }
     )
     return payload
+
+
+def _documents_from_candidates(
+    candidates: List[Dict[str, Any]],
+) -> List[tuple[RetrievedDocument, float]]:
+    """Convert cached candidate rows to the reranker input shape."""
+    return [
+        (
+            RetrievedDocument(
+                page_content=str(candidate["text"]),
+                metadata=dict(candidate.get("metadata") or {}),
+            ),
+            float(candidate.get("score", 0.0)),
+        )
+        for candidate in candidates
+    ]
+
+
+def _formal_run_manifest(
+    config: EnhancedEvaluationConfig,
+    *,
+    status: str,
+    processed_questions: int,
+    total_questions: int,
+    accuracy: float,
+    files: Dict[str, str],
+) -> Dict[str, Any]:
+    metadata = dict(config.formal_metadata or {})
+    return {
+        **metadata,
+        "run_id": config.formal_run_id,
+        "status": status,
+        "processed_questions": processed_questions,
+        "total_questions": total_questions,
+        "accuracy": accuracy,
+        "files": files,
+    }
+
+
+async def _run_formal_enhanced_evaluation(
+    config: EnhancedEvaluationConfig,
+    questions: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Formal Advanced path with explicit rewrite, retrieval, rerank, and LLM calls."""
+    assert config.formal_run_id is not None
+    metadata = config.formal_metadata or {}
+
+    run_path = formal_artifacts.run_dir(config.formal_run_id)
+    cache_id = str(metadata.get("query_cache_id") or config.formal_run_id)
+    retrieval_path = formal_artifacts.retrieval_cache_dir(cache_id)
+    rerank_path = formal_artifacts.rerank_cache_dir(cache_id)
+    query_texts_path = retrieval_path / "query_texts.jsonl"
+    dense_candidates_path = retrieval_path / "dense_candidates.jsonl"
+    sparse_candidates_path = retrieval_path / "sparse_candidates.jsonl"
+    fusion_candidates_path = retrieval_path / "fusion_candidates.jsonl"
+    rerank_outputs_path = rerank_path / "rerank_outputs.jsonl"
+    selected_contexts_path = run_path / "selected_contexts.jsonl"
+    final_prompts_path = run_path / "final_prompts.jsonl"
+    llm_outputs_path = run_path / "llm_outputs.jsonl"
+    evaluation_outputs_path = run_path / "evaluation_outputs.jsonl"
+    files = {
+        "query_texts": str(query_texts_path),
+        "dense_candidates": str(dense_candidates_path),
+        "sparse_candidates": str(sparse_candidates_path),
+        "fusion_candidates": str(fusion_candidates_path),
+        "rerank_outputs": str(rerank_outputs_path),
+        "selected_contexts": str(selected_contexts_path),
+        "final_prompts": str(final_prompts_path),
+        "llm_outputs": str(llm_outputs_path),
+        "evaluation_outputs": str(evaluation_outputs_path),
+    }
+    formal_artifacts.write_run_manifest(
+        config.formal_run_id,
+        _formal_run_manifest(
+            config,
+            status="running",
+            processed_questions=0,
+            total_questions=len(questions),
+            accuracy=0.0,
+            files=files,
+        ),
+    )
+
+    llm = create_llm(config.llm)
+    medcpt_retriever: Optional[MedCPTFormalRetriever] = None
+    hybrid: Optional[HybridRetriever] = None
+    if metadata.get("embedding_backend") == "local_medcpt":
+        medcpt_retriever = MedCPTFormalRetriever.load(
+            corpus_version=str(metadata["corpus_version"]),
+            index_root=config.vector_store_path,
+            query_cache_id=str(metadata["query_cache_id"]),
+        )
+    else:
+        vectorstore = load_vector_store(config.vector_store_path)
+        hybrid = HybridRetriever.from_vector_store(
+            vectorstore,
+            llm=llm,
+            similarity_top_k=config.resolved_retrieval_top_k,
+            retriever_weights=config.dense_bm25_weights,
+            use_async=True,
+        )
+    reranker = RerankerPipeline(
+        use_cross_encoder=config.use_reranker,
+        cross_encoder_model=config.reranker_model,
+        top_k=config.resolved_reranker_top_k,
+        api_url=config.reranker_api_url,
+        api_key=config.reranker_api_key,
+    )
+    query_rewriter = QueryRewritePipeline(
+        use_dict=config.use_query_rewrite,
+        use_llm=config.use_query_rewrite and config.use_llm_query_rewrite,
+        llm_provider=config.llm.provider,
+        llm_model=config.llm.model,
+        api_key=config.llm.api_key,
+        base_url=config.llm.base_url,
+        llm_temperature=config.llm.temperature,
+        llm_enable_thinking=config.llm.enable_thinking,
+    )
+    ctx = create_eval_context(config.llm, config.concurrency)
+    completed_ids = formal_artifacts.completed_question_ids(evaluation_outputs_path)
+    existing_results = formal_artifacts.load_jsonl(evaluation_outputs_path)
+    results: List[Dict[str, Any]] = [dict(row["result"]) for row in existing_results]
+    correct = sum(1 for result in results if result.get("is_correct"))
+    start_time = time.time()
+
+    for index, item in enumerate(questions, start=1):
+        current_question_id = question_id(item, index)
+        if current_question_id in completed_ids:
+            continue
+
+        original_query = str(item["question"])
+        rewrite_history: List[str] = []
+        if medcpt_retriever is not None:
+            uses_llm_rewrite = False
+            query_text = medcpt_retriever.cached_query_text(current_question_id)
+            query_text_source = "medcpt_rewritten_query_cache"
+        else:
+            uses_llm_rewrite = should_use_llm_query_rewrite(
+                original_query,
+                query_rewriter,
+                config,
+            )
+            query_text = original_query
+            query_text_source = "medqa_usmle_question_field"
+        if config.use_query_rewrite and medcpt_retriever is None:
+            query_text, rewrite_history = await query_rewriter.arewrite(
+                original_query,
+                rate_limiter=ctx.rate_limiter,
+                api_semaphore=ctx.semaphore,
+                use_llm=uses_llm_rewrite,
+            )
+            query_text_source = "query_rewrite_pipeline"
+        formal_artifacts.append_jsonl_with_checkpoint(
+            query_texts_path,
+            {
+                "question_id": current_question_id,
+                "question": original_query,
+                "original_query": original_query,
+                "query_text": query_text,
+                "query_text_source": query_text_source,
+                "rewrite_metadata": {
+                    "use_llm": uses_llm_rewrite,
+                    "history": rewrite_history,
+                },
+                "contains_options": False,
+                "contains_answer_prompt": False,
+            },
+        )
+
+        retrieval_started = time.time()
+        if medcpt_retriever is not None:
+            dense_nodes, sparse_nodes, fusion_nodes = await asyncio.to_thread(
+                medcpt_retriever.retrieve_components,
+                question_id=current_question_id,
+                query_text=query_text,
+                k=config.resolved_retrieval_top_k,
+                weights=config.dense_bm25_weights,
+                llm=llm,
+            )
+        else:
+            assert hybrid is not None
+            dense_nodes, sparse_nodes, fusion_nodes = await asyncio.to_thread(
+                hybrid.retrieve_components,
+                query_text,
+            )
+        retrieval_elapsed = time.time() - retrieval_started
+        dense_candidates = serialize_node_candidates(dense_nodes)
+        sparse_candidates = serialize_node_candidates(sparse_nodes)
+        fusion_candidates = serialize_node_candidates(fusion_nodes)
+        for path, source, candidates in (
+            (dense_candidates_path, "dense", dense_candidates),
+            (sparse_candidates_path, "sparse_bm25", sparse_candidates),
+            (fusion_candidates_path, "query_fusion", fusion_candidates),
+        ):
+            formal_artifacts.append_jsonl_with_checkpoint(
+                path,
+                {
+                    "question_id": current_question_id,
+                    "query_text": query_text,
+                    "candidate_source": source,
+                    "alpha": config.hybrid_alpha,
+                    "top_k": config.resolved_retrieval_top_k,
+                    "candidates": candidates,
+                    "retrieval_time_seconds": retrieval_elapsed,
+                },
+            )
+
+        rerank_started = time.time()
+        reranked = await asyncio.to_thread(
+            reranker.rerank,
+            query_text,
+            _documents_from_candidates(fusion_candidates),
+        )
+        rerank_elapsed = time.time() - rerank_started
+        reranked_candidates = serialize_document_candidates(reranked)
+        formal_artifacts.append_jsonl_with_checkpoint(
+            rerank_outputs_path,
+            {
+                "question_id": current_question_id,
+                "input_candidates_id": f"{current_question_id}:fusion_candidates",
+                "reranker_model": config.reranker_model,
+                "reranker_input_count": config.resolved_retrieval_top_k,
+                "reranker_output_count": config.resolved_reranker_top_k,
+                "reranked_candidates": reranked_candidates,
+                "rerank_time_seconds": rerank_elapsed,
+            },
+        )
+
+        selected = reranked_candidates[: config.resolved_reranker_top_k]
+        formal_artifacts.append_jsonl_with_checkpoint(
+            selected_contexts_path,
+            {"question_id": current_question_id, "selected_contexts": selected},
+        )
+        context = format_retrieved_contexts([candidate["text"] for candidate in selected])
+        prompt = build_medical_eval_prompt(item["question"], item.get("options", []), context)
+        formal_artifacts.append_jsonl_with_checkpoint(
+            final_prompts_path,
+            {"question_id": current_question_id, "prompt": prompt},
+        )
+        response = await call_llm(ctx, prompt)
+        formal_artifacts.append_jsonl_with_checkpoint(
+            llm_outputs_path,
+            {"question_id": current_question_id, "response": response},
+        )
+        result = build_eval_result(
+            item,
+            response,
+            {
+                "retrieved_docs": len(selected),
+                "scores": [candidate["score"] for candidate in selected],
+                "contexts": [candidate["text"] for candidate in selected],
+            },
+        )
+        results.append(result)
+        if result["is_correct"]:
+            correct += 1
+        formal_artifacts.append_jsonl_with_checkpoint(
+            evaluation_outputs_path,
+            {"question_id": current_question_id, "result": result},
+        )
+        processed = len(results)
+        if processed == len(questions) or processed % config.progress_print_every == 0:
+            print(
+                f"[formal][{config.formal_run_id}] {processed}/{len(questions)} "
+                f"acc={correct / processed:.4f}",
+                flush=True,
+            )
+
+    elapsed = time.time() - start_time
+    metrics = {
+        "run_id": config.formal_run_id,
+        "dataset_name": "Formal Dev Set",
+        "top_k": config.top_k,
+        "retrieval_top_k": config.resolved_retrieval_top_k,
+        "reranker_top_k": config.resolved_reranker_top_k,
+        "hybrid_alpha": config.hybrid_alpha,
+        "total_questions": len(questions),
+        "processed_questions": len(results),
+        "correct": correct,
+        "accuracy": correct / len(results) if results else 0.0,
+        "elapsed_time": elapsed,
+        "questions_per_second": len(results) / elapsed if elapsed > 0 else 0.0,
+        "detailed_results": results,
+    }
+    formal_artifacts.write_metrics(config.formal_run_id, metrics)
+    formal_artifacts.write_run_manifest(
+        config.formal_run_id,
+        _formal_run_manifest(
+            config,
+            status="completed",
+            processed_questions=len(results),
+            total_questions=len(questions),
+            accuracy=metrics["accuracy"],
+            files={**files, "metrics": str(run_path / "metrics.json")},
+        ),
+    )
+    formal_artifacts.write_json(
+        retrieval_path / "manifest.json",
+        {
+            "cache_id": retrieval_path.name,
+            "status": "completed",
+            "pipeline": "advanced_rag",
+            "processed_questions": len(results),
+            "files": {
+                "query_texts": str(query_texts_path),
+                "dense_candidates": str(dense_candidates_path),
+                "sparse_candidates": str(sparse_candidates_path),
+                "fusion_candidates": str(fusion_candidates_path),
+            },
+        },
+    )
+    formal_artifacts.write_json(
+        rerank_path / "manifest.json",
+        {
+            "cache_id": rerank_path.name,
+            "status": "completed",
+            "pipeline": "advanced_rag",
+            "processed_questions": len(results),
+            "files": {"rerank_outputs": str(rerank_outputs_path)},
+        },
+    )
+    return {
+        "dev_set_size": 0,
+        "test_results": metrics,
+        "output_paths": {"run_dir": run_path},
+    }
 
 
 async def evaluate_async_dataset(
@@ -566,9 +903,12 @@ def print_evaluation_summary(
 
 
 async def run_enhanced_evaluation(config: EnhancedEvaluationConfig) -> Dict[str, Any]:
-    vectorstore = load_vector_store(config.vector_store_path)
     questions = load_questions(str(config.question_file))
     dev_set, test_set = split_questions(questions, config.dev_size, config.test_size)
+    if config.formal_run_id is not None:
+        return await _run_formal_enhanced_evaluation(config, test_set)
+
+    vectorstore = load_vector_store(config.vector_store_path)
     run_names = EnhancedEvaluationRunNames()
     print_evaluation_header(config, dev_set, test_set)
     query_engine = build_enhanced_query_engine(vectorstore, config)
