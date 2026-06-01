@@ -1,0 +1,57 @@
+"""Tests for small formal artifact file helpers."""
+
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT.resolve()))
+
+
+def test_jsonl_helpers_append_load_and_report_completed_ids(tmp_path: Path) -> None:
+    from app.rag.evaluation.formal_artifacts import (
+        append_jsonl,
+        completed_question_ids,
+        load_jsonl,
+    )
+
+    path = tmp_path / "cache" / "rows.jsonl"
+
+    assert load_jsonl(path) == []
+    assert completed_question_ids(path) == set()
+
+    append_jsonl(path, {"question_id": "dev-1", "value": "alpha"})
+    append_jsonl(path, {"question_id": "dev-2", "value": "beta"})
+
+    assert load_jsonl(path) == [
+        {"question_id": "dev-1", "value": "alpha"},
+        {"question_id": "dev-2", "value": "beta"},
+    ]
+    assert completed_question_ids(path) == {"dev-1", "dev-2"}
+
+
+def test_json_and_path_helpers_use_formal_locations(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from app.rag.evaluation import formal_artifacts as module
+
+    monkeypatch.setattr(module, "RUNS_DIR", tmp_path / "runs")
+    monkeypatch.setattr(module, "RETRIEVAL_CACHE_DIR", tmp_path / "retrieval_cache")
+    monkeypatch.setattr(module, "RERANK_CACHE_DIR", tmp_path / "rerank_cache")
+
+    module.write_metrics("run-a", {"accuracy": 0.5})
+    module.write_run_manifest("run-a", {"status": "completed"})
+
+    assert module.run_dir("run-a") == tmp_path / "runs" / "run-a"
+    assert module.retrieval_cache_dir("cache-a") == tmp_path / "retrieval_cache" / "cache-a"
+    assert module.rerank_cache_dir("cache-a") == tmp_path / "rerank_cache" / "cache-a"
+    assert json.loads((tmp_path / "runs" / "run-a" / "metrics.json").read_text()) == {
+        "accuracy": 0.5
+    }
+    assert json.loads((tmp_path / "runs" / "run-a" / "manifest.json").read_text()) == {
+        "status": "completed"
+    }
