@@ -174,6 +174,13 @@ def build_medical_eval_prompt(
     return "\n".join(prompt_parts)
 
 
+def format_retrieved_contexts(contexts: Sequence[str]) -> str:
+    """Format retrieved texts once for all formal evaluator prompt builders."""
+    return "\n\n".join(
+        f"[{index + 1}] {context}" for index, context in enumerate(contexts)
+    )
+
+
 def get_correct_answer_letter(item: Dict) -> str:
     answer_index = item.get("answer_index", -1)
     if answer_index >= 0:
@@ -353,6 +360,15 @@ async def call_llm(
     prompt: str,
 ) -> str:
     """Call LLM with rate limiting and return response content."""
+    result = await call_llm_with_metadata(ctx, prompt)
+    return str(result["content"])
+
+
+async def call_llm_with_metadata(
+    ctx: EvalContext,
+    prompt: str,
+) -> Dict[str, Any]:
+    """Call LLM once and keep usage metadata for formal run artifacts."""
     import asyncio
 
     max_retries = int(os.getenv("RAG_LLM_MAX_RETRIES", "5"))
@@ -371,11 +387,21 @@ async def call_llm(
                     messages=[{"role": "user", "content": prompt}],
                     **get_qwen_completion_kwargs(ctx.llm_config),
                 )
-            return (
+            content = (
                 completion.choices[0].message.content
                 or completion.choices[0].message.reasoning_content
                 or ""
             )
+            usage = (
+                completion.usage.model_dump()
+                if getattr(completion, "usage", None) is not None
+                else None
+            )
+            return {
+                "content": content,
+                "usage": usage,
+                "model": getattr(completion, "model", ctx.llm_config.model),
+            }
         except (
             # 捕获 OpenAI SDK 抛出的主要异常
             openai.RateLimitError,  # 429 限流
