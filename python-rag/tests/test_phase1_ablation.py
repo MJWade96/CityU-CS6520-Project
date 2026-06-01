@@ -101,6 +101,36 @@ def test_index_metadata_records_phase1_reproducibility_fields(tmp_path: Path) ->
     assert config.build_metadata_file.exists()
 
 
+def test_resume_checkpoint_allows_missing_performance_only_fields(tmp_path: Path) -> None:
+    from app.rag.data.json_utils import save_json_atomic
+    from app.rag.data.medical_corpus.build_vector_index import (
+        IndexBuildConfig,
+        checkpoint_payload,
+        load_resume_checkpoint,
+    )
+
+    corpus_file = tmp_path / "corpus.json"
+    corpus_file.write_text("[]", encoding="utf-8")
+    index_dir = tmp_path / "index"
+    index_dir.mkdir()
+    (index_dir / "metadata.json").write_text("{}", encoding="utf-8")
+    config = IndexBuildConfig(corpus_file=corpus_file, index_dir=index_dir)
+    payload = checkpoint_payload(
+        completed_documents=5,
+        total_documents=10,
+        elapsed=1.0,
+        config=config,
+    )
+    payload.pop("embedding_api_num_workers")
+    payload.pop("index_use_async")
+    save_json_atomic(config.checkpoint_file, payload)
+
+    checkpoint = load_resume_checkpoint(10, config)
+
+    assert checkpoint is not None
+    assert checkpoint["completed_documents"] == 5
+
+
 def test_vector_store_uses_official_openai_embedding(monkeypatch) -> None:
     from app.rag.retriever import vector_store as module
 

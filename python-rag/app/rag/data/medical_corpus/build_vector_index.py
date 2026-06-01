@@ -158,7 +158,7 @@ def load_resume_checkpoint(
         )
 
     checkpoint = load_json_safe(config.checkpoint_file)
-    expected = {
+    required_expected = {
         **corpus_fingerprint(config),
         "total_documents": total_documents,
         "embedding_backend": "api",
@@ -169,16 +169,23 @@ def load_resume_checkpoint(
         "embedding_api_dimensions": config.embedding_api_dimensions,
         "embedding_api_timeout": config.embedding_api_timeout,
         "embedding_api_max_retries": config.embedding_api_max_retries,
-        "embedding_api_num_workers": config.embedding_api_num_workers,
-        "index_use_async": config.index_use_async,
         "use_gpu_faiss": config.use_gpu_faiss,
         "faiss_index_type": config.faiss_index_type,
     }
+    optional_expected = {
+        "embedding_api_num_workers": config.embedding_api_num_workers,
+        "index_use_async": config.index_use_async,
+    }
     mismatches = [
         key
-        for key, expected_value in expected.items()
+        for key, expected_value in required_expected.items()
         if checkpoint.get(key) != expected_value
     ]
+    mismatches.extend(
+        key
+        for key, expected_value in optional_expected.items()
+        if key in checkpoint and checkpoint.get(key) != expected_value
+    )
     if mismatches:
         raise RuntimeError(
             "Index build checkpoint is incompatible with the current build "
