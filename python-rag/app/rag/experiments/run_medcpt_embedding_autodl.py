@@ -1,9 +1,9 @@
 """Generate reusable MedCPT chunk embeddings on AutoDL.
 
-This script intentionally reuses the MedCPT-specific parts of
-``docs/embed_medcpt_corpus.py``: SentenceTransformer with CLS pooling and
-``[title, content]`` article inputs. Project-specific corpus loading and output
-paths stay here so the main RAG pipeline remains API-only.
+This script implements the MedScore-style MedCPT article embedding path:
+SentenceTransformer with CLS pooling and ``[title, content]`` article inputs.
+Project-specific corpus loading and output paths stay here so the main RAG
+pipeline remains API-only.
 """
 
 from __future__ import annotations
