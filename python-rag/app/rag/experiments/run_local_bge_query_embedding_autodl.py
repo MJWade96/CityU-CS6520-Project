@@ -32,7 +32,6 @@ from app.rag.experiments.run_medcpt_query_embedding_autodl import (
     build_naive_query_text_rows,
 )
 from app.rag.experiments.run_local_bge_embedding_autodl import (
-    BATCH_SIZE,
     SOURCE_RUNTIME,
     embed_texts,
 )
@@ -40,6 +39,7 @@ from app.rag.experiments.run_local_bge_embedding_autodl import (
 
 EMBEDDING_BACKEND = "local_hf_embedding"
 QUERY_INPUT_FORMAT = "retrieval_query_text_only"
+QUERY_BATCH_SIZE = 256
 
 
 def _local_bge_models() -> List[str]:
@@ -129,7 +129,7 @@ def _load_huggingface_embedding_model(model_name: str) -> Any:
     return HuggingFaceEmbedding(
         model_name=model_name,
         device="cuda" if torch.cuda.is_available() else "cpu",
-        embed_batch_size=BATCH_SIZE,
+        embed_batch_size=QUERY_BATCH_SIZE,
     )
 
 
@@ -179,7 +179,12 @@ def embed_run_queries(
         flush=True,
     )
     started_at = time.time()
-    embeddings = embed_texts(embed_model, texts)
+    embeddings = embed_texts(
+        embed_model,
+        texts,
+        batch_size=QUERY_BATCH_SIZE,
+        progress_label=f"{embedding_model} {spec.cache_id}",
+    )
     np.save(output_path, embeddings)
     write_query_embedding_manifest(
         spec,

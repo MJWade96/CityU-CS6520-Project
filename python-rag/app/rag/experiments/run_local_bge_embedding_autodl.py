@@ -31,7 +31,7 @@ LOCAL_BGE_MODELS = tuple(
     if provider.backend == "local_hf_embedding"
 )
 EMBEDDING_BACKEND = "local_hf_embedding"
-BATCH_SIZE = 256
+CORPUS_BATCH_SIZE = 8
 SOURCE_RUNTIME = "autodl"
 EMBEDDING_INPUT_FORMAT = "corpus_content_text"
 
@@ -72,7 +72,7 @@ def _load_huggingface_embedding_model(model_name: str) -> Any:
     return HuggingFaceEmbedding(
         model_name=model_name,
         device="cuda" if torch.cuda.is_available() else "cpu",
-        embed_batch_size=BATCH_SIZE,
+        embed_batch_size=CORPUS_BATCH_SIZE,
     )
 
 
@@ -82,10 +82,37 @@ def _normalize_rows(matrix: np.ndarray) -> np.ndarray:
     return (matrix / norms).astype("float32")
 
 
-def embed_texts(embed_model: Any, texts: Sequence[str]) -> np.ndarray:
-    """Use one local embedding call path for corpus and query scripts."""
-    vectors = embed_model.get_text_embedding_batch(list(texts), show_progress=True)
-    return _normalize_rows(np.asarray(vectors, dtype="float32"))
+def _empty_cuda_cache() -> None:
+    try:
+        import torch
+    except ImportError:
+        return
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+
+def embed_texts(
+    embed_model: Any,
+    texts: Sequence[str],
+    *,
+    batch_size: int,
+    progress_label: str,
+) -> np.ndarray:
+    """Embed in explicit chunks so long corpus texts cannot form one huge GPU batch."""
+    batches: List[np.ndarray] = []
+    total = len(texts)
+    for start in range(0, total, batch_size):
+        batch = list(texts[start : start + batch_size])
+        vectors = embed_model.get_text_embedding_batch(batch, show_progress=True)
+        batches.append(np.asarray(vectors, dtype="float32"))
+        completed = min(start + len(batch), total)
+        print(
+            f"  {progress_label} embedded {completed:,}/{total:,} texts "
+            f"(batch_size={batch_size})",
+            flush=True,
+        )
+        _empty_cuda_cache()
+    return _normalize_rows(np.vstack(batches))
 
 
 def _write_manifest(
@@ -133,7 +160,12 @@ def embed_corpus_version(
         flush=True,
     )
     started_at = time.time()
-    embeddings = embed_texts(embed_model, texts)
+    embeddings = embed_texts(
+        embed_model,
+        texts,
+        batch_size=CORPUS_BATCH_SIZE,
+        progress_label=f"{embedding_model} {corpus_version}",
+    )
     np.save(artifact_dir / "chunk_embeddings.npy", embeddings)
     _write_manifest(
         corpus_version=corpus_version,

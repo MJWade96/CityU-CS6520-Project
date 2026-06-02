@@ -7,6 +7,7 @@ import json
 import sys
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 
@@ -248,6 +249,8 @@ def test_local_bge_autodl_scripts_have_no_cli_and_cover_formal_specs() -> None:
 
     assert "HuggingFaceEmbedding" in corpus_source
     assert "HuggingFaceEmbedding" in query_source
+    assert "CORPUS_BATCH_SIZE = 8" in corpus_source
+    assert "QUERY_BATCH_SIZE = 256" in query_source
     assert "argparse" not in corpus_source
     assert "parse_args" not in corpus_source
     assert "argparse" not in query_source
@@ -256,6 +259,30 @@ def test_local_bge_autodl_scripts_have_no_cli_and_cover_formal_specs() -> None:
     assert "stage1_naive_bge_large_en_v1_5__baai_bge-large-en-v1p5" in specs
     assert "stage3_advanced_stage2_top1_embedding_k__baai_bge-m3" in specs
     assert specs["stage3_advanced_stage2_top1_embedding_k__baai_bge-m3"] == "advanced_rag"
+
+
+def test_local_bge_embedding_batches_long_corpus_texts() -> None:
+    from app.rag.experiments import run_local_bge_embedding_autodl as module
+
+    class FakeEmbedding:
+        def __init__(self):
+            self.batch_sizes = []
+
+        def get_text_embedding_batch(self, texts, show_progress):
+            self.batch_sizes.append(len(texts))
+            return [[1.0, 0.0] for _ in texts]
+
+    fake_embedding = FakeEmbedding()
+    embeddings = module.embed_texts(
+        fake_embedding,
+        ["a", "b", "c", "d", "e"],
+        batch_size=2,
+        progress_label="test",
+    )
+
+    assert fake_embedding.batch_sizes == [2, 2, 1]
+    assert embeddings.shape == (5, 2)
+    assert np.allclose(embeddings[:, 0], 1.0)
 
 
 def test_medcpt_naive_query_text_rows_use_question_field_only() -> None:
