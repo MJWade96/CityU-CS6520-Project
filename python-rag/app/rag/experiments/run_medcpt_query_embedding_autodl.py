@@ -209,7 +209,8 @@ def write_query_embedding_manifest(
             **manifest_metadata(
                 key={
                     "cache_id": spec.cache_id,
-                    "run_id": spec.run_id,
+                    "pipeline": spec.pipeline,
+                    "query_text_source": spec.query_text_source,
                     "embedding_model": FORMAL_MEDCPT_MODEL,
                 },
                 input_artifacts={
