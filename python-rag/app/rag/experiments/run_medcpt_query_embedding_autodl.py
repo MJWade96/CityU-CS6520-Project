@@ -18,6 +18,7 @@ import numpy as np
 from app.rag.data.benchmarks.medqa_usmle import load_medqa_usmle_split
 from app.rag.data.data_paths import RETRIEVAL_CACHE_DIR, ensure_data_directories
 from app.rag.data.json_utils import save_json_atomic
+from app.rag.experiments.formal_cache_metadata import manifest_metadata, path_fingerprint
 from app.rag.experiments.formal_query_embedding_specs import QueryEmbeddingSpec
 
 
@@ -203,9 +204,29 @@ def write_query_embedding_manifest(
             "query_texts_path": str(_query_texts_path(spec)),
             "query_embeddings_path": str(_query_embeddings_path(spec)),
             "source_runtime": SOURCE_RUNTIME,
-            "created_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
             "build_time_seconds": elapsed_seconds,
             "embedding_dim": embedding_dim,
+            **manifest_metadata(
+                key={
+                    "cache_id": spec.cache_id,
+                    "run_id": spec.run_id,
+                    "embedding_model": FORMAL_MEDCPT_MODEL,
+                },
+                input_artifacts={
+                    "query_texts": str(_query_texts_path(spec)),
+                },
+                parameters={
+                    "embedding_backend": EMBEDDING_BACKEND,
+                    "query_encoder_model": MEDCPT_QUERY_MODEL,
+                    "query_input_format": QUERY_INPUT_FORMAT,
+                    "batch_size": BATCH_SIZE,
+                },
+                dataset_split=DATASET_SPLIT,
+                fingerprint={
+                    "query_texts": path_fingerprint(_query_texts_path(spec)),
+                    "query_text_count": query_text_count,
+                },
+            ),
         },
     )
 

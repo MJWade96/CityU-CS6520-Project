@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Mapping, Sequence
 
 from app.rag.data.benchmarks.medqa_usmle import load_medqa_usmle_split
 from app.rag.data.data_paths import ensure_data_directories
+from app.rag.data.json_utils import save_json_atomic
 from app.rag.evaluation.eval_shared import (
     ConcurrencyConfig,
     EvaluationLLMConfig,
@@ -31,6 +32,7 @@ from app.rag.experiments.run_medcpt_query_embedding_autodl import (
 from app.rag.experiments.run_local_bge_query_embedding_autodl import (
     BGE_QUERY_EMBEDDING_SPECS,
 )
+from app.rag.experiments.formal_cache_metadata import manifest_metadata, path_fingerprint
 from app.rag.retriever.query_rewrite import QueryRewritePipeline
 
 
@@ -43,6 +45,8 @@ REWRITE_CACHE_IDS: Sequence[str] = tuple(
 RUN_MODE = "rewrite_all"  # "rewrite_all" or "retry_errors"
 QUERY_TEXTS_CHECKPOINT_FILENAME = "query_texts.checkpoint.jsonl"
 QUERY_REWRITE_ERRORS_FILENAME = "query_rewrite_errors.jsonl"
+QUERY_REWRITE_OUTPUTS_FILENAME = "query_rewrite_outputs.jsonl"
+QUERY_TEXTS_MANIFEST_FILENAME = "query_texts_manifest.json"
 
 
 def _selected_rewrite_specs() -> List[QueryEmbeddingSpec]:
@@ -69,10 +73,82 @@ def _rewrite_errors_path(spec: QueryEmbeddingSpec):
     return _query_texts_path(spec).with_name(QUERY_REWRITE_ERRORS_FILENAME)
 
 
+def _query_texts_manifest_path(spec: QueryEmbeddingSpec):
+    return _query_texts_path(spec).with_name(QUERY_TEXTS_MANIFEST_FILENAME)
+
+
+def _query_rewrite_outputs_path(spec: QueryEmbeddingSpec):
+    return _query_texts_path(spec).with_name(QUERY_REWRITE_OUTPUTS_FILENAME)
+
+
 def _append_jsonl(path, row: Mapping[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+
+def _write_query_text_manifest(
+    spec: QueryEmbeddingSpec,
+    *,
+    row_count: int,
+    llm_config: EvaluationLLMConfig,
+) -> None:
+    query_texts_path = _query_texts_path(spec)
+    rewrite_outputs_path = _query_rewrite_outputs_path(spec)
+    save_json_atomic(
+        _query_texts_manifest_path(spec),
+        {
+            "cache": {
+                "cache_id": spec.cache_id,
+                "pipeline": spec.pipeline,
+                "query_text_source": spec.query_text_source,
+            },
+            "query_text_count": row_count,
+            "contains_options": False,
+            "contains_answer_prompt": False,
+            **manifest_metadata(
+                key={
+                    "cache_id": spec.cache_id,
+                    "pipeline": spec.pipeline,
+                    "query_text_source": spec.query_text_source,
+                },
+                input_artifacts={
+                    "medqa_usmle_split": DATASET_SPLIT,
+                    "query_rewrite_outputs": str(rewrite_outputs_path),
+                },
+                parameters={
+                    "run_mode": RUN_MODE,
+                    "llm_provider": llm_config.provider,
+                    "llm_model": llm_config.model,
+                    "llm_temperature": llm_config.temperature,
+                    "llm_enable_thinking": llm_config.enable_thinking,
+                },
+                dataset_split=DATASET_SPLIT,
+                fingerprint={
+                    "query_texts": path_fingerprint(query_texts_path),
+                    "query_rewrite_outputs": path_fingerprint(rewrite_outputs_path),
+                    "query_text_count": row_count,
+                },
+            ),
+        },
+    )
+
+
+def _write_query_rewrite_outputs(
+    spec: QueryEmbeddingSpec,
+    rows: Sequence[Mapping[str, Any]],
+) -> None:
+    output_rows = [
+        {
+            "question_id": row.get("question_id"),
+            "original_query": row.get("original_query") or row.get("question"),
+            "query_text": row.get("query_text"),
+            "query_text_source": row.get("query_text_source"),
+            "rewrite_metadata": row.get("rewrite_metadata") or {},
+        }
+        for row in rows
+    ]
+    _write_jsonl(_query_rewrite_outputs_path(spec), output_rows)
 
 
 def _question_id(item: Mapping[str, Any], index: int) -> str:
@@ -317,6 +393,8 @@ async def write_rewrite_cache(
     _validate_query_text_rows(spec, rows, questions)
     output_path = _query_texts_path(spec)
     _write_jsonl(output_path, rows)
+    _write_query_rewrite_outputs(spec, rows)
+    _write_query_text_manifest(spec, row_count=len(rows), llm_config=llm_config)
     checkpoint_path = _rewrite_checkpoint_path(spec)
     if checkpoint_path.exists():
         checkpoint_path.unlink()
@@ -345,9 +423,17 @@ async def write_rewrite_caches(
         if output_path.exists():
             existing_rows = [dict(row) for row in _iter_jsonl(output_path)]
             _validate_query_text_rows(spec, existing_rows, questions)
+            _write_query_text_manifest(
+                spec,
+                row_count=len(existing_rows),
+                llm_config=llm_config,
+            )
+            _write_query_rewrite_outputs(spec, existing_rows)
             print(f"Skip existing query rewrite cache={spec.cache_id}", flush=True)
             continue
         _write_jsonl(output_path, rows)
+        _write_query_rewrite_outputs(spec, rows)
+        _write_query_text_manifest(spec, row_count=len(rows), llm_config=llm_config)
         print(f"Copied query rewrite cache={spec.cache_id}, output={output_path}", flush=True)
 
 

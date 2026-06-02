@@ -15,6 +15,7 @@ import numpy as np
 from app.rag.data.benchmarks.medqa_usmle import load_medqa_usmle_split
 from app.rag.data.data_paths import RETRIEVAL_CACHE_DIR, ensure_data_directories
 from app.rag.data.json_utils import save_json_atomic
+from app.rag.experiments.formal_cache_metadata import manifest_metadata, path_fingerprint
 from app.rag.experiments.formal_query_embedding_specs import QueryEmbeddingSpec
 from app.rag.experiments.phase1_formal_ablation import (
     EMBEDDING_PROVIDERS,
@@ -141,6 +142,7 @@ def write_query_embedding_manifest(
     embedding_dim: int,
     elapsed_seconds: float,
 ) -> None:
+    query_texts_path = _query_texts_path(spec)
     save_json_atomic(
         _query_embedding_manifest_path(spec),
         {
@@ -152,12 +154,29 @@ def write_query_embedding_manifest(
             "query_input_format": QUERY_INPUT_FORMAT,
             "contains_options": False,
             "contains_answer_prompt": False,
-            "query_texts_path": str(_query_texts_path(spec)),
+            "query_texts_path": str(query_texts_path),
             "query_embeddings_path": str(_query_embeddings_path(spec)),
             "source_runtime": SOURCE_RUNTIME,
-            "created_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
             "build_time_seconds": elapsed_seconds,
             "embedding_dim": embedding_dim,
+            **manifest_metadata(
+                key={
+                    "cache_id": spec.cache_id,
+                    "run_id": spec.run_id,
+                    "embedding_model": embedding_model,
+                },
+                input_artifacts={"query_texts": str(query_texts_path)},
+                parameters={
+                    "embedding_backend": EMBEDDING_BACKEND,
+                    "query_input_format": QUERY_INPUT_FORMAT,
+                    "batch_size": QUERY_BATCH_SIZE,
+                },
+                dataset_split=DATASET_SPLIT,
+                fingerprint={
+                    "query_texts": path_fingerprint(query_texts_path),
+                    "query_text_count": query_text_count,
+                },
+            ),
         },
     )
 

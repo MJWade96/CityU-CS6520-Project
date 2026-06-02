@@ -16,6 +16,7 @@ import numpy as np
 from app.rag.data.corpus_registry import combine_registered_corpora
 from app.rag.data.data_paths import RESULT_INDEXES_DIR, ensure_data_directories
 from app.rag.data.json_utils import load_json_safe, save_json_atomic
+from app.rag.experiments.formal_cache_metadata import manifest_metadata
 from app.rag.experiments.phase1_formal_ablation import (
     CORPUS_VARIANTS,
     FAISS_INDEX_TYPE,
@@ -361,8 +362,26 @@ def _write_manifest(
             "embedding_input_format": EMBEDDING_INPUT_FORMAT,
             "chunk_embeddings_path": str(artifact_dir / "chunk_embeddings.npy"),
             "source_runtime": SOURCE_RUNTIME,
-            "created_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
             "build_time_seconds": elapsed_seconds,
+            **manifest_metadata(
+                key={
+                    "corpus_version": corpus_version,
+                    "embedding_model": embedding_model,
+                },
+                input_artifacts={
+                    "selected_sources": list(selected_sources),
+                },
+                parameters={
+                    "embedding_backend": EMBEDDING_BACKEND,
+                    "embedding_input_format": EMBEDDING_INPUT_FORMAT,
+                    "batch_size": CORPUS_BATCH_SIZE,
+                },
+                dataset_split="corpus",
+                fingerprint={
+                    "document_count": document_count,
+                    "selected_sources": list(selected_sources),
+                },
+            ),
         },
     )
 

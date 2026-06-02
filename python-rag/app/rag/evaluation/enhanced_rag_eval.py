@@ -23,6 +23,7 @@ from ..retriever.runtime_config import (
 )
 from ..retriever.vector_store import MedicalVectorStore
 from app.rag.experiments.phase1_formal_ablation import LOCAL_EMBEDDING_BACKENDS
+from app.rag.experiments.formal_cache_metadata import manifest_metadata, path_fingerprint
 from ..utils.progress_manager import EvaluationProgressManager
 from .eval_shared import (
     ConcurrencyConfig,
@@ -41,7 +42,7 @@ from .eval_shared import (
     split_questions,
 )
 from . import formal_artifacts
-from .formal_local_rerank_cache import require_local_rerank_cache
+from .formal_local_rerank_cache import require_local_rerank_cache, rerank_cache_id
 from .formal_local_embedding_adapter import LocalEmbeddingFormalRetriever
 from .naive_rag_eval import (
     build_query,
@@ -339,8 +340,14 @@ async def _run_formal_enhanced_evaluation(
 
     run_path = formal_artifacts.run_dir(config.formal_run_id)
     cache_id = str(metadata.get("query_cache_id") or config.formal_run_id)
+    retrieval_candidates_id = f"{cache_id}:fusion_candidates"
     retrieval_path = formal_artifacts.retrieval_cache_dir(cache_id)
-    rerank_path = formal_artifacts.rerank_cache_dir(cache_id)
+    rerank_id = rerank_cache_id(
+        retrieval_candidates_id=retrieval_candidates_id,
+        reranker_model=config.reranker_model,
+        reranker_input_count=config.resolved_retrieval_top_k,
+    )
+    rerank_path = formal_artifacts.rerank_cache_dir(rerank_id)
     query_texts_path = retrieval_path / "query_texts.jsonl"
     dense_candidates_path = retrieval_path / "dense_candidates.jsonl"
     sparse_candidates_path = retrieval_path / "sparse_candidates.jsonl"
@@ -496,8 +503,11 @@ async def _run_formal_enhanced_evaluation(
         retrieval_path / "manifest.json",
         {
             "cache_id": retrieval_path.name,
+            "retrieval_candidates_id": retrieval_candidates_id,
             "status": "completed",
             "pipeline": "advanced_rag",
+            "retrieval_top_k": config.resolved_retrieval_top_k,
+            "hybrid_alpha": config.hybrid_alpha,
             "processed_questions": len(expected_question_ids),
             "files": {
                 "query_texts": str(query_texts_path),
@@ -505,6 +515,31 @@ async def _run_formal_enhanced_evaluation(
                 "sparse_candidates": str(sparse_candidates_path),
                 "fusion_candidates": str(fusion_candidates_path),
             },
+            **manifest_metadata(
+                key={
+                    "cache_id": retrieval_path.name,
+                    "retrieval_candidates_id": retrieval_candidates_id,
+                    "embedding_model": metadata.get("embedding_model"),
+                    "retrieval_top_k": config.resolved_retrieval_top_k,
+                    "hybrid_alpha": config.hybrid_alpha,
+                },
+                input_artifacts={
+                    "index_path": str(config.vector_store_path),
+                    "query_embeddings_cache_id": cache_id,
+                },
+                parameters={
+                    "pipeline": "advanced_rag",
+                    "dense_bm25_weights": list(config.dense_bm25_weights),
+                    "query_enhancement": config.use_query_rewrite,
+                },
+                dataset_split="dev",
+                fingerprint={
+                    "query_texts": path_fingerprint(query_texts_path),
+                    "dense_candidates": path_fingerprint(dense_candidates_path),
+                    "sparse_candidates": path_fingerprint(sparse_candidates_path),
+                    "fusion_candidates": path_fingerprint(fusion_candidates_path),
+                },
+            ),
         },
     )
     rerank_rows = require_local_rerank_cache(

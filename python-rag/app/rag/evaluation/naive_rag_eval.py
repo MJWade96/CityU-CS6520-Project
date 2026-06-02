@@ -31,6 +31,7 @@ from .eval_shared import (
     update_progress,
 )
 from app.rag.experiments.phase1_formal_ablation import LOCAL_EMBEDDING_BACKENDS
+from app.rag.experiments.formal_cache_metadata import manifest_metadata, path_fingerprint
 
 from .formal_local_embedding_adapter import LocalEmbeddingFormalRetriever
 from . import formal_artifacts
@@ -279,6 +280,27 @@ async def _run_formal_naive_evaluation(
                 "query_texts": str(query_texts_path),
                 "retrieval_top10": str(retrieval_top10_path),
             },
+            **manifest_metadata(
+                key={
+                    "cache_id": retrieval_path.name,
+                    "embedding_model": metadata.get("embedding_model"),
+                    "retrieval_top_k": retrieval_top_k,
+                },
+                input_artifacts={
+                    "index_path": str(config.vector_store_path),
+                    "query_embeddings_cache_id": metadata.get("query_cache_id"),
+                },
+                parameters={
+                    "pipeline": "naive_rag",
+                    "top_k": top_k,
+                    "retrieval_top_k": retrieval_top_k,
+                },
+                dataset_split="dev",
+                fingerprint={
+                    "query_texts": path_fingerprint(query_texts_path),
+                    "retrieval_top10": path_fingerprint(retrieval_top10_path),
+                },
+            ),
         },
     )
     return {

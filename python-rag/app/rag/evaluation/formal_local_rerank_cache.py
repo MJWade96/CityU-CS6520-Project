@@ -19,6 +19,24 @@ RERANK_OUTPUTS_FILENAME = "rerank_outputs.jsonl"
 LOCAL_RERANK_SCRIPT = "python -m app.rag.experiments.run_local_rerank_cache_autodl"
 
 
+def _slug(value: Any) -> str:
+    return str(value).lower().replace("/", "_").replace(" ", "_").replace(".", "p")
+
+
+def rerank_cache_id(
+    *,
+    retrieval_candidates_id: str,
+    reranker_model: str,
+    reranker_input_count: int,
+) -> str:
+    """Cache key required by cache_design.md for reusable rerank outputs."""
+    return (
+        f"{_slug(retrieval_candidates_id)}"
+        f"__{_slug(reranker_model)}"
+        f"__input{int(reranker_input_count)}"
+    )
+
+
 def candidate_nodes(candidates: Sequence[Mapping[str, Any]]) -> List[NodeWithScore]:
     """Convert formal fusion candidate rows into LlamaIndex reranker inputs."""
     nodes: List[NodeWithScore] = []

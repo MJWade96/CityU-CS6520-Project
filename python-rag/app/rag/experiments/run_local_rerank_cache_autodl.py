@@ -25,7 +25,9 @@ from app.rag.evaluation.formal_local_rerank_cache import (
     LOCAL_RERANKER_BACKEND,
     RERANK_OUTPUTS_FILENAME,
     candidate_nodes,
+    rerank_cache_id,
 )
+from app.rag.experiments.formal_cache_metadata import manifest_metadata, path_fingerprint
 from app.rag.retriever.runtime_config import DEFAULT_API_RERANKER_MODEL
 
 
@@ -102,11 +104,16 @@ def rerank_cache_rows(
 
 
 def write_rerank_cache(fusion_path: Path) -> None:
-    cache_id = fusion_path.parent.name
-    output_dir = RERANK_CACHE_DIR / cache_id
-    output_path = output_dir / RERANK_OUTPUTS_FILENAME
     fusion_rows = formal_artifacts.load_jsonl(fusion_path)
     top_n = _max_candidate_count(fusion_rows)
+    retrieval_candidates_id = f"{fusion_path.parent.name}:fusion_candidates"
+    cache_id = rerank_cache_id(
+        retrieval_candidates_id=retrieval_candidates_id,
+        reranker_model=LOCAL_RERANKER_MODEL,
+        reranker_input_count=top_n,
+    )
+    output_dir = RERANK_CACHE_DIR / cache_id
+    output_path = output_dir / RERANK_OUTPUTS_FILENAME
     print(
         f"Reranking cache={cache_id}, questions={len(fusion_rows):,}, "
         f"max_candidates={top_n}, output={output_path}",
@@ -125,12 +132,31 @@ def write_rerank_cache(fusion_path: Path) -> None:
             "dataset_split": DATASET_SPLIT,
             "reranker_backend": LOCAL_RERANKER_BACKEND,
             "reranker_model": LOCAL_RERANKER_MODEL,
+            "retrieval_candidates_id": retrieval_candidates_id,
+            "reranker_input_count": top_n,
             "source_runtime": SOURCE_RUNTIME,
             "processed_questions": len(rows),
             "input_artifacts": {"fusion_candidates": str(fusion_path)},
             "files": {"rerank_outputs": str(output_path)},
-            "created_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
             "build_time_seconds": time.time() - started_at,
+            **manifest_metadata(
+                key={
+                    "retrieval_candidates_id": retrieval_candidates_id,
+                    "reranker_model": LOCAL_RERANKER_MODEL,
+                    "reranker_input_count": top_n,
+                },
+                input_artifacts={"fusion_candidates": str(fusion_path)},
+                parameters={
+                    "reranker_backend": LOCAL_RERANKER_BACKEND,
+                    "reranker_model": LOCAL_RERANKER_MODEL,
+                    "reranker_input_count": top_n,
+                },
+                dataset_split=DATASET_SPLIT,
+                fingerprint={
+                    "fusion_candidates": path_fingerprint(fusion_path),
+                    "rerank_outputs": path_fingerprint(output_path),
+                },
+            ),
         },
     )
     print(f"Finished rerank cache={cache_id}, manifest={output_dir / 'manifest.json'}")

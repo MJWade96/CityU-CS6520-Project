@@ -20,7 +20,9 @@ from app.rag.data.data_paths import (
     ensure_data_directories,
 )
 from app.rag.data.json_utils import save_json_atomic
+from app.rag.evaluation.formal_local_rerank_cache import rerank_cache_id
 from app.rag.retriever.runtime_config import (
+    DEFAULT_API_RERANKER_MODEL,
     DEFAULT_EMBEDDING_API_BASE_URL,
     first_env_value,
 )
@@ -46,7 +48,11 @@ RERANKER_INPUT_MULTIPLIERS = (2, 4, 8)
 CACHE_KEYS = (
     "chunk_embeddings",
     "query_embeddings",
+    "query_rewrite_outputs",
     "faiss_index",
+    "retrieval_top10",
+    "retrieval_top4k",
+    "retrieval_top8k",
     "retrieval_top80",
     "rerank_outputs",
     "final_prompts",
@@ -289,6 +295,18 @@ def build_formal_matrix() -> List[FormalRunSpec]:
     return rows
 
 
+def _query_cache_id_for_manifest(row: FormalRunSpec) -> str:
+    if row.embedding_backend not in LOCAL_EMBEDDING_BACKENDS:
+        return row.run_id
+    if row.pipeline == "advanced_rag":
+        if row.embedding_backend == "local_medcpt":
+            return "advanced_medcpt_rewritten_query"
+        return f"{row.run_id}__{_slug(row.embedding_model)}"
+    if row.embedding_backend == "local_medcpt":
+        return "stage1_naive_medcpt"
+    return f"{row.run_id}__{_slug(row.embedding_model)}"
+
+
 def build_cache_manifest(rows: Sequence[FormalRunSpec]) -> Dict[str, Any]:
     """Declare every reusable artifact recommended for formal ablations."""
     manifest: Dict[str, Any] = {
@@ -308,20 +326,43 @@ def build_cache_manifest(rows: Sequence[FormalRunSpec]) -> Dict[str, Any]:
             RESULT_INDEXES_DIR
             / f"{_slug(row.corpus_version)}__{embedding_slug}__{FAISS_INDEX_TYPE}"
         )
-        retrieval_dir = RETRIEVAL_CACHE_DIR / row.run_id
-        rerank_dir = RERANK_CACHE_DIR / row.run_id
+        retrieval_cache_id = _query_cache_id_for_manifest(row)
+        retrieval_dir = RETRIEVAL_CACHE_DIR / retrieval_cache_id
+        retrieval_candidates_id = f"{retrieval_cache_id}:fusion_candidates"
+        rerank_id = (
+            rerank_cache_id(
+                retrieval_candidates_id=retrieval_candidates_id,
+                reranker_model=DEFAULT_API_RERANKER_MODEL,
+                reranker_input_count=int(row.reranker_input_count),
+            )
+            if row.reranker_input_count is not None
+            else row.run_id
+        )
+        rerank_dir = RERANK_CACHE_DIR / rerank_id
         run_dir = RUNS_DIR / row.run_id
-        manifest["runs"][row.run_id] = {
+        run_cache = {
             "chunk_embeddings": str(index_root / "chunk_embeddings.npy"),
             "query_embeddings": str(retrieval_dir / "query_embeddings.npy"),
             "faiss_index": str(index_root / "faiss.index"),
-            "retrieval_top80": str(retrieval_dir / "retrieval_top80.jsonl"),
-            "rerank_outputs": str(rerank_dir / "rerank_outputs.jsonl"),
             "final_prompts": str(run_dir / "final_prompts.jsonl"),
             "llm_outputs": str(run_dir / "llm_outputs.jsonl"),
             "token_usage": str(run_dir / "token_usage.json"),
             "estimated_token_cost": str(run_dir / "estimated_token_cost.json"),
         }
+        if row.pipeline == "naive_rag":
+            run_cache["retrieval_top10"] = str(retrieval_dir / "retrieval_top10.jsonl")
+        else:
+            run_cache["query_rewrite_outputs"] = str(
+                retrieval_dir / "query_rewrite_outputs.jsonl"
+            )
+            run_cache["rerank_outputs"] = str(rerank_dir / "rerank_outputs.jsonl")
+        if row.pipeline == "advanced_rag" and row.reranker_input_count is not None:
+            if row.reranker_input_count == 4 * (row.k or 0):
+                run_cache["retrieval_top4k"] = str(retrieval_dir / "fusion_candidates.jsonl")
+            elif row.reranker_input_count == 8 * (row.k or 0):
+                run_cache["retrieval_top8k"] = str(retrieval_dir / "fusion_candidates.jsonl")
+                run_cache["retrieval_top80"] = str(retrieval_dir / "fusion_candidates.jsonl")
+        manifest["runs"][row.run_id] = run_cache
     return manifest
 
 
