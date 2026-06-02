@@ -26,7 +26,7 @@ def _get_env_with_fallback(primary_name: str, fallback_name: str, default: str) 
     return os.getenv(primary_name, os.getenv(fallback_name, default))
 
 
-def _get_query_rewrite_enable_thinking(default: Optional[bool] = False) -> Optional[bool]:
+def _get_query_rewrite_enable_thinking(default: Optional[bool] = True) -> Optional[bool]:
     shared_default = parse_optional_bool_env("RAG_LLM_ENABLE_THINKING", default=default)
     return parse_optional_bool_env(
         "RAG_QUERY_REWRITE_ENABLE_THINKING",

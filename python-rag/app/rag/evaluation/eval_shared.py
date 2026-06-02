@@ -49,7 +49,7 @@ class EvaluationLLMConfig:
     )
     enable_thinking: Optional[bool] = field(
         default_factory=lambda: parse_optional_bool_env(
-            "RAG_LLM_ENABLE_THINKING", default=False
+            "RAG_LLM_ENABLE_THINKING", default=True
         )
     )
 
