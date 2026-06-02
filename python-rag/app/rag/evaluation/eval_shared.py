@@ -401,8 +401,8 @@ def create_async_client(config: EvaluationLLMConfig) -> AsyncOpenAI:
     return AsyncOpenAI(
         api_key=config.api_key,
         base_url=config.base_url,
-        timeout=timeout,
         max_retries=max_retries,
+        http_client=httpx.AsyncClient(timeout=timeout, trust_env=False),
     )
 
 
@@ -420,14 +420,17 @@ def get_qwen_completion_kwargs(config: EvaluationLLMConfig) -> Dict[str, Any]:
 
 def get_qwen_openai_like_kwargs(config: EvaluationLLMConfig) -> Dict[str, Any]:
     """Return the shared Qwen parameters for LlamaIndex OpenAILike."""
+    timeout = float(os.getenv("RAG_LLM_TIMEOUT", "120.0"))
     kwargs: Dict[str, Any] = {
         "model": config.model,
         "temperature": config.temperature,
         "api_key": config.api_key,
         "api_base": config.base_url,
         "is_chat_model": True,
-        "timeout": float(os.getenv("RAG_LLM_TIMEOUT", "120.0")),
+        "timeout": timeout,
         "max_retries": int(os.getenv("RAG_LLM_MAX_RETRIES", "5")),
+        "http_client": httpx.Client(timeout=timeout, trust_env=False),
+        "async_http_client": httpx.AsyncClient(timeout=timeout, trust_env=False),
     }
     extra_body = build_extra_body(enable_thinking=config.enable_thinking)
     if extra_body:

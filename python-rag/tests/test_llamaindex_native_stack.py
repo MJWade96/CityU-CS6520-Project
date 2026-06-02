@@ -183,6 +183,32 @@ def test_llm_defaults_use_ctyun_generator_with_requested_limits() -> None:
     assert concurrency.tpm_limit == 50000
 
 
+def test_llm_clients_ignore_environment_proxies_by_default() -> None:
+    import asyncio
+    import sys
+
+    sys.path.insert(0, str(PROJECT_ROOT.resolve()))
+
+    from app.rag.evaluation.eval_shared import (  # pylint: disable=import-outside-toplevel
+        EvaluationLLMConfig,
+        create_async_client,
+        get_qwen_openai_like_kwargs,
+    )
+
+    config = EvaluationLLMConfig(api_key="test-key")
+    client = create_async_client(config)
+    kwargs = get_qwen_openai_like_kwargs(config)
+
+    try:
+        assert getattr(client._client, "_trust_env") is False
+        assert getattr(kwargs["http_client"], "_trust_env") is False
+        assert getattr(kwargs["async_http_client"], "_trust_env") is False
+    finally:
+        asyncio.run(client.close())
+        kwargs["http_client"].close()
+        asyncio.run(kwargs["async_http_client"].aclose())
+
+
 def test_llm_config_reads_environment_at_instantiation(monkeypatch) -> None:
     import sys
 
