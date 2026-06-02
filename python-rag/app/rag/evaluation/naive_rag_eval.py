@@ -23,6 +23,7 @@ from .eval_shared import (
     format_options,
     format_retrieved_contexts,
     get_qwen_openai_like_kwargs,
+    iter_pipeline_in_order,
     load_questions,
     question_id,
     serialize_document_candidates,
@@ -410,41 +411,42 @@ async def evaluate_async_dataset(
     remaining_questions = questions[start_from:]
     batch_size = max(1, max_concurrent)
 
-    async def evaluate_item(item: Dict[str, Any]) -> Dict[str, Any]:
+    async def evaluate_item(question_index: int, item: Dict[str, Any]) -> Dict[str, Any]:
         prompt = build_query(item["question"], item.get("options", []))
         async with semaphore:
             await rate_limiter.acquire()
             response = await query_engine.aquery(prompt)
         return build_eval_result(item, str(response), extract_rag_metadata(response))
 
-    for batch_start in range(0, len(remaining_questions), batch_size):
-        batch = remaining_questions[batch_start : batch_start + batch_size]
-        batch_results = await asyncio.gather(*(evaluate_item(item) for item in batch))
+    async for question_index, _item, result in iter_pipeline_in_order(
+        remaining_questions,
+        max_concurrent=batch_size,
+        worker=evaluate_item,
+        start_index=start_from,
+    ):
+        processed_questions = question_index + 1
+        results.append(result)
+        if result["is_correct"]:
+            correct += 1
 
-        for offset, result in enumerate(batch_results, start=1):
-            processed_questions = start_from + batch_start + offset
-            results.append(result)
-            if result["is_correct"]:
-                correct += 1
-
-            if progress_mgr:
-                update_progress(
-                    progress_mgr=progress_mgr,
-                    artifact_paths=artifact_paths,
-                    live_config=live_config,
-                    extra_sections=extra_sections,
-                    dataset_name=dataset_name,
-                    total_questions=len(questions),
-                    processed_questions=processed_questions,
-                    correct_count=correct,
-                    elapsed=time.time() - start_time,
-                    results=results,
-                    run_name=run_name,
-                    evaluation_type=evaluation_type,
-                    config_payload={"top_k": top_k},
-                    script_name=script_name,
-                    top_k=top_k,
-                )
+        if progress_mgr:
+            update_progress(
+                progress_mgr=progress_mgr,
+                artifact_paths=artifact_paths,
+                live_config=live_config,
+                extra_sections=extra_sections,
+                dataset_name=dataset_name,
+                total_questions=len(questions),
+                processed_questions=processed_questions,
+                correct_count=correct,
+                elapsed=time.time() - start_time,
+                results=results,
+                run_name=run_name,
+                evaluation_type=evaluation_type,
+                config_payload={"top_k": top_k},
+                script_name=script_name,
+                top_k=top_k,
+            )
 
     elapsed = time.time() - start_time
     return {

@@ -15,7 +15,19 @@ import openai
 import httpx
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import (
+    Any,
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    TypeVar,
+)
 
 from openai import AsyncOpenAI
 
@@ -23,6 +35,9 @@ from ..data.benchmarks.medqa_usmle import load_medqa_usmle_jsonl
 from ..data.data_paths import MEDQA_FILE
 from ..data.json_utils import load_json_safe
 
+
+T = TypeVar("T")
+R = TypeVar("R")
 
 DEFAULT_BASE_URL = "https://api.siliconflow.cn/v1"
 DEFAULT_MODEL = "Qwen/Qwen3-8B"
@@ -277,6 +292,74 @@ class RateLimiter:
                 wait_time = max((1 - self.tokens) / self.requests_per_second, 0.01)
 
             await asyncio.sleep(wait_time)
+
+
+async def iter_pipeline_in_order(
+    items: Sequence[T],
+    *,
+    max_concurrent: int,
+    worker: Callable[[int, T], Awaitable[R]],
+    start_index: int = 0,
+    heartbeat_interval: Optional[float] = None,
+    on_heartbeat: Optional[Callable[[], None]] = None,
+) -> AsyncIterator[Tuple[int, T, R]]:
+    """Run work as a refill pipeline while yielding results in input order.
+
+    This keeps checkpoint updates prefix-based while avoiding batch-level idle slots.
+    """
+    if not items:
+        return
+
+    limit = max(1, max_concurrent)
+    next_offset = 0
+    commit_offset = 0
+    pending: Dict[asyncio.Task[R], int] = {}
+    completed: Dict[int, R] = {}
+
+    def schedule_available() -> None:
+        nonlocal next_offset
+        while next_offset < len(items) and len(pending) < limit:
+            offset = next_offset
+            pending[
+                asyncio.create_task(worker(start_index + offset, items[offset]))
+            ] = offset
+            next_offset += 1
+
+    async def cancel_pending() -> None:
+        for task in pending:
+            task.cancel()
+        if pending:
+            await asyncio.gather(*pending.keys(), return_exceptions=True)
+
+    schedule_available()
+    while commit_offset < len(items):
+        while commit_offset in completed:
+            result = completed.pop(commit_offset)
+            yield start_index + commit_offset, items[commit_offset], result
+            commit_offset += 1
+
+        if commit_offset >= len(items):
+            break
+
+        done, _ = await asyncio.wait(
+            pending.keys(),
+            timeout=heartbeat_interval,
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        if not done:
+            if on_heartbeat is not None:
+                on_heartbeat()
+            continue
+
+        for task in done:
+            offset = pending.pop(task)
+            try:
+                completed[offset] = task.result()
+            except Exception:
+                await cancel_pending()
+                raise
+
+        schedule_available()
 
 
 class TokenRateLimiter:

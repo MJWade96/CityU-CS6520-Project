@@ -35,6 +35,7 @@ from .eval_shared import (
     build_eval_result,
     format_retrieved_contexts,
     get_correct_answer_letter,
+    iter_pipeline_in_order,
     load_questions,
     parse_optional_bool_env,
     question_id,
@@ -805,50 +806,42 @@ async def evaluate_async_dataset(
                 stage_result=stage_result,
             )
 
-    for batch_start in range(0, len(remaining_questions), batch_size):
-        batch = remaining_questions[batch_start : batch_start + batch_size]
-        batch_tasks = [
-            asyncio.create_task(evaluate_item(start_from + batch_start + offset, item))
-            for offset, item in enumerate(batch)
-        ]
-        pending_tasks = list(batch_tasks)
+    async def evaluate_item_safely(
+        question_index: int,
+        item: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        try:
+            return await evaluate_item(question_index, item)
+        except Exception as exc:
+            return {
+                "question": item.get("question", ""),
+                "options": item.get("options", []),
+                "correct_answer": get_correct_answer_letter(item),
+                "predicted_answer": None,
+                "is_correct": False,
+                "response": f"Error generating answer: {exc}",
+                "retrieved_docs": 0,
+                "error": str(exc),
+            }
 
-        while pending_tasks:
-            done, pending = await asyncio.wait(
-                pending_tasks,
-                timeout=heartbeat_interval if config.heartbeat_enabled else None,
-                return_when=asyncio.ALL_COMPLETED,
-            )
-            if not done:
-                emit_heartbeat("awaiting_batch")
-                continue
-            pending_tasks = list(pending)
+    async for question_index, _item, evaluation_result in iter_pipeline_in_order(
+        remaining_questions,
+        max_concurrent=batch_size,
+        worker=evaluate_item_safely,
+        start_index=start_from,
+        heartbeat_interval=heartbeat_interval if config.heartbeat_enabled else None,
+        on_heartbeat=lambda: emit_heartbeat("awaiting_pipeline"),
+    ):
+        processed_questions = question_index + 1
+        if evaluation_result.get("is_correct"):
+            correct += 1
+        total += 1
+        results.append(evaluation_result)
 
-        for offset, item in enumerate(batch):
-            processed_questions = start_from + batch_start + offset + 1
-            task = batch_tasks[offset]
-            try:
-                evaluation_result = await task
-            except Exception as exc:
-                evaluation_result = {
-                    "question": item.get("question", ""),
-                    "options": item.get("options", []),
-                    "correct_answer": get_correct_answer_letter(item),
-                    "predicted_answer": None,
-                    "is_correct": False,
-                    "response": f"Error generating answer: {exc}",
-                    "retrieved_docs": 0,
-                    "error": str(exc),
-                }
-            if evaluation_result.get("is_correct"):
-                correct += 1
-            total += 1
-            results.append(evaluation_result)
+        if evaluation_result.get("error"):
+            print(f"  ERROR on question {processed_questions}: {evaluation_result['error']}")
 
-            if evaluation_result.get("error"):
-                print(f"  ERROR on question {processed_questions}: {evaluation_result['error']}")
-
-            persist_progress(processed_questions, evaluation_result.get("error"))
+        persist_progress(processed_questions, evaluation_result.get("error"))
 
     elapsed = time.time() - start_time
     return {
