@@ -410,44 +410,56 @@ async def _run_formal_enhanced_evaluation(
         llm_enable_thinking=config.llm.enable_thinking,
     )
     ctx = create_eval_context(config.llm, config.concurrency)
-    completed_ids = formal_artifacts.completed_question_ids(evaluation_outputs_path)
-    fusion_completed_ids = formal_artifacts.completed_question_ids(fusion_candidates_path)
-    existing_results = formal_artifacts.load_jsonl(evaluation_outputs_path)
-    results: List[Dict[str, Any]] = [dict(row["result"]) for row in existing_results]
+    query_text_rows = formal_artifacts.rows_by_question_id(query_texts_path)
+    dense_rows = formal_artifacts.rows_by_question_id(dense_candidates_path)
+    sparse_rows = formal_artifacts.rows_by_question_id(sparse_candidates_path)
+    fusion_rows = formal_artifacts.rows_by_question_id(fusion_candidates_path)
+    selected_rows = formal_artifacts.rows_by_question_id(selected_contexts_path)
+    prompt_rows = formal_artifacts.rows_by_question_id(final_prompts_path)
+    llm_rows = formal_artifacts.rows_by_question_id(llm_outputs_path)
+    evaluation_rows = formal_artifacts.rows_by_question_id(evaluation_outputs_path)
+    completed_ids = set(evaluation_rows)
+    results: List[Dict[str, Any]] = [dict(row["result"]) for row in evaluation_rows.values()]
     correct = sum(1 for result in results if result.get("is_correct"))
     start_time = time.time()
     expected_question_ids = [question_id(item, index) for index, item in enumerate(questions, start=1)]
 
     for index, item in enumerate(questions, start=1):
         current_question_id = question_id(item, index)
-        if current_question_id in fusion_completed_ids:
+        if (
+            current_question_id in dense_rows
+            and current_question_id in sparse_rows
+            and current_question_id in fusion_rows
+        ):
             continue
 
         original_query = str(item["question"])
-        rewrite_history: List[str] = []
-        if local_embedding_retriever is not None:
-            uses_llm_rewrite = False
-            query_text = local_embedding_retriever.cached_query_text(current_question_id)
-            query_text_source = "local_embedding_query_cache"
+        existing_query_row = query_text_rows.get(current_question_id)
+        if existing_query_row is not None:
+            query_text = str(existing_query_row["query_text"])
         else:
-            uses_llm_rewrite = should_use_llm_query_rewrite(
-                original_query,
-                query_rewriter,
-                config,
-            )
-            query_text = original_query
-            query_text_source = "medqa_usmle_question_field"
-        if config.use_query_rewrite and local_embedding_retriever is None:
-            query_text, rewrite_history = await query_rewriter.arewrite(
-                original_query,
-                rate_limiter=ctx.rate_limiter,
-                api_semaphore=ctx.semaphore,
-                use_llm=uses_llm_rewrite,
-            )
-            query_text_source = "query_rewrite_pipeline"
-        formal_artifacts.append_jsonl_if_question_missing(
-            query_texts_path,
-            {
+            rewrite_history: List[str] = []
+            if local_embedding_retriever is not None:
+                uses_llm_rewrite = False
+                query_text = local_embedding_retriever.cached_query_text(current_question_id)
+                query_text_source = "local_embedding_query_cache"
+            else:
+                uses_llm_rewrite = should_use_llm_query_rewrite(
+                    original_query,
+                    query_rewriter,
+                    config,
+                )
+                query_text = original_query
+                query_text_source = "medqa_usmle_question_field"
+            if config.use_query_rewrite and local_embedding_retriever is None:
+                query_text, rewrite_history = await query_rewriter.arewrite(
+                    original_query,
+                    rate_limiter=ctx.rate_limiter,
+                    api_semaphore=ctx.semaphore,
+                    use_llm=uses_llm_rewrite,
+                )
+                query_text_source = "query_rewrite_pipeline"
+            query_text_row = {
                 "question_id": current_question_id,
                 "question": original_query,
                 "original_query": original_query,
@@ -459,8 +471,16 @@ async def _run_formal_enhanced_evaluation(
                 },
                 "contains_options": False,
                 "contains_answer_prompt": False,
-            },
-        )
+            }
+            formal_artifacts.append_jsonl_with_checkpoint(query_texts_path, query_text_row)
+            query_text_rows[current_question_id] = query_text_row
+
+        if (
+            current_question_id in dense_rows
+            and current_question_id in sparse_rows
+            and current_question_id in fusion_rows
+        ):
+            continue
 
         retrieval_started = time.time()
         if local_embedding_retriever is not None:
@@ -482,14 +502,14 @@ async def _run_formal_enhanced_evaluation(
         dense_candidates = serialize_node_candidates(dense_nodes)
         sparse_candidates = serialize_node_candidates(sparse_nodes)
         fusion_candidates = serialize_node_candidates(fusion_nodes)
-        for path, source, candidates in (
-            (dense_candidates_path, "dense", dense_candidates),
-            (sparse_candidates_path, "sparse_bm25", sparse_candidates),
-            (fusion_candidates_path, "query_fusion", fusion_candidates),
+        for path, rows, source, candidates in (
+            (dense_candidates_path, dense_rows, "dense", dense_candidates),
+            (sparse_candidates_path, sparse_rows, "sparse_bm25", sparse_candidates),
+            (fusion_candidates_path, fusion_rows, "query_fusion", fusion_candidates),
         ):
-            formal_artifacts.append_jsonl_with_checkpoint(
-                path,
-                {
+            if current_question_id in rows:
+                continue
+            candidate_row = {
                     "question_id": current_question_id,
                     "query_text": query_text,
                     "candidate_source": source,
@@ -497,8 +517,9 @@ async def _run_formal_enhanced_evaluation(
                     "top_k": config.resolved_retrieval_top_k,
                     "candidates": candidates,
                     "retrieval_time_seconds": retrieval_elapsed,
-                },
-            )
+            }
+            formal_artifacts.append_jsonl_with_checkpoint(path, candidate_row)
+            rows[current_question_id] = candidate_row
 
     formal_artifacts.write_json(
         retrieval_path / "manifest.json",
@@ -556,23 +577,29 @@ async def _run_formal_enhanced_evaluation(
             continue
 
         reranked_candidates = list(rerank_rows[current_question_id]["reranked_candidates"])
-        selected = reranked_candidates[: config.resolved_reranker_top_k]
-        formal_artifacts.append_jsonl_with_checkpoint(
-            selected_contexts_path,
-            {"question_id": current_question_id, "selected_contexts": selected},
-        )
-        context = format_retrieved_contexts([candidate["text"] for candidate in selected])
-        prompt = build_medical_eval_prompt(item["question"], item.get("options", []), context)
-        formal_artifacts.append_jsonl_with_checkpoint(
-            final_prompts_path,
-            {"question_id": current_question_id, "prompt": prompt},
-        )
+        if current_question_id in selected_rows:
+            selected = list(selected_rows[current_question_id]["selected_contexts"])
+        else:
+            selected = reranked_candidates[: config.resolved_reranker_top_k]
+            selected_row = {"question_id": current_question_id, "selected_contexts": selected}
+            formal_artifacts.append_jsonl_with_checkpoint(selected_contexts_path, selected_row)
+            selected_rows[current_question_id] = selected_row
+
+        if current_question_id in prompt_rows:
+            prompt = str(prompt_rows[current_question_id]["prompt"])
+        else:
+            context = format_retrieved_contexts([candidate["text"] for candidate in selected])
+            prompt = build_medical_eval_prompt(item["question"], item.get("options", []), context)
+            prompt_row = {"question_id": current_question_id, "prompt": prompt}
+            formal_artifacts.append_jsonl_with_checkpoint(final_prompts_path, prompt_row)
+            prompt_rows[current_question_id] = prompt_row
         generator_jobs.append(
             {
                 "question_id": current_question_id,
                 "item": item,
                 "prompt": prompt,
                 "selected": selected,
+                "response": llm_rows.get(current_question_id, {}).get("response"),
             }
         )
 
@@ -580,7 +607,10 @@ async def _run_formal_enhanced_evaluation(
         _job_index: int,
         job: Dict[str, Any],
     ) -> Dict[str, Any]:
-        response = await call_llm(ctx, str(job["prompt"]))
+        if job.get("response") is not None:
+            response = str(job["response"])
+        else:
+            response = await call_llm(ctx, str(job["prompt"]))
         selected_candidates = list(job["selected"])
         return {
             "response": response,
@@ -603,17 +633,18 @@ async def _run_formal_enhanced_evaluation(
         current_question_id = str(job["question_id"])
         response = str(generated["response"])
         result = dict(generated["result"])
-        formal_artifacts.append_jsonl_with_checkpoint(
-            llm_outputs_path,
-            {"question_id": current_question_id, "response": response},
-        )
+        if current_question_id not in llm_rows:
+            llm_row = {"question_id": current_question_id, "response": response}
+            formal_artifacts.append_jsonl_with_checkpoint(llm_outputs_path, llm_row)
+            llm_rows[current_question_id] = llm_row
         results.append(result)
         if result["is_correct"]:
             correct += 1
-        formal_artifacts.append_jsonl_with_checkpoint(
-            evaluation_outputs_path,
-            {"question_id": current_question_id, "result": result},
-        )
+        if current_question_id not in evaluation_rows:
+            evaluation_row = {"question_id": current_question_id, "result": result}
+            formal_artifacts.append_jsonl_with_checkpoint(evaluation_outputs_path, evaluation_row)
+            evaluation_rows[current_question_id] = evaluation_row
+            completed_ids.add(current_question_id)
         processed = len(results)
         if processed == len(questions) or processed % config.progress_print_every == 0:
             print(

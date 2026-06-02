@@ -157,9 +157,14 @@ async def _run_formal_naive_evaluation(
         vectorstore = load_vector_store(config.vector_store_path)
 
     ctx = create_eval_context(config.llm, config.concurrency)
-    completed_ids = formal_artifacts.completed_question_ids(evaluation_outputs_path)
-    existing_results = formal_artifacts.load_jsonl(evaluation_outputs_path)
-    results: List[Dict[str, Any]] = [dict(row["result"]) for row in existing_results]
+    query_text_rows = formal_artifacts.rows_by_question_id(query_texts_path)
+    retrieval_rows = formal_artifacts.rows_by_question_id(retrieval_top10_path)
+    selected_rows = formal_artifacts.rows_by_question_id(selected_contexts_path)
+    prompt_rows = formal_artifacts.rows_by_question_id(final_prompts_path)
+    llm_rows = formal_artifacts.rows_by_question_id(llm_outputs_path)
+    evaluation_rows = formal_artifacts.rows_by_question_id(evaluation_outputs_path)
+    completed_ids = set(evaluation_rows)
+    results: List[Dict[str, Any]] = [dict(row["result"]) for row in evaluation_rows.values()]
     correct = sum(1 for result in results if result.get("is_correct"))
     start_time = time.time()
     retrieval_top_k = max(10, top_k)
@@ -171,58 +176,67 @@ async def _run_formal_naive_evaluation(
             continue
 
         query_text = str(item["question"])
-        formal_artifacts.append_jsonl_if_question_missing(
-            query_texts_path,
-            {
+        if current_question_id not in query_text_rows:
+            query_text_row = {
                 "question_id": current_question_id,
                 "question": query_text,
                 "query_text": query_text,
                 "query_text_source": "medqa_usmle_question_field",
                 "contains_options": False,
                 "contains_answer_prompt": False,
-            },
-        )
-        retrieval_started = time.time()
-        if local_embedding_retriever is not None:
-            retrieved = await asyncio.to_thread(
-                local_embedding_retriever.retrieve,
-                question_id=current_question_id,
-                query_text=query_text,
-                k=retrieval_top_k,
-            )
-            candidates = serialize_document_candidates(retrieved)
+            }
+            formal_artifacts.append_jsonl_with_checkpoint(query_texts_path, query_text_row)
+            query_text_rows[current_question_id] = query_text_row
+
+        if current_question_id in retrieval_rows:
+            candidates = list(retrieval_rows[current_question_id]["candidates"])
         else:
-            assert vectorstore is not None
-            nodes = await asyncio.to_thread(vectorstore.retrieve, query_text, retrieval_top_k)
-            candidates = serialize_node_candidates(nodes)
-        retrieval_elapsed = time.time() - retrieval_started
-        formal_artifacts.append_jsonl_with_checkpoint(
-            retrieval_top10_path,
-            {
+            retrieval_started = time.time()
+            if local_embedding_retriever is not None:
+                retrieved = await asyncio.to_thread(
+                    local_embedding_retriever.retrieve,
+                    question_id=current_question_id,
+                    query_text=query_text,
+                    k=retrieval_top_k,
+                )
+                candidates = serialize_document_candidates(retrieved)
+            else:
+                assert vectorstore is not None
+                nodes = await asyncio.to_thread(vectorstore.retrieve, query_text, retrieval_top_k)
+                candidates = serialize_node_candidates(nodes)
+            retrieval_elapsed = time.time() - retrieval_started
+            retrieval_row = {
                 "question_id": current_question_id,
                 "query_text": query_text,
                 "candidates": candidates,
                 "retrieval_time_seconds": retrieval_elapsed,
-            },
-        )
+            }
+            formal_artifacts.append_jsonl_with_checkpoint(retrieval_top10_path, retrieval_row)
+            retrieval_rows[current_question_id] = retrieval_row
 
-        selected = candidates[:top_k]
-        formal_artifacts.append_jsonl_with_checkpoint(
-            selected_contexts_path,
-            {"question_id": current_question_id, "selected_contexts": selected},
-        )
-        context = format_retrieved_contexts([candidate["text"] for candidate in selected])
-        prompt = build_medical_eval_prompt(item["question"], item.get("options", []), context)
-        formal_artifacts.append_jsonl_with_checkpoint(
-            final_prompts_path,
-            {"question_id": current_question_id, "prompt": prompt},
-        )
+        if current_question_id in selected_rows:
+            selected = list(selected_rows[current_question_id]["selected_contexts"])
+        else:
+            selected = candidates[:top_k]
+            selected_row = {"question_id": current_question_id, "selected_contexts": selected}
+            formal_artifacts.append_jsonl_with_checkpoint(selected_contexts_path, selected_row)
+            selected_rows[current_question_id] = selected_row
+
+        if current_question_id in prompt_rows:
+            prompt = str(prompt_rows[current_question_id]["prompt"])
+        else:
+            context = format_retrieved_contexts([candidate["text"] for candidate in selected])
+            prompt = build_medical_eval_prompt(item["question"], item.get("options", []), context)
+            prompt_row = {"question_id": current_question_id, "prompt": prompt}
+            formal_artifacts.append_jsonl_with_checkpoint(final_prompts_path, prompt_row)
+            prompt_rows[current_question_id] = prompt_row
         generator_jobs.append(
             {
                 "question_id": current_question_id,
                 "item": item,
                 "prompt": prompt,
                 "selected": selected,
+                "response": llm_rows.get(current_question_id, {}).get("response"),
             }
         )
 
@@ -230,7 +244,10 @@ async def _run_formal_naive_evaluation(
         _job_index: int,
         job: Dict[str, Any],
     ) -> Tuple[str, Dict[str, Any]]:
-        response = await call_llm(ctx, str(job["prompt"]))
+        if job.get("response") is not None:
+            response = str(job["response"])
+        else:
+            response = await call_llm(ctx, str(job["prompt"]))
         selected_candidates = list(job["selected"])
         result = build_eval_result(
             job["item"],
@@ -250,17 +267,18 @@ async def _run_formal_naive_evaluation(
     ):
         response, result = generated
         current_question_id = str(job["question_id"])
-        formal_artifacts.append_jsonl_with_checkpoint(
-            llm_outputs_path,
-            {"question_id": current_question_id, "response": response},
-        )
+        if current_question_id not in llm_rows:
+            llm_row = {"question_id": current_question_id, "response": response}
+            formal_artifacts.append_jsonl_with_checkpoint(llm_outputs_path, llm_row)
+            llm_rows[current_question_id] = llm_row
         results.append(result)
         if result["is_correct"]:
             correct += 1
-        formal_artifacts.append_jsonl_with_checkpoint(
-            evaluation_outputs_path,
-            {"question_id": current_question_id, "result": result},
-        )
+        if current_question_id not in evaluation_rows:
+            evaluation_row = {"question_id": current_question_id, "result": result}
+            formal_artifacts.append_jsonl_with_checkpoint(evaluation_outputs_path, evaluation_row)
+            evaluation_rows[current_question_id] = evaluation_row
+            completed_ids.add(current_question_id)
         processed = len(results)
         if processed == len(questions) or processed % 5 == 0:
             print(

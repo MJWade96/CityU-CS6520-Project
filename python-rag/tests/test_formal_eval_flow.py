@@ -200,6 +200,91 @@ def test_naive_formal_generator_uses_refill_pipeline(
     assert result["test_results"]["accuracy"] == 1.0
 
 
+def test_naive_formal_resume_reuses_partial_question_artifacts(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from app.rag.evaluation import naive_rag_eval as module
+    from app.rag.evaluation.config import NaiveRAGEvalConfig
+
+    patch_formal_dirs(monkeypatch, tmp_path)
+    question_file = tmp_path / "questions.json"
+    write_questions(question_file)
+    fake_store = FakeVectorStore()
+    monkeypatch.setattr(module, "load_vector_store", lambda _: fake_store)
+    monkeypatch.setattr(module, "create_eval_context", lambda *args: object())
+
+    retrieval_dir = tmp_path / "retrieval" / "formal_naive"
+    run_dir = tmp_path / "runs" / "formal_naive"
+    retrieval_dir.mkdir(parents=True)
+    run_dir.mkdir(parents=True)
+    cached_candidates = [{"text": "cached context", "score": 0.7}]
+    (retrieval_dir / "query_texts.jsonl").write_text(
+        json.dumps(
+            {
+                "question_id": "dev-1",
+                "question": "Which diagnosis is most likely?",
+                "query_text": "Which diagnosis is most likely?",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (retrieval_dir / "retrieval_top10.jsonl").write_text(
+        json.dumps({"question_id": "dev-1", "candidates": cached_candidates}) + "\n",
+        encoding="utf-8",
+    )
+    (run_dir / "selected_contexts.jsonl").write_text(
+        json.dumps({"question_id": "dev-1", "selected_contexts": cached_candidates}) + "\n",
+        encoding="utf-8",
+    )
+    (run_dir / "final_prompts.jsonl").write_text(
+        json.dumps({"question_id": "dev-1", "prompt": "cached prompt"}) + "\n",
+        encoding="utf-8",
+    )
+    (run_dir / "llm_outputs.jsonl").write_text(
+        json.dumps({"question_id": "dev-1", "response": "Answer: A"}) + "\n",
+        encoding="utf-8",
+    )
+
+    async def fail_if_called(ctx, prompt):
+        raise AssertionError("resume should reuse cached LLM output")
+
+    monkeypatch.setattr(module, "call_llm", fail_if_called)
+
+    result = asyncio.run(
+        module.run_complete_evaluation(
+            NaiveRAGEvalConfig(
+                dev_size=0,
+                test_size=1,
+                manual_top_k=1,
+                question_file=question_file,
+                vector_store_path=tmp_path / "index",
+                formal_run_id="formal_naive",
+                formal_metadata={
+                    "run_id": "formal_naive",
+                    "pipeline": "naive_rag",
+                    "embedding_backend": "siliconflow_api",
+                    "query_cache_id": "formal_naive",
+                },
+            )
+        )
+    )
+
+    assert fake_store.queries == []
+    assert result["test_results"]["processed_questions"] == 1
+    for path in (
+        retrieval_dir / "query_texts.jsonl",
+        retrieval_dir / "retrieval_top10.jsonl",
+        run_dir / "selected_contexts.jsonl",
+        run_dir / "final_prompts.jsonl",
+        run_dir / "llm_outputs.jsonl",
+        run_dir / "evaluation_outputs.jsonl",
+    ):
+        rows = [line for line in path.read_text(encoding="utf-8").splitlines() if line]
+        assert len(rows) == 1
+
+
 def test_enhanced_formal_writes_rewrite_and_component_caches(
     monkeypatch,
     tmp_path: Path,

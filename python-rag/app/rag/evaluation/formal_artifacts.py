@@ -53,6 +53,16 @@ def completed_question_ids(path: Path) -> Set[str]:
     }
 
 
+def rows_by_question_id(path: Path) -> Dict[str, Dict[str, Any]]:
+    """Index existing JSONL rows once so resume logic can reuse artifacts."""
+    rows: Dict[str, Dict[str, Any]] = {}
+    for row in load_jsonl(path):
+        question_id = row.get("question_id")
+        if question_id is not None:
+            rows.setdefault(str(question_id), row)
+    return rows
+
+
 def append_jsonl_if_question_missing(path: Path, row: Mapping[str, Any]) -> None:
     """Append a row unless the final JSONL already contains its question id."""
     question_id = row.get("question_id")
