@@ -31,7 +31,7 @@ LOCAL_BGE_MODELS = tuple(
     if provider.backend == "local_hf_embedding"
 )
 EMBEDDING_BACKEND = "local_hf_embedding"
-CORPUS_BATCH_SIZE = 8
+CORPUS_BATCH_SIZE = 128
 SOURCE_RUNTIME = "autodl"
 EMBEDDING_INPUT_FORMAT = "corpus_content_text"
 
