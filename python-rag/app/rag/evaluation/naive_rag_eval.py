@@ -25,6 +25,7 @@ from .eval_shared import (
     get_qwen_openai_like_kwargs,
     iter_pipeline_in_order,
     load_questions,
+    print_formal_generator_event,
     question_id,
     serialize_document_candidates,
     serialize_node_candidates,
@@ -244,10 +245,28 @@ async def _run_formal_naive_evaluation(
         _job_index: int,
         job: Dict[str, Any],
     ) -> Tuple[str, Dict[str, Any]]:
-        if job.get("response") is not None:
-            response = str(job["response"])
-        else:
-            response = await call_llm(ctx, str(job["prompt"]))
+        current_question_id = str(job["question_id"])
+        cached = job.get("response") is not None
+        print_formal_generator_event(
+            config.formal_run_id,
+            "start",
+            current_question_id,
+            "cached=true" if cached else "cached=false",
+        )
+        try:
+            if cached:
+                response = str(job["response"])
+            else:
+                response = await call_llm(ctx, str(job["prompt"]))
+        except Exception as exc:
+            print_formal_generator_event(
+                config.formal_run_id,
+                "error",
+                current_question_id,
+                type(exc).__name__,
+            )
+            raise
+        print_formal_generator_event(config.formal_run_id, "done", current_question_id)
         selected_candidates = list(job["selected"])
         result = build_eval_result(
             job["item"],
@@ -267,6 +286,7 @@ async def _run_formal_naive_evaluation(
     ):
         response, result = generated
         current_question_id = str(job["question_id"])
+        print_formal_generator_event(config.formal_run_id, "commit", current_question_id)
         if current_question_id not in llm_rows:
             llm_row = {"question_id": current_question_id, "response": response}
             formal_artifacts.append_jsonl_with_checkpoint(llm_outputs_path, llm_row)

@@ -38,6 +38,7 @@ from .eval_shared import (
     iter_pipeline_in_order,
     load_questions,
     parse_optional_bool_env,
+    print_formal_generator_event,
     question_id,
     serialize_node_candidates,
     split_questions,
@@ -607,10 +608,28 @@ async def _run_formal_enhanced_evaluation(
         _job_index: int,
         job: Dict[str, Any],
     ) -> Dict[str, Any]:
-        if job.get("response") is not None:
-            response = str(job["response"])
-        else:
-            response = await call_llm(ctx, str(job["prompt"]))
+        current_question_id = str(job["question_id"])
+        cached = job.get("response") is not None
+        print_formal_generator_event(
+            config.formal_run_id,
+            "start",
+            current_question_id,
+            "cached=true" if cached else "cached=false",
+        )
+        try:
+            if cached:
+                response = str(job["response"])
+            else:
+                response = await call_llm(ctx, str(job["prompt"]))
+        except Exception as exc:
+            print_formal_generator_event(
+                config.formal_run_id,
+                "error",
+                current_question_id,
+                type(exc).__name__,
+            )
+            raise
+        print_formal_generator_event(config.formal_run_id, "done", current_question_id)
         selected_candidates = list(job["selected"])
         return {
             "response": response,
@@ -631,6 +650,7 @@ async def _run_formal_enhanced_evaluation(
         worker=generate_answer,
     ):
         current_question_id = str(job["question_id"])
+        print_formal_generator_event(config.formal_run_id, "commit", current_question_id)
         response = str(generated["response"])
         result = dict(generated["result"])
         if current_question_id not in llm_rows:

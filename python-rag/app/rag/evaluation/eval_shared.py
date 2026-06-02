@@ -479,6 +479,20 @@ def estimate_llm_request_tokens(prompt: str) -> int:
     return max(1, int(len(prompt) / 4)) + max(0, completion_reserve)
 
 
+def print_formal_generator_event(
+    run_id: Optional[str],
+    event: str,
+    question_id_value: str,
+    detail: str = "",
+) -> None:
+    """Emit formal generator diagnostics from all formal evaluation paths."""
+    suffix = f" {detail}" if detail else ""
+    print(
+        f"[formal][{run_id}][generator] {event} {question_id_value}{suffix}",
+        flush=True,
+    )
+
+
 async def call_llm(
     ctx: EvalContext,
     prompt: str,
