@@ -132,6 +132,7 @@ def test_enhanced_formal_writes_rewrite_and_component_caches(
 ) -> None:
     from app.rag.evaluation import enhanced_rag_eval as module
     from app.rag.evaluation.enhanced_rag_eval import EnhancedEvaluationConfig
+    from app.rag.evaluation.formal_local_rerank_cache import LOCAL_RERANKER_BACKEND
 
     patch_formal_dirs(monkeypatch, tmp_path)
     question_file = tmp_path / "questions.json"
@@ -160,44 +161,59 @@ def test_enhanced_formal_writes_rewrite_and_component_caches(
                 [FakeNodeWithScore("fusion context", 0.9)],
             )
 
-    class FakeReranker:
-        def __init__(self, **kwargs):
-            self.kwargs = kwargs
-
-        def rerank(self, query, documents):
-            return documents
-
     async def fake_call_llm(ctx, prompt):
         return "Answer: A"
 
+    config = EnhancedEvaluationConfig(
+        dev_size=0,
+        test_size=1,
+        top_k=1,
+        retrieval_top_k=2,
+        reranker_top_k=1,
+        question_file=question_file,
+        vector_store_path=tmp_path / "index",
+        formal_run_id="formal_advanced",
+        formal_metadata={
+            "run_id": "formal_advanced",
+            "pipeline": "advanced_rag",
+            "embedding_backend": "siliconflow_api",
+            "query_cache_id": "formal_advanced",
+        },
+    )
+    rerank_dir = tmp_path / "rerank" / "formal_advanced"
+    rerank_dir.mkdir(parents=True)
+    (rerank_dir / "rerank_outputs.jsonl").write_text(
+        json.dumps(
+            {
+                "question_id": "dev-1",
+                "input_candidates_id": "dev-1:fusion_candidates",
+                "reranker_backend": LOCAL_RERANKER_BACKEND,
+                "reranker_model": config.reranker_model,
+                "reranker_input_count": 2,
+                "reranker_output_count": 1,
+                "reranked_candidates": [
+                    {
+                        "rank": 1,
+                        "score": 1.0,
+                        "text": "fusion context",
+                        "metadata": {"source": "fake"},
+                    }
+                ],
+                "rerank_time_seconds": 0.01,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     monkeypatch.setattr(module, "load_vector_store", lambda _: FakeVectorStore())
     monkeypatch.setattr(module, "create_llm", lambda _: object())
     monkeypatch.setattr(module, "create_eval_context", lambda *args: SimpleNamespace(rate_limiter=None, semaphore=None))
     monkeypatch.setattr(module, "QueryRewritePipeline", FakeQueryRewritePipeline)
     monkeypatch.setattr(module, "HybridRetriever", FakeHybrid)
-    monkeypatch.setattr(module, "RerankerPipeline", FakeReranker)
+    monkeypatch.setattr(module, "RerankerPipeline", lambda **kwargs: (_ for _ in ()).throw(AssertionError("formal mode must not call API reranker")))
     monkeypatch.setattr(module, "call_llm", fake_call_llm)
 
-    result = asyncio.run(
-        module.run_enhanced_evaluation(
-            EnhancedEvaluationConfig(
-                dev_size=0,
-                test_size=1,
-                top_k=1,
-                retrieval_top_k=2,
-                reranker_top_k=1,
-                question_file=question_file,
-                vector_store_path=tmp_path / "index",
-                formal_run_id="formal_advanced",
-                formal_metadata={
-                    "run_id": "formal_advanced",
-                    "pipeline": "advanced_rag",
-                    "embedding_backend": "siliconflow_api",
-                    "query_cache_id": "formal_advanced",
-                },
-            )
-        )
-    )
+    result = asyncio.run(module.run_enhanced_evaluation(config))
 
     query_rows = [
         json.loads(line)
@@ -217,6 +233,73 @@ def test_enhanced_formal_writes_rewrite_and_component_caches(
     assert fusion_rows[0]["candidate_source"] == "query_fusion"
     assert fusion_rows[0]["candidates"][0]["text"] == "fusion context"
     assert result["test_results"]["accuracy"] == 1.0
+
+
+def test_enhanced_formal_requires_local_rerank_cache_after_retrieval(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from app.rag.evaluation import enhanced_rag_eval as module
+    from app.rag.evaluation.enhanced_rag_eval import EnhancedEvaluationConfig
+
+    patch_formal_dirs(monkeypatch, tmp_path)
+    question_file = tmp_path / "questions.json"
+    write_questions(question_file)
+
+    class FakeQueryRewritePipeline:
+        dict_rewriter = SimpleNamespace(ABBREVIATIONS={}, CHINESE_TERMS={})
+        llm_rewriter = object()
+
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        async def arewrite(self, query, **kwargs):
+            return f"{query} rewritten", ["llm"]
+
+    class FakeHybrid:
+        @classmethod
+        def from_vector_store(cls, *args, **kwargs):
+            return cls()
+
+        def retrieve_components(self, query: str):
+            return (
+                [FakeNodeWithScore("dense context", 0.7)],
+                [FakeNodeWithScore("sparse context", 0.6)],
+                [FakeNodeWithScore("fusion context", 0.9)],
+            )
+
+    monkeypatch.setattr(module, "load_vector_store", lambda _: FakeVectorStore())
+    monkeypatch.setattr(module, "create_llm", lambda _: object())
+    monkeypatch.setattr(module, "create_eval_context", lambda *args: SimpleNamespace(rate_limiter=None, semaphore=None))
+    monkeypatch.setattr(module, "QueryRewritePipeline", FakeQueryRewritePipeline)
+    monkeypatch.setattr(module, "HybridRetriever", FakeHybrid)
+    monkeypatch.setattr(module, "RerankerPipeline", lambda **kwargs: (_ for _ in ()).throw(AssertionError("formal mode must not call API reranker")))
+
+    with pytest.raises(FileNotFoundError, match="run_local_rerank_cache_autodl"):
+        asyncio.run(
+            module.run_enhanced_evaluation(
+                EnhancedEvaluationConfig(
+                    dev_size=0,
+                    test_size=1,
+                    top_k=1,
+                    retrieval_top_k=2,
+                    reranker_top_k=1,
+                    question_file=question_file,
+                    vector_store_path=tmp_path / "index",
+                    formal_run_id="formal_advanced",
+                    formal_metadata={
+                        "run_id": "formal_advanced",
+                        "pipeline": "advanced_rag",
+                        "embedding_backend": "siliconflow_api",
+                        "query_cache_id": "formal_advanced",
+                    },
+                )
+            )
+        )
+
+    assert (
+        tmp_path / "retrieval" / "formal_advanced" / "fusion_candidates.jsonl"
+    ).exists()
 
 
 def test_medcpt_formal_retriever_consumes_autodl_artifacts(

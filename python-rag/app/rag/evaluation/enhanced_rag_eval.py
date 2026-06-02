@@ -21,7 +21,7 @@ from ..retriever.runtime_config import (
     DEFAULT_RERANKER_API_URL,
     first_env_value,
 )
-from ..retriever.vector_store import MedicalVectorStore, RetrievedDocument
+from ..retriever.vector_store import MedicalVectorStore
 from app.rag.experiments.phase1_formal_ablation import LOCAL_EMBEDDING_BACKENDS
 from ..utils.progress_manager import EvaluationProgressManager
 from .eval_shared import (
@@ -37,11 +37,11 @@ from .eval_shared import (
     load_questions,
     parse_optional_bool_env,
     question_id,
-    serialize_document_candidates,
     serialize_node_candidates,
     split_questions,
 )
 from . import formal_artifacts
+from .formal_local_rerank_cache import require_local_rerank_cache
 from .formal_local_embedding_adapter import LocalEmbeddingFormalRetriever
 from .naive_rag_eval import (
     build_query,
@@ -308,22 +308,6 @@ def _build_progress_config(
     return payload
 
 
-def _documents_from_candidates(
-    candidates: List[Dict[str, Any]],
-) -> List[tuple[RetrievedDocument, float]]:
-    """Convert cached candidate rows to the reranker input shape."""
-    return [
-        (
-            RetrievedDocument(
-                page_content=str(candidate["text"]),
-                metadata=dict(candidate.get("metadata") or {}),
-            ),
-            float(candidate.get("score", 0.0)),
-        )
-        for candidate in candidates
-    ]
-
-
 def _formal_run_manifest(
     config: EnhancedEvaluationConfig,
     *,
@@ -407,13 +391,6 @@ async def _run_formal_enhanced_evaluation(
             retriever_weights=config.dense_bm25_weights,
             use_async=True,
         )
-    reranker = RerankerPipeline(
-        use_cross_encoder=config.use_reranker,
-        cross_encoder_model=config.reranker_model,
-        top_k=config.resolved_reranker_top_k,
-        api_url=config.reranker_api_url,
-        api_key=config.reranker_api_key,
-    )
     query_rewriter = QueryRewritePipeline(
         use_dict=config.use_query_rewrite,
         use_llm=config.use_query_rewrite and config.use_llm_query_rewrite,
@@ -426,14 +403,16 @@ async def _run_formal_enhanced_evaluation(
     )
     ctx = create_eval_context(config.llm, config.concurrency)
     completed_ids = formal_artifacts.completed_question_ids(evaluation_outputs_path)
+    fusion_completed_ids = formal_artifacts.completed_question_ids(fusion_candidates_path)
     existing_results = formal_artifacts.load_jsonl(evaluation_outputs_path)
     results: List[Dict[str, Any]] = [dict(row["result"]) for row in existing_results]
     correct = sum(1 for result in results if result.get("is_correct"))
     start_time = time.time()
+    expected_question_ids = [question_id(item, index) for index, item in enumerate(questions, start=1)]
 
     for index, item in enumerate(questions, start=1):
         current_question_id = question_id(item, index)
-        if current_question_id in completed_ids:
+        if current_question_id in fusion_completed_ids:
             continue
 
         original_query = str(item["question"])
@@ -513,27 +492,33 @@ async def _run_formal_enhanced_evaluation(
                 },
             )
 
-        rerank_started = time.time()
-        reranked = await asyncio.to_thread(
-            reranker.rerank,
-            query_text,
-            _documents_from_candidates(fusion_candidates),
-        )
-        rerank_elapsed = time.time() - rerank_started
-        reranked_candidates = serialize_document_candidates(reranked)
-        formal_artifacts.append_jsonl_with_checkpoint(
-            rerank_outputs_path,
-            {
-                "question_id": current_question_id,
-                "input_candidates_id": f"{current_question_id}:fusion_candidates",
-                "reranker_model": config.reranker_model,
-                "reranker_input_count": config.resolved_retrieval_top_k,
-                "reranker_output_count": config.resolved_reranker_top_k,
-                "reranked_candidates": reranked_candidates,
-                "rerank_time_seconds": rerank_elapsed,
+    formal_artifacts.write_json(
+        retrieval_path / "manifest.json",
+        {
+            "cache_id": retrieval_path.name,
+            "status": "completed",
+            "pipeline": "advanced_rag",
+            "processed_questions": len(expected_question_ids),
+            "files": {
+                "query_texts": str(query_texts_path),
+                "dense_candidates": str(dense_candidates_path),
+                "sparse_candidates": str(sparse_candidates_path),
+                "fusion_candidates": str(fusion_candidates_path),
             },
-        )
+        },
+    )
+    rerank_rows = require_local_rerank_cache(
+        rerank_outputs_path,
+        expected_question_ids=expected_question_ids,
+        expected_model=config.reranker_model,
+    )
 
+    for index, item in enumerate(questions, start=1):
+        current_question_id = question_id(item, index)
+        if current_question_id in completed_ids:
+            continue
+
+        reranked_candidates = list(rerank_rows[current_question_id]["reranked_candidates"])
         selected = reranked_candidates[: config.resolved_reranker_top_k]
         formal_artifacts.append_jsonl_with_checkpoint(
             selected_contexts_path,

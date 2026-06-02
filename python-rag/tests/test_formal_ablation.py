@@ -249,7 +249,7 @@ def test_local_bge_autodl_scripts_have_no_cli_and_cover_formal_specs() -> None:
 
     assert "HuggingFaceEmbedding" in corpus_source
     assert "HuggingFaceEmbedding" in query_source
-    assert "CORPUS_BATCH_SIZE = 8" in corpus_source
+    assert "CORPUS_BATCH_SIZE = 128" in corpus_source
     assert "QUERY_BATCH_SIZE = 256" in query_source
     assert "argparse" not in corpus_source
     assert "parse_args" not in corpus_source
@@ -259,6 +259,23 @@ def test_local_bge_autodl_scripts_have_no_cli_and_cover_formal_specs() -> None:
     assert "stage1_naive_bge_large_en_v1_5__baai_bge-large-en-v1p5" in specs
     assert "stage3_advanced_stage2_top1_embedding_k__baai_bge-m3" in specs
     assert specs["stage3_advanced_stage2_top1_embedding_k__baai_bge-m3"] == "advanced_rag"
+
+
+def test_local_rerank_cache_autodl_script_has_no_cli_and_uses_llamaindex() -> None:
+    source = (
+        PROJECT_ROOT
+        / "app"
+        / "rag"
+        / "experiments"
+        / "run_local_rerank_cache_autodl.py"
+    ).read_text(encoding="utf-8")
+
+    assert "SentenceTransformerRerank" in source
+    assert "fusion_candidates.jsonl" in source
+    assert "rerank_outputs.jsonl" in source
+    assert "SiliconFlow" not in source
+    assert "argparse" not in source
+    assert "parse_args" not in source
 
 
 def test_local_bge_embedding_batches_long_corpus_texts() -> None:
