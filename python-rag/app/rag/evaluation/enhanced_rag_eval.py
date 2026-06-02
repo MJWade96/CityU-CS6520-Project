@@ -548,6 +548,7 @@ async def _run_formal_enhanced_evaluation(
         expected_question_ids=expected_question_ids,
         expected_model=config.reranker_model,
     )
+    generator_jobs: List[Dict[str, Any]] = []
 
     for index, item in enumerate(questions, start=1):
         current_question_id = question_id(item, index)
@@ -566,19 +567,45 @@ async def _run_formal_enhanced_evaluation(
             final_prompts_path,
             {"question_id": current_question_id, "prompt": prompt},
         )
-        response = await call_llm(ctx, prompt)
+        generator_jobs.append(
+            {
+                "question_id": current_question_id,
+                "item": item,
+                "prompt": prompt,
+                "selected": selected,
+            }
+        )
+
+    async def generate_answer(
+        _job_index: int,
+        job: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        response = await call_llm(ctx, str(job["prompt"]))
+        selected_candidates = list(job["selected"])
+        return {
+            "response": response,
+            "result": build_eval_result(
+                job["item"],
+                response,
+                {
+                    "retrieved_docs": len(selected_candidates),
+                    "scores": [candidate["score"] for candidate in selected_candidates],
+                    "contexts": [candidate["text"] for candidate in selected_candidates],
+                },
+            ),
+        }
+
+    async for _job_index, job, generated in iter_pipeline_in_order(
+        generator_jobs,
+        max_concurrent=config.concurrency.max_concurrent,
+        worker=generate_answer,
+    ):
+        current_question_id = str(job["question_id"])
+        response = str(generated["response"])
+        result = dict(generated["result"])
         formal_artifacts.append_jsonl_with_checkpoint(
             llm_outputs_path,
             {"question_id": current_question_id, "response": response},
-        )
-        result = build_eval_result(
-            item,
-            response,
-            {
-                "retrieved_docs": len(selected),
-                "scores": [candidate["score"] for candidate in selected],
-                "contexts": [candidate["text"] for candidate in selected],
-            },
         )
         results.append(result)
         if result["is_correct"]:

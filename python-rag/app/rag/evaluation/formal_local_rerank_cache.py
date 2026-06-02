@@ -20,7 +20,14 @@ LOCAL_RERANK_SCRIPT = "python -m app.rag.experiments.run_local_rerank_cache_auto
 
 
 def _slug(value: Any) -> str:
-    return str(value).lower().replace("/", "_").replace(" ", "_").replace(".", "p")
+    return (
+        str(value)
+        .lower()
+        .replace("/", "_")
+        .replace(":", "_")
+        .replace(" ", "_")
+        .replace(".", "p")
+    )
 
 
 def rerank_cache_id(

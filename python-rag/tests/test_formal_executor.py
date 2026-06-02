@@ -36,6 +36,7 @@ def test_resolve_stage2_rows_use_stage1_embedding_winners() -> None:
 def test_build_eval_configs_use_dev_split_and_formal_metadata(tmp_path: Path) -> None:
     from app.rag.data.data_paths import MEDQA_USMLE_DEV_FILE
     from app.rag.experiments.formal_ablation_executor import (
+        FORMAL_GENERATOR_MAX_CONCURRENT,
         FormalExecutionConfig,
         build_enhanced_eval_config,
         build_naive_eval_config,
@@ -54,6 +55,7 @@ def test_build_eval_configs_use_dev_split_and_formal_metadata(tmp_path: Path) ->
     assert naive_config.dev_size == 0
     assert naive_config.test_size == 2
     assert naive_config.manual_top_k == naive_row.k
+    assert naive_config.concurrency.max_concurrent == FORMAL_GENERATOR_MAX_CONCURRENT
     assert naive_config.formal_run_id == naive_row.run_id
     assert naive_config.formal_metadata["query_cache_id"] == (
         "stage1_naive_bge_m3__baai_bge-m3"
@@ -66,6 +68,7 @@ def test_build_eval_configs_use_dev_split_and_formal_metadata(tmp_path: Path) ->
     assert enhanced_config.retrieval_top_k == enhanced_row.reranker_input_count
     assert enhanced_config.reranker_top_k == enhanced_row.reranker_output_count
     assert enhanced_config.use_query_rewrite is True
+    assert enhanced_config.concurrency.max_concurrent == FORMAL_GENERATOR_MAX_CONCURRENT
     assert enhanced_config.formal_run_id == enhanced_row.run_id
 
 

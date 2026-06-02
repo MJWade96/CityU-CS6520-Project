@@ -59,6 +59,28 @@ def write_questions(path: Path) -> None:
     )
 
 
+def write_two_questions(path: Path) -> None:
+    path.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "dev-1",
+                    "question": "Which diagnosis is most likely?",
+                    "options": ["Alpha", "Beta"],
+                    "answer_index": 0,
+                },
+                {
+                    "id": "dev-2",
+                    "question": "Which treatment is best?",
+                    "options": ["Alpha", "Beta"],
+                    "answer_index": 0,
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+
 def patch_formal_dirs(monkeypatch, tmp_path: Path) -> None:
     from app.rag.evaluation import formal_artifacts
 
@@ -126,13 +148,68 @@ def test_naive_formal_uses_question_text_for_retrieval(
     assert result["test_results"]["accuracy"] == 1.0
 
 
+def test_naive_formal_generator_uses_refill_pipeline(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from app.rag.evaluation import naive_rag_eval as module
+    from app.rag.evaluation.config import NaiveRAGEvalConfig
+    from app.rag.evaluation.eval_shared import ConcurrencyConfig
+
+    patch_formal_dirs(monkeypatch, tmp_path)
+    question_file = tmp_path / "questions.json"
+    write_two_questions(question_file)
+    monkeypatch.setattr(module, "load_vector_store", lambda _: FakeVectorStore())
+    monkeypatch.setattr(module, "create_eval_context", lambda *args: object())
+
+    second_started = asyncio.Event()
+
+    async def fake_call_llm(ctx, prompt):
+        if "Which diagnosis is most likely?" in prompt:
+            await second_started.wait()
+        if "Which treatment is best?" in prompt:
+            second_started.set()
+        return "Answer: A"
+
+    monkeypatch.setattr(module, "call_llm", fake_call_llm)
+
+    result = asyncio.run(
+        asyncio.wait_for(
+            module.run_complete_evaluation(
+                NaiveRAGEvalConfig(
+                    dev_size=0,
+                    test_size=2,
+                    manual_top_k=1,
+                    question_file=question_file,
+                    vector_store_path=tmp_path / "index",
+                    concurrency=ConcurrencyConfig(max_concurrent=2),
+                    formal_run_id="formal_naive",
+                    formal_metadata={
+                        "run_id": "formal_naive",
+                        "pipeline": "naive_rag",
+                        "embedding_backend": "siliconflow_api",
+                        "query_cache_id": "formal_naive",
+                    },
+                )
+            ),
+            timeout=1.0,
+        )
+    )
+
+    assert result["test_results"]["processed_questions"] == 2
+    assert result["test_results"]["accuracy"] == 1.0
+
+
 def test_enhanced_formal_writes_rewrite_and_component_caches(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
     from app.rag.evaluation import enhanced_rag_eval as module
     from app.rag.evaluation.enhanced_rag_eval import EnhancedEvaluationConfig
-    from app.rag.evaluation.formal_local_rerank_cache import LOCAL_RERANKER_BACKEND
+    from app.rag.evaluation.formal_local_rerank_cache import (
+        LOCAL_RERANKER_BACKEND,
+        rerank_cache_id,
+    )
 
     patch_formal_dirs(monkeypatch, tmp_path)
     question_file = tmp_path / "questions.json"
@@ -180,7 +257,11 @@ def test_enhanced_formal_writes_rewrite_and_component_caches(
             "query_cache_id": "formal_advanced",
         },
     )
-    rerank_dir = tmp_path / "rerank" / "formal_advanced"
+    rerank_dir = tmp_path / "rerank" / rerank_cache_id(
+        retrieval_candidates_id="formal_advanced:fusion_candidates",
+        reranker_model=config.reranker_model,
+        reranker_input_count=2,
+    )
     rerank_dir.mkdir(parents=True)
     (rerank_dir / "rerank_outputs.jsonl").write_text(
         json.dumps(

@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from app.rag.data.data_paths import MEDQA_USMLE_DEV_FILE, RUNS_DIR, ensure_data_directories
 from app.rag.data.json_utils import load_json_safe, save_json_atomic
 from app.rag.evaluation.config import NaiveRAGEvalConfig
+from app.rag.evaluation.eval_shared import ConcurrencyConfig
 from app.rag.evaluation.enhanced_rag_eval import EnhancedEvaluationConfig
 from app.rag.evaluation.formal_artifacts import run_dir, write_metrics, write_run_manifest
 from app.rag.evaluation.naive_rag_eval import run_complete_evaluation
@@ -38,6 +39,8 @@ DEFAULT_RUN_STAGES = (
     "4_alpha_ablation",
     "5_reranker_input_ablation",
 )
+
+FORMAL_GENERATOR_MAX_CONCURRENT = 100
 
 
 @dataclass(frozen=True)
@@ -250,6 +253,7 @@ def build_naive_eval_config(
         manual_top_k=row.k,
         vector_store_path=index_path,
         question_file=MEDQA_USMLE_DEV_FILE,
+        concurrency=ConcurrencyConfig(max_concurrent=FORMAL_GENERATOR_MAX_CONCURRENT),
         formal_run_id=row.run_id,
         formal_metadata=_formal_metadata(row, index_path),
     )
@@ -270,6 +274,7 @@ def build_enhanced_eval_config(
         vector_store_path=index_path,
         question_file=MEDQA_USMLE_DEV_FILE,
         use_query_rewrite=row.query_enhancement_setting == "on",
+        concurrency=ConcurrencyConfig(max_concurrent=FORMAL_GENERATOR_MAX_CONCURRENT),
         formal_run_id=row.run_id,
         formal_metadata=_formal_metadata(row, index_path),
     )
