@@ -39,10 +39,10 @@ from ..data.json_utils import load_json_safe
 T = TypeVar("T")
 R = TypeVar("R")
 
-DEFAULT_BASE_URL = "https://api.siliconflow.cn/v1"
-DEFAULT_MODEL = "Qwen/Qwen3-8B"
-DEFAULT_PROVIDER = "Qwen3-8B"
-DEFAULT_API_KEY = "sk-jwbxcbszdqdinhqofxikohzyjisdvwnkljbrzkfqufuxcbyy"
+DEFAULT_BASE_URL = "https://wishub-x6.ctyun.cn/v1/"
+DEFAULT_MODEL = "8606056bfe0c49448d92587452d1f2fc"
+DEFAULT_PROVIDER = "ctyun"
+DEFAULT_API_KEY = "4dbe3bec3ee548d28b649b324e741939"
 
 
 @dataclass
