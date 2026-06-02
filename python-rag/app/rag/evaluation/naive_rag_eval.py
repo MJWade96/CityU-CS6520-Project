@@ -170,6 +170,7 @@ async def _run_formal_naive_evaluation(
     start_time = time.time()
     retrieval_top_k = max(10, top_k)
     generator_jobs: List[Dict[str, Any]] = []
+    generator_output_lock = asyncio.Lock()
 
     for index, item in enumerate(questions, start=1):
         current_question_id = question_id(item, index)
@@ -277,6 +278,16 @@ async def _run_formal_naive_evaluation(
                 "contexts": [candidate["text"] for candidate in selected_candidates],
             },
         )
+        async with generator_output_lock:
+            formal_artifacts.append_generator_outputs_if_missing(
+                llm_outputs_path=llm_outputs_path,
+                evaluation_outputs_path=evaluation_outputs_path,
+                question_id=current_question_id,
+                response=response,
+                result=result,
+                llm_rows=llm_rows,
+                evaluation_rows=evaluation_rows,
+            )
         return response, result
 
     async for _job_index, job, generated in iter_pipeline_in_order(
@@ -287,18 +298,10 @@ async def _run_formal_naive_evaluation(
         response, result = generated
         current_question_id = str(job["question_id"])
         print_formal_generator_event(config.formal_run_id, "commit", current_question_id)
-        if current_question_id not in llm_rows:
-            llm_row = {"question_id": current_question_id, "response": response}
-            formal_artifacts.append_jsonl_with_checkpoint(llm_outputs_path, llm_row)
-            llm_rows[current_question_id] = llm_row
         results.append(result)
         if result["is_correct"]:
             correct += 1
-        if current_question_id not in evaluation_rows:
-            evaluation_row = {"question_id": current_question_id, "result": result}
-            formal_artifacts.append_jsonl_with_checkpoint(evaluation_outputs_path, evaluation_row)
-            evaluation_rows[current_question_id] = evaluation_row
-            completed_ids.add(current_question_id)
+        completed_ids.add(current_question_id)
         processed = len(results)
         if processed == len(questions) or processed % 5 == 0:
             print(

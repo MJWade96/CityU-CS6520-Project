@@ -71,6 +71,27 @@ def append_jsonl_if_question_missing(path: Path, row: Mapping[str, Any]) -> None
     append_jsonl_with_checkpoint(path, row)
 
 
+def append_generator_outputs_if_missing(
+    *,
+    llm_outputs_path: Path,
+    evaluation_outputs_path: Path,
+    question_id: str,
+    response: str,
+    result: Mapping[str, Any],
+    llm_rows: Dict[str, Dict[str, Any]],
+    evaluation_rows: Dict[str, Dict[str, Any]],
+) -> None:
+    """Persist generator artifacts once so formal evaluators share output semantics."""
+    if question_id not in llm_rows:
+        llm_row = {"question_id": question_id, "response": response}
+        append_jsonl_with_checkpoint(llm_outputs_path, llm_row)
+        llm_rows[question_id] = llm_row
+    if question_id not in evaluation_rows:
+        evaluation_row = {"question_id": question_id, "result": dict(result)}
+        append_jsonl_with_checkpoint(evaluation_outputs_path, evaluation_row)
+        evaluation_rows[question_id] = evaluation_row
+
+
 def write_json(path: Path, payload: Mapping[str, Any]) -> None:
     """Persist JSON through the project's atomic writer."""
     save_json_atomic(path, dict(payload), indent=2, ensure_ascii=False)

@@ -200,6 +200,61 @@ def test_naive_formal_generator_uses_refill_pipeline(
     assert result["test_results"]["accuracy"] == 1.0
 
 
+def test_naive_formal_persists_generator_outputs_before_ordered_commit(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from app.rag.evaluation import naive_rag_eval as module
+    from app.rag.evaluation.config import NaiveRAGEvalConfig
+    from app.rag.evaluation.eval_shared import ConcurrencyConfig
+
+    patch_formal_dirs(monkeypatch, tmp_path)
+    question_file = tmp_path / "questions.json"
+    write_two_questions(question_file)
+    monkeypatch.setattr(module, "load_vector_store", lambda _: FakeVectorStore())
+    monkeypatch.setattr(module, "create_eval_context", lambda *args: object())
+    llm_outputs_path = tmp_path / "runs" / "formal_naive" / "llm_outputs.jsonl"
+
+    async def wait_for_second_output() -> None:
+        for _ in range(50):
+            if llm_outputs_path.exists() and '"question_id": "dev-2"' in llm_outputs_path.read_text(encoding="utf-8"):
+                return
+            await asyncio.sleep(0.01)
+        raise TimeoutError("dev-2 output was not persisted before dev-1 completed")
+
+    async def fake_call_llm(ctx, prompt):
+        if "Which diagnosis is most likely?" in prompt:
+            await wait_for_second_output()
+        return "Answer: A"
+
+    monkeypatch.setattr(module, "call_llm", fake_call_llm)
+
+    result = asyncio.run(
+        asyncio.wait_for(
+            module.run_complete_evaluation(
+                NaiveRAGEvalConfig(
+                    dev_size=0,
+                    test_size=2,
+                    manual_top_k=1,
+                    question_file=question_file,
+                    vector_store_path=tmp_path / "index",
+                    concurrency=ConcurrencyConfig(max_concurrent=2),
+                    formal_run_id="formal_naive",
+                    formal_metadata={
+                        "run_id": "formal_naive",
+                        "pipeline": "naive_rag",
+                        "embedding_backend": "siliconflow_api",
+                        "query_cache_id": "formal_naive",
+                    },
+                )
+            ),
+            timeout=2.0,
+        )
+    )
+
+    assert result["test_results"]["processed_questions"] == 2
+
+
 def test_naive_formal_resume_reuses_partial_question_artifacts(
     monkeypatch,
     tmp_path: Path,

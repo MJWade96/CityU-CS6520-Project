@@ -571,6 +571,7 @@ async def _run_formal_enhanced_evaluation(
         expected_model=config.reranker_model,
     )
     generator_jobs: List[Dict[str, Any]] = []
+    generator_output_lock = asyncio.Lock()
 
     for index, item in enumerate(questions, start=1):
         current_question_id = question_id(item, index)
@@ -631,17 +632,28 @@ async def _run_formal_enhanced_evaluation(
             raise
         print_formal_generator_event(config.formal_run_id, "done", current_question_id)
         selected_candidates = list(job["selected"])
+        result = build_eval_result(
+            job["item"],
+            response,
+            {
+                "retrieved_docs": len(selected_candidates),
+                "scores": [candidate["score"] for candidate in selected_candidates],
+                "contexts": [candidate["text"] for candidate in selected_candidates],
+            },
+        )
+        async with generator_output_lock:
+            formal_artifacts.append_generator_outputs_if_missing(
+                llm_outputs_path=llm_outputs_path,
+                evaluation_outputs_path=evaluation_outputs_path,
+                question_id=current_question_id,
+                response=response,
+                result=result,
+                llm_rows=llm_rows,
+                evaluation_rows=evaluation_rows,
+            )
         return {
             "response": response,
-            "result": build_eval_result(
-                job["item"],
-                response,
-                {
-                    "retrieved_docs": len(selected_candidates),
-                    "scores": [candidate["score"] for candidate in selected_candidates],
-                    "contexts": [candidate["text"] for candidate in selected_candidates],
-                },
-            ),
+            "result": result,
         }
 
     async for _job_index, job, generated in iter_pipeline_in_order(
@@ -653,18 +665,10 @@ async def _run_formal_enhanced_evaluation(
         print_formal_generator_event(config.formal_run_id, "commit", current_question_id)
         response = str(generated["response"])
         result = dict(generated["result"])
-        if current_question_id not in llm_rows:
-            llm_row = {"question_id": current_question_id, "response": response}
-            formal_artifacts.append_jsonl_with_checkpoint(llm_outputs_path, llm_row)
-            llm_rows[current_question_id] = llm_row
         results.append(result)
         if result["is_correct"]:
             correct += 1
-        if current_question_id not in evaluation_rows:
-            evaluation_row = {"question_id": current_question_id, "result": result}
-            formal_artifacts.append_jsonl_with_checkpoint(evaluation_outputs_path, evaluation_row)
-            evaluation_rows[current_question_id] = evaluation_row
-            completed_ids.add(current_question_id)
+        completed_ids.add(current_question_id)
         processed = len(results)
         if processed == len(questions) or processed % config.progress_print_every == 0:
             print(
