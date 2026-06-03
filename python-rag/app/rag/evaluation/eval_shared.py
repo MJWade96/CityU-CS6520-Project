@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import random
 import re
 import time
 import openai
@@ -449,6 +450,8 @@ class EvalContext:
     rate_limiter: RateLimiter
     token_rate_limiter: Optional[TokenRateLimiter]
     llm_config: EvaluationLLMConfig
+    rate_limit_cooldown_until: float = 0.0
+    rate_limit_cooldown_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
 
 def create_eval_context(
@@ -471,6 +474,26 @@ def create_eval_context(
         token_rate_limiter=token_rate_limiter,
         llm_config=config,
     )
+
+
+async def wait_for_rate_limit_cooldown(ctx: EvalContext) -> None:
+    """Share 429 backpressure across concurrent LLM generator workers."""
+    async with ctx.rate_limit_cooldown_lock:
+        wait_seconds = ctx.rate_limit_cooldown_until - time.monotonic()
+    if wait_seconds > 0:
+        await asyncio.sleep(wait_seconds)
+
+
+async def apply_rate_limit_cooldown(ctx: EvalContext, delay: float) -> None:
+    """Extend the shared rate-limit cooldown window without duplicating callers."""
+    cooldown_seconds = float(os.getenv("RAG_LLM_RATE_LIMIT_COOLDOWN_SECONDS", "30"))
+    cooldown_seconds = max(cooldown_seconds, delay)
+    cooldown_seconds += random.uniform(0.0, min(3.0, cooldown_seconds * 0.1))
+    async with ctx.rate_limit_cooldown_lock:
+        ctx.rate_limit_cooldown_until = max(
+            ctx.rate_limit_cooldown_until,
+            time.monotonic() + cooldown_seconds,
+        )
 
 
 def estimate_llm_request_tokens(prompt: str) -> int:
@@ -506,6 +529,7 @@ async def call_llm(
 
     for attempt in range(max_retries):
         try:
+            await wait_for_rate_limit_cooldown(ctx)
             async with ctx.semaphore:
                 await ctx.rate_limiter.acquire()
                 if ctx.token_rate_limiter:
@@ -532,9 +556,17 @@ async def call_llm(
         ) as e:
             last_exception = e
             if attempt < max_retries - 1:
-                delay = base_delay * (2**attempt)  # Exponential backoff
-                # 建议加一行日志，方便观察重试状态
-                # print(f"API Warning: {type(e).__name__} encountered. Retrying in {delay}s...")
+                delay = base_delay * (2**attempt)
+                delay += random.uniform(0.0, min(1.0, delay * 0.25))
+                if isinstance(e, openai.RateLimitError):
+                    await apply_rate_limit_cooldown(ctx, delay)
+                print(
+                    "API Warning: "
+                    f"{type(e).__name__} encountered. "
+                    f"Retrying in {delay:.1f}s "
+                    f"(attempt {attempt + 1}/{max_retries})",
+                    flush=True,
+                )
                 await asyncio.sleep(delay)
             continue
 

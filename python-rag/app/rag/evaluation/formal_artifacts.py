@@ -92,6 +92,26 @@ def append_generator_outputs_if_missing(
         evaluation_rows[question_id] = evaluation_row
 
 
+def append_generator_error_if_missing(
+    *,
+    generator_errors_path: Path,
+    question_id: str,
+    error_type: str,
+    error_message: str,
+    error_rows: Dict[str, Dict[str, Any]],
+) -> None:
+    """Persist one generator failure without duplicating formal error writes."""
+    if question_id in error_rows:
+        return
+    error_row = {
+        "question_id": question_id,
+        "error_type": error_type,
+        "error_message": error_message,
+    }
+    append_jsonl_with_checkpoint(generator_errors_path, error_row)
+    error_rows[question_id] = error_row
+
+
 def write_json(path: Path, payload: Mapping[str, Any]) -> None:
     """Persist JSON through the project's atomic writer."""
     save_json_atomic(path, dict(payload), indent=2, ensure_ascii=False)

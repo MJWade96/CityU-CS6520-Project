@@ -40,7 +40,7 @@ DEFAULT_RUN_STAGES = (
     "5_reranker_input_ablation",
 )
 
-FORMAL_GENERATOR_MAX_CONCURRENT = 10
+FORMAL_GENERATOR_MAX_CONCURRENT = 6
 
 
 @dataclass(frozen=True)
@@ -284,6 +284,7 @@ def _extract_run_metrics(row: FormalRunSpec, result: Dict[str, Any]) -> Dict[str
     test_results = result.get("test_results", result)
     return {
         "run_id": row.run_id,
+        "status": str(test_results.get("status", "completed")),
         "stage": row.stage,
         "pipeline": row.pipeline,
         "corpus_version": row.corpus_version,
@@ -297,6 +298,12 @@ def _extract_run_metrics(row: FormalRunSpec, result: Dict[str, Any]) -> Dict[str
         "correct": int(test_results.get("correct", 0)),
         "processed_questions": int(test_results.get("processed_questions", 0)),
         "total_questions": int(test_results.get("total_questions", 0)),
+        "failed_generator_questions": int(
+            test_results.get("failed_generator_questions", 0)
+        ),
+        "generator_error_question_ids": list(
+            test_results.get("generator_error_question_ids", [])
+        ),
         "elapsed_time": float(test_results.get("elapsed_time", 0.0)),
     }
 
@@ -459,6 +466,19 @@ async def run_formal_ablation(
             )
             run_metrics.append(await execute_formal_run(row, config))
             write_stage_checkpoint(stage, rows, run_metrics, state)
+
+        incomplete_runs = [
+            metric
+            for metric in run_metrics
+            if metric.get("status") != "completed"
+            or metric.get("processed_questions") != metric.get("total_questions")
+        ]
+        if incomplete_runs:
+            failed_ids = ", ".join(str(metric["run_id"]) for metric in incomplete_runs)
+            raise RuntimeError(
+                f"Formal stage {stage} has incomplete generator outputs: {failed_ids}. "
+                "Check generator_errors.jsonl and rerun before stage selection."
+            )
 
         _update_selection_state(stage, rows, run_metrics, state)
         stage_summaries.append(write_stage_summary(stage, rows, run_metrics, state))

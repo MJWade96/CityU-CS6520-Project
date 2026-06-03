@@ -51,7 +51,7 @@ def test_build_eval_configs_use_dev_split_and_formal_metadata(tmp_path: Path) ->
     naive_config = build_naive_eval_config(naive_row, tmp_path / "index", config)
     enhanced_config = build_enhanced_eval_config(enhanced_row, tmp_path / "index", config)
 
-    assert FORMAL_GENERATOR_MAX_CONCURRENT == 10
+    assert FORMAL_GENERATOR_MAX_CONCURRENT == 6
     assert naive_config.question_file == MEDQA_USMLE_DEV_FILE
     assert naive_config.dev_size == 0
     assert naive_config.test_size == 2

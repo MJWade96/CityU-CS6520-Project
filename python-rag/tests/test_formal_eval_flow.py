@@ -255,6 +255,76 @@ def test_naive_formal_persists_generator_outputs_before_ordered_commit(
     assert result["test_results"]["processed_questions"] == 2
 
 
+def test_naive_formal_records_generator_errors_without_stopping_pipeline(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from app.rag.evaluation import naive_rag_eval as module
+    from app.rag.evaluation.config import NaiveRAGEvalConfig
+    from app.rag.evaluation.eval_shared import ConcurrencyConfig
+
+    patch_formal_dirs(monkeypatch, tmp_path)
+    question_file = tmp_path / "questions.json"
+    write_two_questions(question_file)
+    monkeypatch.setattr(module, "load_vector_store", lambda _: FakeVectorStore())
+    monkeypatch.setattr(module, "create_eval_context", lambda *args: object())
+
+    async def fake_call_llm(ctx, prompt):
+        if "Which diagnosis is most likely?" in prompt:
+            raise RuntimeError("rate limited")
+        return "Answer: A"
+
+    monkeypatch.setattr(module, "call_llm", fake_call_llm)
+
+    result = asyncio.run(
+        module.run_complete_evaluation(
+            NaiveRAGEvalConfig(
+                dev_size=0,
+                test_size=2,
+                manual_top_k=1,
+                question_file=question_file,
+                vector_store_path=tmp_path / "index",
+                concurrency=ConcurrencyConfig(max_concurrent=2),
+                formal_run_id="formal_naive",
+                formal_metadata={
+                    "run_id": "formal_naive",
+                    "pipeline": "naive_rag",
+                    "embedding_backend": "siliconflow_api",
+                    "query_cache_id": "formal_naive",
+                },
+            )
+        )
+    )
+
+    run_dir = tmp_path / "runs" / "formal_naive"
+    error_rows = [
+        json.loads(line)
+        for line in (run_dir / "generator_errors.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    llm_rows = [
+        json.loads(line)
+        for line in (run_dir / "llm_outputs.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+
+    assert result["test_results"]["status"] == "generator_errors"
+    assert result["test_results"]["processed_questions"] == 1
+    assert result["test_results"]["failed_generator_questions"] == 1
+    assert error_rows == [
+        {
+            "question_id": "dev-1",
+            "error_type": "RuntimeError",
+            "error_message": "rate limited",
+        }
+    ]
+    assert [row["question_id"] for row in llm_rows] == ["dev-2"]
+    assert manifest["status"] == "generator_errors"
+
+
 def test_naive_formal_resume_reuses_partial_question_artifacts(
     monkeypatch,
     tmp_path: Path,

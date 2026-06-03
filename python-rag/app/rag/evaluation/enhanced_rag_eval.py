@@ -358,6 +358,7 @@ async def _run_formal_enhanced_evaluation(
     selected_contexts_path = run_path / "selected_contexts.jsonl"
     final_prompts_path = run_path / "final_prompts.jsonl"
     llm_outputs_path = run_path / "llm_outputs.jsonl"
+    generator_errors_path = run_path / "generator_errors.jsonl"
     evaluation_outputs_path = run_path / "evaluation_outputs.jsonl"
     files = {
         "query_texts": str(query_texts_path),
@@ -368,6 +369,7 @@ async def _run_formal_enhanced_evaluation(
         "selected_contexts": str(selected_contexts_path),
         "final_prompts": str(final_prompts_path),
         "llm_outputs": str(llm_outputs_path),
+        "generator_errors": str(generator_errors_path),
         "evaluation_outputs": str(evaluation_outputs_path),
     }
     formal_artifacts.write_run_manifest(
@@ -418,6 +420,7 @@ async def _run_formal_enhanced_evaluation(
     selected_rows = formal_artifacts.rows_by_question_id(selected_contexts_path)
     prompt_rows = formal_artifacts.rows_by_question_id(final_prompts_path)
     llm_rows = formal_artifacts.rows_by_question_id(llm_outputs_path)
+    generator_error_rows = formal_artifacts.rows_by_question_id(generator_errors_path)
     evaluation_rows = formal_artifacts.rows_by_question_id(evaluation_outputs_path)
     completed_ids = set(evaluation_rows)
     results: List[Dict[str, Any]] = [dict(row["result"]) for row in evaluation_rows.values()]
@@ -623,13 +626,26 @@ async def _run_formal_enhanced_evaluation(
             else:
                 response = await call_llm(ctx, str(job["prompt"]))
         except Exception as exc:
+            error_type = type(exc).__name__
             print_formal_generator_event(
                 config.formal_run_id,
                 "error",
                 current_question_id,
-                type(exc).__name__,
+                error_type,
             )
-            raise
+            async with generator_output_lock:
+                formal_artifacts.append_generator_error_if_missing(
+                    generator_errors_path=generator_errors_path,
+                    question_id=current_question_id,
+                    error_type=error_type,
+                    error_message=str(exc),
+                    error_rows=generator_error_rows,
+                )
+            return {
+                "status": "failed",
+                "error_type": error_type,
+                "error_message": str(exc),
+            }
         print_formal_generator_event(config.formal_run_id, "done", current_question_id)
         selected_candidates = list(job["selected"])
         result = build_eval_result(
@@ -652,6 +668,7 @@ async def _run_formal_enhanced_evaluation(
                 evaluation_rows=evaluation_rows,
             )
         return {
+            "status": "succeeded",
             "response": response,
             "result": result,
         }
@@ -662,8 +679,14 @@ async def _run_formal_enhanced_evaluation(
         worker=generate_answer,
     ):
         current_question_id = str(job["question_id"])
+        if generated["status"] == "failed":
+            print_formal_generator_event(
+                config.formal_run_id,
+                "commit_error",
+                current_question_id,
+            )
+            continue
         print_formal_generator_event(config.formal_run_id, "commit", current_question_id)
-        response = str(generated["response"])
         result = dict(generated["result"])
         results.append(result)
         if result["is_correct"]:
@@ -678,8 +701,11 @@ async def _run_formal_enhanced_evaluation(
             )
 
     elapsed = time.time() - start_time
+    failed_generator_questions = len(generator_error_rows)
+    run_status = "completed" if failed_generator_questions == 0 else "generator_errors"
     metrics = {
         "run_id": config.formal_run_id,
+        "status": run_status,
         "dataset_name": "Formal Dev Set",
         "top_k": config.top_k,
         "retrieval_top_k": config.resolved_retrieval_top_k,
@@ -687,6 +713,8 @@ async def _run_formal_enhanced_evaluation(
         "hybrid_alpha": config.hybrid_alpha,
         "total_questions": len(questions),
         "processed_questions": len(results),
+        "failed_generator_questions": failed_generator_questions,
+        "generator_error_question_ids": sorted(generator_error_rows),
         "correct": correct,
         "accuracy": correct / len(results) if results else 0.0,
         "elapsed_time": elapsed,
@@ -698,7 +726,7 @@ async def _run_formal_enhanced_evaluation(
         config.formal_run_id,
         _formal_run_manifest(
             config,
-            status="completed",
+            status=run_status,
             processed_questions=len(results),
             total_questions=len(questions),
             accuracy=metrics["accuracy"],
