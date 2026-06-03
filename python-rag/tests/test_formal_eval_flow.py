@@ -601,7 +601,8 @@ def test_medcpt_formal_retriever_consumes_autodl_artifacts(
     from app.rag.evaluation.formal_local_embedding_adapter import LocalEmbeddingFormalRetriever
 
     index_root = tmp_path / "indexes" / "statpearls__ncbi_medcpt__FlatIP"
-    query_root = tmp_path / "retrieval" / "stage1_naive_medcpt"
+    query_cache_id = "local-query-cache"
+    query_root = tmp_path / "retrieval" / query_cache_id
     index_root.mkdir(parents=True)
     query_root.mkdir(parents=True)
     np.save(index_root / "chunk_embeddings.npy", np.asarray([[1.0, 0.0], [0.0, 1.0]], dtype="float32"))
@@ -629,7 +630,7 @@ def test_medcpt_formal_retriever_consumes_autodl_artifacts(
     retriever = LocalEmbeddingFormalRetriever.load(
         corpus_version="statpearls",
         index_root=index_root,
-        query_cache_id="stage1_naive_medcpt",
+        query_cache_id=query_cache_id,
     )
 
     results = retriever.retrieve(question_id="dev-1", query_text="query", k=1)
@@ -648,7 +649,8 @@ def test_medcpt_formal_retriever_components_require_explicit_llm(
     from app.rag.evaluation.formal_local_embedding_adapter import LocalEmbeddingFormalRetriever
 
     index_root = tmp_path / "indexes" / "statpearls__ncbi_medcpt__FlatIP"
-    query_root = tmp_path / "retrieval" / "stage1_naive_medcpt"
+    query_cache_id = "local-query-cache"
+    query_root = tmp_path / "retrieval" / query_cache_id
     index_root.mkdir(parents=True)
     query_root.mkdir(parents=True)
     np.save(index_root / "chunk_embeddings.npy", np.asarray([[1.0, 0.0], [0.0, 1.0]], dtype="float32"))
@@ -675,7 +677,7 @@ def test_medcpt_formal_retriever_components_require_explicit_llm(
     retriever = LocalEmbeddingFormalRetriever.load(
         corpus_version="statpearls",
         index_root=index_root,
-        query_cache_id="stage1_naive_medcpt",
+        query_cache_id=query_cache_id,
     )
 
     with pytest.raises(ValueError, match="explicit LlamaIndex LLM"):

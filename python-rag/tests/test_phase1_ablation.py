@@ -143,13 +143,13 @@ def test_vector_store_uses_official_openai_embedding(monkeypatch) -> None:
     monkeypatch.setattr(module, "OpenAIEmbedding", FakeEmbedding)
 
     module.MedicalVectorStore(
-        embedding_model_name="BAAI/bge-m3",
+        embedding_model_name="test-embedding-model",
         embedding_api_base_url="https://api.siliconflow.cn/v1",
         embedding_api_key="secret",
         batch_size=8,
     )
 
-    assert calls["model_name"] == "BAAI/bge-m3"
+    assert calls["model_name"] == "test-embedding-model"
     assert calls["api_base"] == "https://api.siliconflow.cn/v1"
     assert calls["api_key"] == "secret"
     assert calls["embed_batch_size"] == 8
@@ -168,14 +168,14 @@ def test_reranker_uses_official_siliconflow_postprocessor(monkeypatch) -> None:
     monkeypatch.setattr(module, "SiliconFlowRerank", FakeSiliconFlowRerank)
 
     reranker = module.RerankerPipeline(
-        cross_encoder_model="BAAI/bge-reranker-v2-m3",
+        cross_encoder_model="test-reranker-model",
         top_k=2,
         api_url="https://api.siliconflow.cn/v1/rerank",
         api_key="secret",
     )
 
     assert reranker.cross_encoder.available is True
-    assert calls["model"] == "BAAI/bge-reranker-v2-m3"
+    assert calls["model"] == "test-reranker-model"
     assert calls["base_url"] == "https://api.siliconflow.cn/v1/rerank"
     assert calls["api_key"] == "secret"
     assert calls["top_n"] == 2

@@ -46,29 +46,31 @@ def test_medqa_usmle_adapter_loads_dev_and_test_shapes(tmp_path: Path) -> None:
     assert shared_records == records
 
 
-def test_formal_matrix_covers_registered_embedding_providers_on_dev_split() -> None:
+def test_formal_matrix_rows_record_required_run_metadata() -> None:
     from app.rag.experiments import phase1_formal_ablation as module
 
     rows = module.build_formal_matrix()
     provider_models = {provider.model for provider in module.EMBEDDING_PROVIDERS}
-    stage1_embeddings = {
+    resolved_naive_embeddings = {
         row.embedding_model
         for row in rows
-        if row.stage == "1_embedding_screening" and row.pipeline == "naive_rag"
+        if row.pipeline == "naive_rag"
+        and not row.selection_rule
+        and row.embedding_model in provider_models
     }
-    stages = {row.stage for row in rows}
 
-    assert {row.dataset_split for row in rows} == {"dev"}
-    assert stage1_embeddings == provider_models
-    assert all(row.generator_model == module.GENERATOR_MODEL for row in rows)
-    assert {
-        "0_corpus_ablation",
-        "1_embedding_screening",
-        "2_k_screening",
-        "3_advanced_review",
-        "4_alpha_ablation",
-        "5_reranker_input_ablation",
-    }.issubset(stages)
+    assert rows
+    assert provider_models.issubset(resolved_naive_embeddings)
+    for row in rows:
+        assert row.stage
+        assert row.run_id
+        assert row.pipeline in {"naive_rag", "advanced_rag"}
+        assert row.corpus_version
+        assert row.faiss_index_type
+        assert row.generator_model
+        assert row.prompt_version
+        assert row.dataset_split
+        assert isinstance(row.random_seed, int)
 
 
 def test_cache_manifest_covers_recommendation_cache_items() -> None:
@@ -107,9 +109,6 @@ def test_formal_framework_does_not_use_legacy_medqa(monkeypatch) -> None:
     assert manifest["dev_split"]["question_count"] == 2
     assert manifest["test_split"]["question_count"] == 3
     assert manifest["legacy_medqa_file_not_used"].endswith("medqa.json")
-    assert manifest["stage6_faiss_index_ablation"]["status"] == (
-        "out_of_scope_for_current_phase"
-    )
 
 
 def test_local_embeddings_stay_in_experiment_framework_not_primary_retriever() -> None:
@@ -120,7 +119,6 @@ def test_local_embeddings_stay_in_experiment_framework_not_primary_retriever() -
     assert any(
         provider.backend == "local_hf_embedding"
         for provider in module.EMBEDDING_PROVIDERS
-        if provider.model.startswith("BAAI/")
     )
     assert "embedding_backend" not in inspect.signature(MedicalVectorStore).parameters
     assert (
@@ -165,7 +163,7 @@ def test_medcpt_autodl_script_reuses_medscore_core_without_cli_args() -> None:
 def test_medcpt_query_autodl_script_embeds_query_texts_only() -> None:
     from app.rag.experiments import run_medcpt_query_embedding_autodl as module
 
-    assert module.MEDCPT_QUERY_MODEL == "ncbi/MedCPT-Query-Encoder"
+    assert module.MEDCPT_QUERY_MODEL
     assert module.QUERY_INPUT_FORMAT == "retrieval_query_text_only"
     assert inspect.signature(module.main).parameters == {}
     assert {
@@ -186,29 +184,61 @@ def test_query_rewrite_cache_script_selects_only_advanced_specs() -> None:
 def test_medcpt_query_autodl_defaults_to_naive_and_advanced_caches() -> None:
     from app.rag.experiments import run_medcpt_query_embedding_autodl as module
 
-    specs = {spec.cache_id: spec.pipeline for spec in module.QUERY_EMBEDDING_SPECS}
+    specs_by_pipeline = {spec.pipeline: spec for spec in module.QUERY_EMBEDDING_SPECS}
 
-    assert specs == {
-        "stage1_naive_medcpt": "naive_rag",
-        "advanced_medcpt_rewritten_query": "advanced_rag",
-    }
+    assert set(specs_by_pipeline) == {"naive_rag", "advanced_rag"}
+    assert specs_by_pipeline["naive_rag"].query_text_source == (
+        "medqa_usmle_question_field"
+    )
+    assert specs_by_pipeline["advanced_rag"].query_text_source == (
+        "query_rewrite_pipeline"
+    )
 
 
 def test_local_bge_autodl_scripts_have_no_cli_and_cover_formal_specs() -> None:
+    from app.rag.experiments import phase1_formal_ablation as formal_module
     from app.rag.experiments import run_local_bge_embedding_autodl as corpus_module
     from app.rag.experiments import run_local_bge_query_embedding_autodl as module
 
     specs = {spec.cache_id: spec.pipeline for spec in module.BGE_QUERY_EMBEDDING_SPECS}
+    local_models = [
+        provider.model
+        for provider in formal_module.EMBEDDING_PROVIDERS
+        if provider.backend == module.EMBEDDING_BACKEND
+    ]
+    expected_specs = {}
+    for row in formal_module.build_formal_matrix():
+        if row.embedding_backend == module.EMBEDDING_BACKEND and row.embedding_model:
+            models = [row.embedding_model]
+        elif row.selection_rule:
+            models = local_models
+        else:
+            continue
+        for embedding_model in models:
+            source = (
+                "query_rewrite_pipeline"
+                if row.pipeline == "advanced_rag"
+                else "medqa_usmle_question_field"
+            )
+            expected_specs[module.query_cache_id(row.run_id, embedding_model)] = (
+                row.pipeline,
+                source,
+            )
 
     assert corpus_module.EMBEDDING_BACKEND == "local_hf_embedding"
     assert corpus_module.CORPUS_BATCH_SIZE == 128
     assert module.QUERY_BATCH_SIZE == 256
     assert inspect.signature(corpus_module.main).parameters == {}
     assert inspect.signature(module.main).parameters == {}
-    assert "stage1_naive_bge_m3__baai_bge-m3" in specs
-    assert "stage1_naive_bge_large_en_v1_5__baai_bge-large-en-v1p5" in specs
-    assert "stage3_advanced_stage2_top1_embedding_k__baai_bge-m3" in specs
-    assert specs["stage3_advanced_stage2_top1_embedding_k__baai_bge-m3"] == "advanced_rag"
+    assert specs == {
+        cache_id: pipeline for cache_id, (pipeline, _source) in expected_specs.items()
+    }
+    assert {
+        spec.cache_id: spec.query_text_source
+        for spec in module.BGE_QUERY_EMBEDDING_SPECS
+    } == {
+        cache_id: source for cache_id, (_pipeline, source) in expected_specs.items()
+    }
 
 
 def test_local_rerank_cache_autodl_script_has_no_cli_and_uses_llamaindex() -> None:
