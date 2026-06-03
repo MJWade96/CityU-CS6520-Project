@@ -4,16 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import json
-import sys
 from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
 import pytest
 
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(PROJECT_ROOT.resolve()))
+from conftest import read_jsonl
 
 
 class FakeNode:
@@ -126,18 +123,12 @@ def test_naive_formal_uses_question_text_for_retrieval(
         )
     )
 
-    query_rows = [
-        json.loads(line)
-        for line in (tmp_path / "retrieval" / "formal_naive" / "query_texts.jsonl")
-        .read_text(encoding="utf-8")
-        .splitlines()
-    ]
-    prompt_rows = [
-        json.loads(line)
-        for line in (tmp_path / "runs" / "formal_naive" / "final_prompts.jsonl")
-        .read_text(encoding="utf-8")
-        .splitlines()
-    ]
+    query_rows = read_jsonl(
+        tmp_path / "retrieval" / "formal_naive" / "query_texts.jsonl"
+    )
+    prompt_rows = read_jsonl(
+        tmp_path / "runs" / "formal_naive" / "final_prompts.jsonl"
+    )
 
     assert fake_store.queries == ["Which diagnosis is most likely?"]
     assert query_rows[0]["query_text"] == "Which diagnosis is most likely?"
@@ -297,18 +288,8 @@ def test_naive_formal_records_generator_errors_without_stopping_pipeline(
     )
 
     run_dir = tmp_path / "runs" / "formal_naive"
-    error_rows = [
-        json.loads(line)
-        for line in (run_dir / "generator_errors.jsonl")
-        .read_text(encoding="utf-8")
-        .splitlines()
-    ]
-    llm_rows = [
-        json.loads(line)
-        for line in (run_dir / "llm_outputs.jsonl")
-        .read_text(encoding="utf-8")
-        .splitlines()
-    ]
+    error_rows = read_jsonl(run_dir / "generator_errors.jsonl")
+    llm_rows = read_jsonl(run_dir / "llm_outputs.jsonl")
     manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
 
     assert result["test_results"]["status"] == "generator_errors"
@@ -406,8 +387,7 @@ def test_naive_formal_resume_reuses_partial_question_artifacts(
         run_dir / "llm_outputs.jsonl",
         run_dir / "evaluation_outputs.jsonl",
     ):
-        rows = [line for line in path.read_text(encoding="utf-8").splitlines() if line]
-        assert len(rows) == 1
+        assert len(read_jsonl(path)) == 1
 
 
 def test_enhanced_formal_writes_rewrite_and_component_caches(
@@ -506,18 +486,12 @@ def test_enhanced_formal_writes_rewrite_and_component_caches(
 
     result = asyncio.run(module.run_enhanced_evaluation(config))
 
-    query_rows = [
-        json.loads(line)
-        for line in (tmp_path / "retrieval" / "formal_advanced" / "query_texts.jsonl")
-        .read_text(encoding="utf-8")
-        .splitlines()
-    ]
-    fusion_rows = [
-        json.loads(line)
-        for line in (tmp_path / "retrieval" / "formal_advanced" / "fusion_candidates.jsonl")
-        .read_text(encoding="utf-8")
-        .splitlines()
-    ]
+    query_rows = read_jsonl(
+        tmp_path / "retrieval" / "formal_advanced" / "query_texts.jsonl"
+    )
+    fusion_rows = read_jsonl(
+        tmp_path / "retrieval" / "formal_advanced" / "fusion_candidates.jsonl"
+    )
 
     assert query_rows[0]["query_text"] == "Which diagnosis is most likely? rewritten"
     assert query_rows[0]["contains_options"] is False

@@ -3,12 +3,7 @@
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
-
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(PROJECT_ROOT.resolve()))
 
 
 def test_jsonl_helpers_append_load_and_report_completed_ids(tmp_path: Path) -> None:
