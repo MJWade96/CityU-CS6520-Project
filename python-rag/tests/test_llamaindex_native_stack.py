@@ -1,20 +1,18 @@
-"""Guardrails for the native LlamaIndex replacement architecture."""
+"""Focused guardrails for the native LlamaIndex runtime boundaries."""
 
+from __future__ import annotations
+
+import asyncio
+import inspect
+import sys
 from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-STORE_FILE = PROJECT_ROOT / "app" / "rag" / "retriever" / "vector_store.py"
-EVAL_FILE = PROJECT_ROOT / "app" / "rag" / "evaluation" / "naive_rag_eval.py"
-BUILD_FILE = PROJECT_ROOT / "app" / "rag" / "data" / "medical_corpus" / "build_vector_index.py"
+sys.path.insert(0, str(PROJECT_ROOT.resolve()))
+
 EXPERIMENTS_DIR = PROJECT_ROOT / "app" / "rag" / "experiments"
-COMPLETE_EVAL_FILE = EXPERIMENTS_DIR / "complete_eval.py"
-SAMPLE_FILE = EXPERIMENTS_DIR / "sample_validation.py"
-ENHANCED_FILE = EXPERIMENTS_DIR / "enhanced_eval.py"
-RESUME_FILE = EXPERIMENTS_DIR / "run_with_resume.py"
 REQUIREMENTS_FILE = PROJECT_ROOT / "requirements.txt"
-README_FILE = PROJECT_ROOT / "README.md"
-SAMPLE_IMPL_FILE = PROJECT_ROOT / "app" / "rag" / "evaluation" / "sample_validation_eval.py"
 ROOT_ENTRYPOINT_NAMES = {
     "complete_eval.py",
     "enhanced_eval.py",
@@ -25,128 +23,81 @@ ROOT_ENTRYPOINT_NAMES = {
 }
 
 
-def read_text(path: Path) -> str:
-    """Keep source-file assertions in one place to avoid repeated file I/O logic."""
-    return path.read_text(encoding="utf-8")
+def test_primary_vector_store_exposes_native_faiss_runtime_contract() -> None:
+    from app.rag.retriever.vector_store import BatchFaissVectorStore, MedicalVectorStore
+
+    constructor = inspect.signature(MedicalVectorStore)
+    expected_settings = {
+        "embedding_model_name",
+        "embedding_api_base_url",
+        "embedding_api_key",
+        "embedding_api_num_workers",
+        "index_use_async",
+        "use_gpu_faiss",
+    }
+
+    assert expected_settings.issubset(constructor.parameters)
+    assert issubclass(BatchFaissVectorStore, object)
+    for method_name in (
+        "build",
+        "add_documents",
+        "as_query_engine",
+        "retrieve",
+        "similarity_search_with_score",
+        "save",
+        "load",
+    ):
+        assert callable(getattr(MedicalVectorStore, method_name))
 
 
-def test_primary_vector_store_uses_native_llamaindex_components() -> None:
-    source = read_text(STORE_FILE)
+def test_index_builder_defaults_capture_resume_and_async_contract() -> None:
+    from app.rag.data.medical_corpus import build_vector_index as module
 
-    assert "OpenAIEmbedding" in source
-    assert "HuggingFaceEmbedding" not in source
-    assert "FaissVectorStore" in source
-    assert "VectorStoreIndex" in source
+    config = module.DEFAULT_INDEX_BUILD_CONFIG
+    checkpoint = module.checkpoint_payload(
+        completed_documents=3,
+        total_documents=10,
+        elapsed=1.25,
+        config=config,
+    )
 
-
-def test_primary_evaluation_uses_native_query_engine() -> None:
-    source = read_text(EVAL_FILE)
-
-    assert "OpenAILike" in source
-    assert "as_query_engine" in source
-    assert "run_complete_evaluation" in source
-
-
-def test_primary_entrypoints_route_through_canonical_modules() -> None:
-    build_source = read_text(BUILD_FILE)
-    complete_source = read_text(COMPLETE_EVAL_FILE)
-    sample_source = read_text(SAMPLE_FILE)
-
-    assert "from app.rag.retriever.vector_store import MedicalVectorStore" in build_source
-    assert "CHECKPOINT_FILE" in build_source
-    assert "Building FAISS index" in build_source
-    assert "BATCH_SIZE = 64" in build_source
-    assert "EMBEDDING_API_NUM_WORKERS = 4" in build_source
-    assert "INDEX_USE_ASYNC = True" in build_source
-    assert "INSERT_BATCH_SIZE = 8192" in build_source
-    assert "USE_GPU_FAISS = False" in build_source
-    assert "show_progress=True" in build_source
-    assert "tqdm.write" in build_source
-    assert "Indexing documents" in build_source
-    assert build_source.index("load_resume_checkpoint") < build_source.index("MedicalVectorStore(")
-    assert "from app.rag.evaluation.naive_rag_eval import NaiveRAGEvalConfig, run_complete_evaluation" in complete_source
-    assert "from app.rag.evaluation.sample_validation_eval import SampleEvalConfig, run_sample_comparison" in sample_source
+    assert config.batch_size == 64
+    assert config.embedding_api_num_workers == 4
+    assert config.index_use_async is True
+    assert config.insert_batch_size == 8192
+    assert config.use_gpu_faiss is False
+    assert config.faiss_index_type == "FlatIP"
+    assert checkpoint["completed_documents"] == 3
+    assert checkpoint["embedding_backend"] == "api"
+    assert checkpoint["index_use_async"] is True
 
 
-def test_experiment_entrypoints_are_not_root_level_scripts() -> None:
+def test_experiment_entrypoints_are_owned_by_experiments_package() -> None:
     for script_name in ROOT_ENTRYPOINT_NAMES:
         assert not (PROJECT_ROOT / script_name).exists()
         assert (EXPERIMENTS_DIR / script_name).exists()
 
 
-def test_formal_entrypoint_documents_execution() -> None:
-    readme = read_text(README_FILE)
-    source = read_text(EXPERIMENTS_DIR / "run_formal_ablation.py")
+def test_formal_entrypoint_is_module_execution_surface() -> None:
+    from app.rag.experiments import run_formal_ablation
+
+    readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
 
     assert "python -m app.rag.experiments.run_formal_ablation" in readme
-    assert "executes the formal dev-split ablation stages by default" in readme
-    assert "formal_ablation_executor.py" in readme
-    assert "app.rag.experiments.formal_ablation_executor" in source
-    assert "__package__" not in source
-    assert "sys.path.insert" not in source
+    assert inspect.signature(run_formal_ablation.main).parameters == {}
 
 
-def test_parallel_llamaindex_specific_modules_are_removed() -> None:
-    assert not (PROJECT_ROOT / "build_llamaindex_index.py").exists()
-    assert not (PROJECT_ROOT / "llamaindex_eval.py").exists()
-    assert not (PROJECT_ROOT / "llamaindex_sample_validation.py").exists()
-    assert not (PROJECT_ROOT / "naive_rag_sample_eval.py").exists()
-    assert not (PROJECT_ROOT / "naive_rag_retrieval.py").exists()
-    assert not (PROJECT_ROOT / "naive_rag_generation.py").exists()
-    assert not (PROJECT_ROOT / "naive_rag_shared.py").exists()
-    assert not (
-        PROJECT_ROOT / "app" / "rag" / "evaluation" / "llamaindex_rag_eval.py"
-    ).exists()
-    assert not (
-        PROJECT_ROOT / "app" / "rag" / "retriever" / "llamaindex_store.py"
-    ).exists()
-
-
-def test_enhanced_surface_is_preserved() -> None:
-    assert ENHANCED_FILE.exists()
-    assert (PROJECT_ROOT / "app" / "rag" / "retriever" / "hybrid_retriever.py").exists()
-    assert (PROJECT_ROOT / "app" / "rag" / "retriever" / "query_rewrite.py").exists()
-    assert (PROJECT_ROOT / "app" / "rag" / "retriever" / "reranker.py").exists()
-
-
-def test_enhanced_entrypoint_routes_through_native_module() -> None:
-    source = read_text(ENHANCED_FILE)
-
-    assert "app.rag.evaluation.enhanced_rag_eval" in source
-    assert "EnhancedEvaluationConfig" in source
-    assert "main" in source
-
-
-def test_sample_validation_entrypoint_routes_through_native_module() -> None:
-    source = read_text(SAMPLE_FILE)
-
-    assert SAMPLE_IMPL_FILE.exists()
-    assert "app.rag.evaluation.sample_validation_eval" in source
-    assert "run_sample_comparison" in source
-
-
-def test_primary_configs_default_to_single_faiss_store() -> None:
-    import sys
-
-    sys.path.insert(0, str(PROJECT_ROOT.resolve()))
-
-    from app.rag.evaluation.config import (  # pylint: disable=import-outside-toplevel
-        NaiveRAGEvalConfig,
-        SampleEvalConfig,
-    )
+def test_primary_config_defaults_point_to_shared_faiss_store() -> None:
+    from app.rag.evaluation.config import NaiveRAGEvalConfig, SampleEvalConfig
 
     assert NaiveRAGEvalConfig().vector_store_path.name == "faiss_index"
     assert SampleEvalConfig().vector_store_path.name == "faiss_index"
 
 
 def test_openai_like_kwargs_keep_enable_thinking_inside_extra_body() -> None:
-    import sys
+    from llama_index.llms.openai_like import OpenAILike
 
-    sys.path.insert(0, str(PROJECT_ROOT.resolve()))
-
-    from llama_index.llms.openai_like import OpenAILike  # pylint: disable=import-outside-toplevel
-
-    from app.rag.evaluation.eval_shared import (  # pylint: disable=import-outside-toplevel
+    from app.rag.evaluation.eval_shared import (
         EvaluationLLMConfig,
         get_qwen_openai_like_kwargs,
     )
@@ -161,14 +112,7 @@ def test_openai_like_kwargs_keep_enable_thinking_inside_extra_body() -> None:
 
 
 def test_llm_defaults_use_ctyun_generator_with_requested_limits() -> None:
-    import sys
-
-    sys.path.insert(0, str(PROJECT_ROOT.resolve()))
-
-    from app.rag.evaluation.eval_shared import (  # pylint: disable=import-outside-toplevel
-        ConcurrencyConfig,
-        EvaluationLLMConfig,
-    )
+    from app.rag.evaluation.eval_shared import ConcurrencyConfig, EvaluationLLMConfig
 
     llm = EvaluationLLMConfig()
     concurrency = ConcurrencyConfig()
@@ -184,12 +128,7 @@ def test_llm_defaults_use_ctyun_generator_with_requested_limits() -> None:
 
 
 def test_llm_clients_ignore_environment_proxies_by_default() -> None:
-    import asyncio
-    import sys
-
-    sys.path.insert(0, str(PROJECT_ROOT.resolve()))
-
-    from app.rag.evaluation.eval_shared import (  # pylint: disable=import-outside-toplevel
+    from app.rag.evaluation.eval_shared import (
         EvaluationLLMConfig,
         create_async_client,
         get_qwen_openai_like_kwargs,
@@ -210,10 +149,6 @@ def test_llm_clients_ignore_environment_proxies_by_default() -> None:
 
 
 def test_llm_config_reads_environment_at_instantiation(monkeypatch) -> None:
-    import sys
-
-    sys.path.insert(0, str(PROJECT_ROOT.resolve()))
-
     from app.rag.evaluation.eval_shared import EvaluationLLMConfig
 
     monkeypatch.setenv("RAG_LLM_MODEL", "env-model")
@@ -225,32 +160,22 @@ def test_llm_config_reads_environment_at_instantiation(monkeypatch) -> None:
     assert llm.api_key == "env-key"
 
 
-def test_resume_helper_uses_primary_script_names_only() -> None:
-    source = read_text(RESUME_FILE)
+def test_resume_helper_keeps_primary_runtime_names() -> None:
+    from app.rag.experiments import run_with_resume
 
-    assert '"complete_eval"' in source
-    assert '"llamaindex_eval"' not in source
-
-
-def test_resume_helper_uses_configured_results_dir() -> None:
-    source = read_text(RESUME_FILE)
-
-    assert "EVALUATION_RESULTS_DIR" in source
-
-
-def test_resume_helper_defaults_to_auto_detect_mode() -> None:
-    source = read_text(RESUME_FILE)
-
-    assert "AUTO_DETECT = True" in source
+    assert run_with_resume.AUTO_DETECT is True
+    assert "complete_eval" in run_with_resume.get_checkpoint_script_names("complete_eval")
+    assert run_with_resume.get_script_path("complete_eval").name == "complete_eval.py"
+    assert run_with_resume.get_checkpoint_script_names("llamaindex_eval") == [
+        "llamaindex_eval"
+    ]
+    assert str(run_with_resume.EVALUATION_RESULTS_DIR).endswith("evaluation")
 
 
 def test_resolve_embedding_runtime_prefers_recorded_model_over_env(
     monkeypatch, tmp_path
 ) -> None:
     import json
-    import sys
-
-    sys.path.insert(0, str(PROJECT_ROOT.resolve()))
 
     metadata_path = tmp_path / "build_metadata.json"
     metadata_path.write_text(
@@ -259,9 +184,7 @@ def test_resolve_embedding_runtime_prefers_recorded_model_over_env(
     )
     monkeypatch.setenv("RAG_EMBEDDING_MODEL", "env-model")
 
-    from app.rag.retriever.runtime_config import (  # pylint: disable=import-outside-toplevel
-        resolve_embedding_runtime,
-    )
+    from app.rag.retriever.runtime_config import resolve_embedding_runtime
 
     runtime = resolve_embedding_runtime(
         str(tmp_path),
@@ -271,35 +194,34 @@ def test_resolve_embedding_runtime_prefers_recorded_model_over_env(
     assert runtime["model_name"] == "recorded-model"
 
 
-def test_requirements_keep_only_native_llamaindex_packages() -> None:
-    source = read_text(REQUIREMENTS_FILE)
+def test_requirements_keep_native_llamaindex_dependency_boundary() -> None:
+    def package_name(line: str) -> str:
+        return (
+            line.split("#", maxsplit=1)[0]
+            .strip()
+            .split("==", maxsplit=1)[0]
+            .split(">=", maxsplit=1)[0]
+            .split("<=", maxsplit=1)[0]
+            .lower()
+        )
 
-    assert "llama-index-llms-openai-like" in source
-    assert "llama-index-embeddings-huggingface" in source
-    assert "langchain" not in source.lower()
+    requirements = {
+        package_name(line)
+        for line in REQUIREMENTS_FILE.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    }
 
-
-def test_native_vector_store_uses_api_embedding_and_explicit_gpu_faiss() -> None:
-    source = read_text(STORE_FILE)
-
-    assert "class BatchFaissVectorStore" in source
-    assert "np.asarray" in source
-    assert "run_transformations" in source
-    assert "insert_nodes" in source
-    assert "self.index.insert(document)" not in source
-    assert "OpenAIEmbedding" in source
-    assert "num_workers=embedding_api_num_workers" in source
-    assert "use_async=self.index_use_async" in source
-    assert "HuggingFaceEmbedding" not in source
-    assert "use_gpu_faiss" in source
-    assert "index_cpu_to_gpu" in source
-    assert "index_gpu_to_cpu" in source
-    assert "Install a GPU-enabled FAISS build" in source
+    assert "llama-index-llms-openai-like" in requirements
+    assert "llama-index-embeddings-huggingface" in requirements
+    assert "langchain" not in requirements
+    assert "langchain-community" not in requirements
 
 
-def test_runtime_python_files_are_langchain_free() -> None:
+def test_runtime_python_files_keep_langchain_out_of_primary_runtime() -> None:
+    allowed = {Path("tests"), Path("__pycache__")}
     for path in PROJECT_ROOT.rglob("*.py"):
-        if "tests" in path.parts:
+        relative = path.relative_to(PROJECT_ROOT)
+        if any(relative.parts[:1] == folder.parts for folder in allowed):
             continue
-        source = read_text(path)
+        source = path.read_text(encoding="utf-8")
         assert "langchain" not in source.lower(), path

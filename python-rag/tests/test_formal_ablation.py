@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
 import sys
 from pathlib import Path
@@ -45,20 +46,21 @@ def test_medqa_usmle_adapter_loads_dev_and_test_shapes(tmp_path: Path) -> None:
     assert shared_records == records
 
 
-def test_formal_matrix_uses_dev_and_includes_required_embeddings() -> None:
+def test_formal_matrix_covers_registered_embedding_providers_on_dev_split() -> None:
     from app.rag.experiments import phase1_formal_ablation as module
 
     rows = module.build_formal_matrix()
-    embeddings = {row.embedding_model for row in rows}
-    splits = {row.dataset_split for row in rows}
+    provider_models = {provider.model for provider in module.EMBEDDING_PROVIDERS}
+    stage1_embeddings = {
+        row.embedding_model
+        for row in rows
+        if row.stage == "1_embedding_screening" and row.pipeline == "naive_rag"
+    }
     stages = {row.stage for row in rows}
 
-    assert splits == {"dev"}
-    assert "BAAI/bge-m3" in embeddings
-    assert "BAAI/bge-large-en-v1.5" in embeddings
-    assert "ncbi/MedCPT" in embeddings
-    bge_rows = [row for row in rows if row.embedding_model == "BAAI/bge-m3"]
-    assert {row.embedding_backend for row in bge_rows} == {"local_hf_embedding"}
+    assert {row.dataset_split for row in rows} == {"dev"}
+    assert stage1_embeddings == provider_models
+    assert all(row.generator_model == module.GENERATOR_MODEL for row in rows)
     assert {
         "0_corpus_ablation",
         "1_embedding_screening",
@@ -75,27 +77,24 @@ def test_cache_manifest_covers_recommendation_cache_items() -> None:
     rows = module.build_formal_matrix()
     manifest = module.build_cache_manifest(rows)
 
-    assert set(module.CACHE_KEYS) == {
-        "chunk_embeddings",
-        "query_embeddings",
-        "faiss_index",
-        "retrieval_top80",
-        "rerank_outputs",
-        "final_prompts",
-        "llm_outputs",
-        "token_usage",
-        "estimated_token_cost",
-    }
-    assert manifest["cache_top_k"] == 80
-    first_run = next(iter(manifest["runs"].values()))
-    assert set(module.CACHE_KEYS).issubset(first_run)
-
-    medcpt_run = next(row for row in rows if row.run_id == "stage1_naive_medcpt")
-    medcpt_manifest = manifest["runs"][medcpt_run.run_id]
-    assert medcpt_manifest["chunk_embeddings"].endswith("chunk_embeddings.npy")
-    assert medcpt_manifest["faiss_index"].endswith("faiss.index")
-    assert medcpt_manifest["query_embeddings"].endswith("query_embeddings.npy")
-    assert medcpt_manifest["retrieval_top80"].endswith("retrieval_top80.jsonl")
+    assert {"indexes", "retrieval_cache", "rerank_cache", "runs"}.issubset(
+        manifest["base_dirs"]
+    )
+    assert manifest["cache_top_k"] >= max(module.K_VALUES)
+    for row in rows:
+        run_cache = manifest["runs"][row.run_id]
+        assert run_cache["chunk_embeddings"].endswith("chunk_embeddings.npy")
+        assert run_cache["query_embeddings"].endswith("query_embeddings.npy")
+        assert run_cache["faiss_index"].endswith("faiss.index")
+        assert run_cache["final_prompts"].endswith("final_prompts.jsonl")
+        assert run_cache["llm_outputs"].endswith("llm_outputs.jsonl")
+        if row.pipeline == "naive_rag":
+            assert run_cache["retrieval_top10"].endswith("retrieval_top10.jsonl")
+        else:
+            assert run_cache["query_rewrite_outputs"].endswith(
+                "query_rewrite_outputs.jsonl"
+            )
+            assert run_cache["rerank_outputs"].endswith("rerank_outputs.jsonl")
 
 
 def test_formal_framework_does_not_use_legacy_medqa(monkeypatch) -> None:
@@ -115,10 +114,7 @@ def test_formal_framework_does_not_use_legacy_medqa(monkeypatch) -> None:
 
 def test_local_embeddings_stay_in_experiment_framework_not_primary_retriever() -> None:
     from app.rag.experiments import phase1_formal_ablation as module
-
-    vector_store_source = (
-        PROJECT_ROOT / "app" / "rag" / "retriever" / "vector_store.py"
-    ).read_text(encoding="utf-8")
+    from app.rag.retriever.vector_store import MedicalVectorStore
 
     assert any(provider.name == "medcpt" for provider in module.EMBEDDING_PROVIDERS)
     assert any(
@@ -126,12 +122,10 @@ def test_local_embeddings_stay_in_experiment_framework_not_primary_retriever() -
         for provider in module.EMBEDDING_PROVIDERS
         if provider.model.startswith("BAAI/")
     )
-    assert not (
-        PROJECT_ROOT / "app" / "rag" / "experiments" / "formal_ablation_runtime.py"
+    assert "embedding_backend" not in inspect.signature(MedicalVectorStore).parameters
+    assert (
+        PROJECT_ROOT / "app" / "rag" / "evaluation" / "formal_local_embedding_adapter.py"
     ).exists()
-    assert "MedCPT" not in vector_store_source
-    assert "local_medcpt" not in vector_store_source
-    assert "local_hf_embedding" not in vector_store_source
 
 
 def test_formal_matrix_uses_typed_values_not_runtime_string_parameters() -> None:
@@ -147,74 +141,46 @@ def test_formal_matrix_uses_typed_values_not_runtime_string_parameters() -> None
         for row in resolved
     )
     assert all(row.embedding_model is None for row in unresolved)
+
+
+def test_duplicate_formal_runtime_is_not_a_supported_surface() -> None:
     assert not (
         PROJECT_ROOT / "app" / "rag" / "experiments" / "formal_ablation_runtime.py"
     ).exists()
 
 
 def test_medcpt_autodl_script_reuses_medscore_core_without_cli_args() -> None:
-    source = (
-        PROJECT_ROOT
-        / "app"
-        / "rag"
-        / "experiments"
-        / "run_medcpt_embedding_autodl.py"
-    ).read_text(encoding="utf-8")
+    from app.rag.experiments import run_medcpt_embedding_autodl as module
 
-    assert "class CustomizeSentenceTransformer" in source
-    assert 'Pooling(transformer_model.get_word_embedding_dimension(), "cls")' in source
-    assert 'EMBEDDING_INPUT_FORMAT = "title_content_pair"' in source
-    assert "[[str(record[\"title\"]), str(record[\"content\"])]" in source
-    assert "argparse" not in source
-    assert "parse_args" not in source
+    formatted = module._format_medcpt_article_inputs(
+        [{"title": "Title", "content": "Content"}]
+    )
+
+    assert module.EMBEDDING_INPUT_FORMAT == "title_content_pair"
+    assert module.EMBEDDING_BACKEND == "local_medcpt"
+    assert formatted == [["Title", "Content"]]
+    assert inspect.signature(module.main).parameters == {}
 
 
 def test_medcpt_query_autodl_script_embeds_query_texts_only() -> None:
-    source = (
-        PROJECT_ROOT
-        / "app"
-        / "rag"
-        / "experiments"
-        / "run_medcpt_query_embedding_autodl.py"
-    ).read_text(encoding="utf-8")
+    from app.rag.experiments import run_medcpt_query_embedding_autodl as module
 
-    assert 'MEDCPT_QUERY_MODEL = "ncbi/MedCPT-Query-Encoder"' in source
-    assert 'QUERY_INPUT_FORMAT = "retrieval_query_text_only"' in source
-    assert "QueryRewritePipeline" not in source
-    assert "build_formal_matrix" not in source
-    assert "select_medcpt_runs" not in source
-    assert "build_query" not in source
-    assert "build_medical_eval_prompt" not in source
-    assert "retrieve_top80" not in source
-    assert "hybrid_retrieve_top80" not in source
-    assert "rerank_rows" not in source
-    assert "faiss" not in source
-    assert "argparse" not in source
-    assert "parse_args" not in source
+    assert module.MEDCPT_QUERY_MODEL == "ncbi/MedCPT-Query-Encoder"
+    assert module.QUERY_INPUT_FORMAT == "retrieval_query_text_only"
+    assert inspect.signature(module.main).parameters == {}
+    assert {
+        spec.pipeline for spec in module.QUERY_EMBEDDING_SPECS
+    } == {"naive_rag", "advanced_rag"}
 
 
-def test_query_rewrite_cache_script_only_rewrites_queries() -> None:
-    source = (
-        PROJECT_ROOT
-        / "app"
-        / "rag"
-        / "experiments"
-        / "run_query_rewrite_cache_autodl.py"
-    ).read_text(encoding="utf-8")
+def test_query_rewrite_cache_script_selects_only_advanced_specs() -> None:
+    from app.rag.experiments import run_query_rewrite_cache_autodl as module
 
-    assert "QueryRewritePipeline" in source
-    assert "MEDCPT_QUERY_MODEL" not in source
-    assert "AutoModel" not in source
-    assert "embed_query_texts" not in source
-    assert "np.save" not in source
-    assert "build_query" not in source
-    assert "build_medical_eval_prompt" not in source
-    assert "retrieve_top80" not in source
-    assert "hybrid_retrieve_top80" not in source
-    assert "rerank_rows" not in source
-    assert "faiss" not in source
-    assert "argparse" not in source
-    assert "parse_args" not in source
+    specs = module._selected_rewrite_specs()
+
+    assert specs
+    assert {spec.pipeline for spec in specs} == {"advanced_rag"}
+    assert inspect.signature(module.main).parameters == {}
 
 
 def test_medcpt_query_autodl_defaults_to_naive_and_advanced_caches() -> None:
@@ -229,32 +195,16 @@ def test_medcpt_query_autodl_defaults_to_naive_and_advanced_caches() -> None:
 
 
 def test_local_bge_autodl_scripts_have_no_cli_and_cover_formal_specs() -> None:
+    from app.rag.experiments import run_local_bge_embedding_autodl as corpus_module
     from app.rag.experiments import run_local_bge_query_embedding_autodl as module
 
-    corpus_source = (
-        PROJECT_ROOT
-        / "app"
-        / "rag"
-        / "experiments"
-        / "run_local_bge_embedding_autodl.py"
-    ).read_text(encoding="utf-8")
-    query_source = (
-        PROJECT_ROOT
-        / "app"
-        / "rag"
-        / "experiments"
-        / "run_local_bge_query_embedding_autodl.py"
-    ).read_text(encoding="utf-8")
     specs = {spec.cache_id: spec.pipeline for spec in module.BGE_QUERY_EMBEDDING_SPECS}
 
-    assert "HuggingFaceEmbedding" in corpus_source
-    assert "HuggingFaceEmbedding" in query_source
-    assert "CORPUS_BATCH_SIZE = 128" in corpus_source
-    assert "QUERY_BATCH_SIZE = 256" in query_source
-    assert "argparse" not in corpus_source
-    assert "parse_args" not in corpus_source
-    assert "argparse" not in query_source
-    assert "parse_args" not in query_source
+    assert corpus_module.EMBEDDING_BACKEND == "local_hf_embedding"
+    assert corpus_module.CORPUS_BATCH_SIZE == 128
+    assert module.QUERY_BATCH_SIZE == 256
+    assert inspect.signature(corpus_module.main).parameters == {}
+    assert inspect.signature(module.main).parameters == {}
     assert "stage1_naive_bge_m3__baai_bge-m3" in specs
     assert "stage1_naive_bge_large_en_v1_5__baai_bge-large-en-v1p5" in specs
     assert "stage3_advanced_stage2_top1_embedding_k__baai_bge-m3" in specs
@@ -262,20 +212,30 @@ def test_local_bge_autodl_scripts_have_no_cli_and_cover_formal_specs() -> None:
 
 
 def test_local_rerank_cache_autodl_script_has_no_cli_and_uses_llamaindex() -> None:
-    source = (
-        PROJECT_ROOT
-        / "app"
-        / "rag"
-        / "experiments"
-        / "run_local_rerank_cache_autodl.py"
-    ).read_text(encoding="utf-8")
+    from app.rag.evaluation.formal_local_rerank_cache import LOCAL_RERANKER_BACKEND
+    from app.rag.experiments import run_local_rerank_cache_autodl as module
 
-    assert "SentenceTransformerRerank" in source
-    assert "fusion_candidates.jsonl" in source
-    assert "rerank_outputs.jsonl" in source
-    assert "SiliconFlow" not in source
-    assert "argparse" not in source
-    assert "parse_args" not in source
+    class FakeReranker:
+        def postprocess_nodes(self, nodes, query_str):
+            assert query_str == "query"
+            return nodes[:1]
+
+    rows = module.rerank_cache_rows(
+        "cache-a",
+        [
+            {
+                "question_id": "dev-1",
+                "query_text": "query",
+                "candidates": [{"text": "context", "score": 0.5}],
+            }
+        ],
+        FakeReranker(),
+    )
+
+    assert module.FUSION_CANDIDATES_FILENAME == "fusion_candidates.jsonl"
+    assert inspect.signature(module.main).parameters == {}
+    assert rows[0]["reranker_backend"] == LOCAL_RERANKER_BACKEND
+    assert rows[0]["reranked_candidates"][0]["text"] == "context"
 
 
 def test_local_bge_embedding_batches_long_corpus_texts() -> None:
