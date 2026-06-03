@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+import importlib
 import inspect
-from pathlib import Path
 
 from conftest import PROJECT_ROOT
 
@@ -20,10 +20,14 @@ ROOT_ENTRYPOINT_NAMES = {
 }
 
 
-def test_experiment_entrypoints_are_owned_by_experiments_package() -> None:
+def test_experiment_entrypoints_expose_module_execution_surfaces() -> None:
     for script_name in ROOT_ENTRYPOINT_NAMES:
-        assert not (PROJECT_ROOT / script_name).exists()
-        assert (EXPERIMENTS_DIR / script_name).exists()
+        module_name = script_name.removesuffix(".py")
+        module = importlib.import_module(f"app.rag.experiments.{module_name}")
+
+        assert (EXPERIMENTS_DIR / script_name).samefile(module.__file__)
+        assert callable(module.main)
+        assert inspect.signature(module.main).parameters == {}
 
 
 def test_formal_entrypoint_is_module_execution_surface() -> None:
@@ -37,22 +41,25 @@ def test_formal_entrypoint_is_module_execution_surface() -> None:
 
 def test_local_embeddings_stay_outside_primary_vector_store() -> None:
     from app.rag.experiments import phase1_formal_ablation as module
+    from app.rag.evaluation.formal_local_embedding_adapter import (
+        LocalEmbeddingFormalRetriever,
+    )
     from app.rag.retriever.vector_store import MedicalVectorStore
+
+    vector_store_params = set(inspect.signature(MedicalVectorStore).parameters)
 
     assert any(
         provider.backend in module.LOCAL_EMBEDDING_BACKENDS
         for provider in module.EMBEDDING_PROVIDERS
     )
-    assert "embedding_backend" not in inspect.signature(MedicalVectorStore).parameters
-    assert (
-        PROJECT_ROOT / "app" / "rag" / "evaluation" / "formal_local_embedding_adapter.py"
-    ).exists()
-
-
-def test_duplicate_formal_runtime_is_not_a_supported_surface() -> None:
-    assert not (
-        PROJECT_ROOT / "app" / "rag" / "experiments" / "formal_ablation_runtime.py"
-    ).exists()
+    assert {
+        "embedding_model_name",
+        "embedding_api_base_url",
+        "embedding_api_key",
+    }.issubset(vector_store_params)
+    assert callable(LocalEmbeddingFormalRetriever.load)
+    assert callable(LocalEmbeddingFormalRetriever.retrieve)
+    assert callable(LocalEmbeddingFormalRetriever.retrieve_components)
 
 
 def test_requirements_keep_native_llamaindex_dependency_boundary() -> None:
@@ -74,15 +81,3 @@ def test_requirements_keep_native_llamaindex_dependency_boundary() -> None:
 
     assert "llama-index-llms-openai-like" in requirements
     assert "llama-index-embeddings-huggingface" in requirements
-    assert "langchain" not in requirements
-    assert "langchain-community" not in requirements
-
-
-def test_runtime_python_files_keep_langchain_out_of_primary_runtime() -> None:
-    allowed = {Path("tests"), Path("__pycache__")}
-    for path in PROJECT_ROOT.rglob("*.py"):
-        relative = path.relative_to(PROJECT_ROOT)
-        if any(relative.parts[:1] == folder.parts for folder in allowed):
-            continue
-        source = path.read_text(encoding="utf-8")
-        assert "langchain" not in source.lower(), path

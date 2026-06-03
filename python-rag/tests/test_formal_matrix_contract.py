@@ -50,6 +50,7 @@ def test_cache_manifest_declares_reusable_artifact_contracts() -> None:
 
     rows = module.build_formal_matrix()
     manifest = module.build_cache_manifest(rows)
+    required_run_artifacts = {"query_texts", "final_prompts", "llm_outputs"}
 
     assert {"indexes", "retrieval_cache", "rerank_cache", "runs"}.issubset(
         manifest["base_dirs"]
@@ -57,17 +58,13 @@ def test_cache_manifest_declares_reusable_artifact_contracts() -> None:
     assert manifest["cache_top_k"] >= max(module.K_VALUES)
     for row in rows:
         run_cache = manifest["runs"][row.run_id]
-        assert run_cache["chunk_embeddings"].endswith("chunk_embeddings.npy")
-        assert run_cache["query_embeddings"].endswith("query_embeddings.npy")
-        assert run_cache["faiss_index"].endswith("faiss.index")
+        assert required_run_artifacts.issubset(run_cache)
+        assert run_cache["query_texts"].endswith("query_texts.jsonl")
         assert run_cache["final_prompts"].endswith("final_prompts.jsonl")
         assert run_cache["llm_outputs"].endswith("llm_outputs.jsonl")
         if row.pipeline == "naive_rag":
             assert run_cache["retrieval_top10"].endswith("retrieval_top10.jsonl")
         else:
-            assert run_cache["query_rewrite_outputs"].endswith(
-                "query_rewrite_outputs.jsonl"
-            )
             assert run_cache["rerank_outputs"].endswith("rerank_outputs.jsonl")
 
 

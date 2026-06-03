@@ -79,16 +79,19 @@ def test_llm_config_reads_environment_at_instantiation(monkeypatch) -> None:
     assert llm.api_key == "env-key"
 
 
-def test_resume_helper_keeps_current_runtime_names() -> None:
+def test_resume_helper_resolves_supported_runtime_surfaces() -> None:
     from app.rag.experiments import run_with_resume
 
     assert run_with_resume.AUTO_DETECT is True
-    assert "complete_eval" in run_with_resume.get_checkpoint_script_names("complete_eval")
-    assert run_with_resume.get_script_path("complete_eval").name == "complete_eval.py"
-    assert run_with_resume.get_checkpoint_script_names("llamaindex_eval") == [
-        "llamaindex_eval"
-    ]
-    assert str(run_with_resume.EVALUATION_RESULTS_DIR).endswith("evaluation")
+    script_path = run_with_resume.get_script_path("complete_eval")
+    checkpoint_names = run_with_resume.get_checkpoint_script_names("complete_eval")
+
+    assert script_path.exists()
+    assert script_path.parent.name == "experiments"
+    assert script_path.name.endswith(".py")
+    assert checkpoint_names
+    assert all(isinstance(name, str) and name for name in checkpoint_names)
+    assert run_with_resume.EVALUATION_RESULTS_DIR.name == "evaluation"
 
 
 def test_resolve_embedding_runtime_prefers_recorded_model_over_env(

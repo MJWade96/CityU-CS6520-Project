@@ -47,6 +47,7 @@ ALPHA_VALUES = (0.0, 0.25, 0.5, 0.75, 1.0)
 RERANKER_INPUT_MULTIPLIERS = (2, 4, 8)
 CACHE_KEYS = (
     "chunk_embeddings",
+    "query_texts",
     "query_embeddings",
     "query_rewrite_outputs",
     "faiss_index",
@@ -342,6 +343,7 @@ def build_cache_manifest(rows: Sequence[FormalRunSpec]) -> Dict[str, Any]:
         run_dir = RUNS_DIR / row.run_id
         run_cache = {
             "chunk_embeddings": str(index_root / "chunk_embeddings.npy"),
+            "query_texts": str(retrieval_dir / "query_texts.jsonl"),
             "query_embeddings": str(retrieval_dir / "query_embeddings.npy"),
             "faiss_index": str(index_root / "faiss.index"),
             "final_prompts": str(run_dir / "final_prompts.jsonl"),

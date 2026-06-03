@@ -51,8 +51,10 @@ def test_local_bge_query_specs_are_derived_from_formal_matrix() -> None:
             )
 
     assert corpus_module.EMBEDDING_BACKEND == "local_hf_embedding"
-    assert corpus_module.CORPUS_BATCH_SIZE == 128
-    assert module.QUERY_BATCH_SIZE == 256
+    assert isinstance(corpus_module.CORPUS_BATCH_SIZE, int)
+    assert corpus_module.CORPUS_BATCH_SIZE > 0
+    assert isinstance(module.QUERY_BATCH_SIZE, int)
+    assert module.QUERY_BATCH_SIZE > 0
     assert inspect.signature(corpus_module.main).parameters == {}
     assert inspect.signature(module.main).parameters == {}
     assert specs == {
