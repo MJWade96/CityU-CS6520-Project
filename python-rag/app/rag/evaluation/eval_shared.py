@@ -522,8 +522,8 @@ async def call_llm(
     """Call LLM with rate limiting and return response content."""
     import asyncio
 
-    max_retries = int(os.getenv("RAG_LLM_MAX_RETRIES", "3"))
-    base_delay = 1.0
+    max_retries = int(os.getenv("RAG_LLM_MAX_RETRIES", "5"))
+    base_delay = 2.0
     last_exception = None
 
     for attempt in range(max_retries):
