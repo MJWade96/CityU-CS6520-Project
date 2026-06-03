@@ -41,6 +41,7 @@ DEFAULT_RUN_STAGES = (
 )
 
 FORMAL_GENERATOR_MAX_CONCURRENT = 6
+MAX_GENERATOR_RETRIES = 3
 
 
 @dataclass(frozen=True)
@@ -346,6 +347,46 @@ async def execute_formal_run(
     return metrics
 
 
+def _is_run_complete(metric: Dict[str, Any]) -> bool:
+    """Return ``True`` when a formal run has no outstanding generator errors.
+
+    Older evaluation runs may lack a ``status`` field in their metrics.  Those
+    are treated as complete when every question was processed without generator
+    errors, preserving backward compatibility with cached results.
+    """
+    has_generator_errors = metric.get("failed_generator_questions", 0) > 0
+    all_processed = metric.get("processed_questions") == metric.get("total_questions")
+    status = metric.get("status")
+    if status is not None:
+        return status == "completed" and all_processed
+    return all_processed and not has_generator_errors
+
+
+def _clear_generator_error_artifacts(run_id: str) -> None:
+    """Remove generator error artifacts so failed questions can be retried.
+
+    The formal evaluation pipeline loads ``generator_errors.jsonl`` at startup
+    and skips any question already present in that file.  When a transient API
+    error (429 rate limit, 400 content filter, etc.) causes a question to be
+    recorded there, re-running the evaluation will silently skip it again,
+    creating an unrecoverable ``generator_errors`` status.  This helper removes
+    the error records and stale metrics so the next evaluation attempt treats
+    those questions as new.
+    """
+    rd = run_dir(run_id)
+    for name in (
+        "generator_errors.jsonl",
+        "generator_errors.checkpoint.jsonl",
+        "metrics.json",
+        "metrics.checkpoint.json",
+        "manifest.json",
+        "manifest.checkpoint.json",
+    ):
+        path = rd / name
+        if path.exists():
+            path.unlink()
+
+
 def _rank_runs(run_metrics: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return sorted(run_metrics, key=lambda metric: metric.get("accuracy", 0.0), reverse=True)
 
@@ -464,14 +505,34 @@ async def run_formal_ablation(
                 f"[formal][{stage}] run {index}/{len(rows)}: {row.run_id}",
                 flush=True,
             )
-            run_metrics.append(await execute_formal_run(row, config))
+            metrics = await execute_formal_run(row, config)
+            # Retry on transient generator errors (rate limits, content
+            # filters, etc.).  Clearing the generator_errors.jsonl forces
+            # the evaluation pipeline to treat previously-failed questions
+            # as new on the next attempt.
+            for retry in range(MAX_GENERATOR_RETRIES):
+                if _is_run_complete(metrics):
+                    break
+                failed_ids = metrics.get("generator_error_question_ids", [])
+                if not failed_ids:
+                    break
+                print(
+                    f"[formal][{stage}] {row.run_id}: retrying "
+                    f"{len(failed_ids)} generator errors "
+                    f"(attempt {retry + 1}/{MAX_GENERATOR_RETRIES})",
+                    flush=True,
+                )
+                _clear_generator_error_artifacts(row.run_id)
+                metrics = await execute_formal_run(
+                    row, replace(config, force=True),
+                )
+            run_metrics.append(metrics)
             write_stage_checkpoint(stage, rows, run_metrics, state)
 
         incomplete_runs = [
             metric
             for metric in run_metrics
-            if metric.get("status") != "completed"
-            or metric.get("processed_questions") != metric.get("total_questions")
+            if not _is_run_complete(metric)
         ]
         if incomplete_runs:
             failed_ids = ", ".join(str(metric["run_id"]) for metric in incomplete_runs)
