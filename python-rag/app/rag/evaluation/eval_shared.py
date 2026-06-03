@@ -397,7 +397,7 @@ class TokenRateLimiter:
 
 def create_async_client(config: EvaluationLLMConfig) -> AsyncOpenAI:
     """Create the shared async OpenAI-compatible client."""
-    timeout = float(os.getenv("RAG_LLM_TIMEOUT", "120.0"))
+    timeout = float(os.getenv("RAG_LLM_TIMEOUT", "300.0"))
     max_retries = int(os.getenv("RAG_LLM_MAX_RETRIES", "5"))
     return AsyncOpenAI(
         api_key=config.api_key,
@@ -421,7 +421,7 @@ def get_qwen_completion_kwargs(config: EvaluationLLMConfig) -> Dict[str, Any]:
 
 def get_qwen_openai_like_kwargs(config: EvaluationLLMConfig) -> Dict[str, Any]:
     """Return the shared Qwen parameters for LlamaIndex OpenAILike."""
-    timeout = float(os.getenv("RAG_LLM_TIMEOUT", "120.0"))
+    timeout = float(os.getenv("RAG_LLM_TIMEOUT", "300.0"))
     kwargs: Dict[str, Any] = {
         "model": config.model,
         "temperature": config.temperature,
