@@ -310,6 +310,11 @@ async def _run_formal_naive_evaluation(
         generator_jobs,
         max_concurrent=config.concurrency.max_concurrent,
         worker=generate_answer,
+        heartbeat_interval=30.0,
+        on_heartbeat=lambda: print(
+            f"[formal][{config.formal_run_id}] waiting for pending generators...",
+            flush=True,
+        ),
     ):
         current_question_id = str(job["question_id"])
         if generated["status"] == "failed":
@@ -516,6 +521,11 @@ async def evaluate_async_dataset(
         max_concurrent=batch_size,
         worker=evaluate_item,
         start_index=start_from,
+        heartbeat_interval=30.0,
+        on_heartbeat=lambda: print(
+            f"[eval] waiting for pending evaluations...",
+            flush=True,
+        ),
     ):
         processed_questions = question_index + 1
         results.append(result)

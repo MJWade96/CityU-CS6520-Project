@@ -397,12 +397,11 @@ class TokenRateLimiter:
 
 def create_async_client(config: EvaluationLLMConfig) -> AsyncOpenAI:
     """Create the shared async OpenAI-compatible client."""
-    timeout = float(os.getenv("RAG_LLM_TIMEOUT", "300.0"))
-    max_retries = int(os.getenv("RAG_LLM_MAX_RETRIES", "5"))
+    timeout = float(os.getenv("RAG_LLM_TIMEOUT", "60.0"))
     return AsyncOpenAI(
         api_key=config.api_key,
         base_url=config.base_url,
-        max_retries=max_retries,
+        max_retries=0,  # 重试由 call_llm 统一控制，避免嵌套重试
         http_client=httpx.AsyncClient(timeout=timeout, trust_env=False),
     )
 
@@ -421,7 +420,7 @@ def get_qwen_completion_kwargs(config: EvaluationLLMConfig) -> Dict[str, Any]:
 
 def get_qwen_openai_like_kwargs(config: EvaluationLLMConfig) -> Dict[str, Any]:
     """Return the shared Qwen parameters for LlamaIndex OpenAILike."""
-    timeout = float(os.getenv("RAG_LLM_TIMEOUT", "300.0"))
+    timeout = float(os.getenv("RAG_LLM_TIMEOUT", "60.0"))
     kwargs: Dict[str, Any] = {
         "model": config.model,
         "temperature": config.temperature,
@@ -429,7 +428,7 @@ def get_qwen_openai_like_kwargs(config: EvaluationLLMConfig) -> Dict[str, Any]:
         "api_base": config.base_url,
         "is_chat_model": True,
         "timeout": timeout,
-        "max_retries": int(os.getenv("RAG_LLM_MAX_RETRIES", "5")),
+        "max_retries": 0,  # 重试由 call_llm 统一控制，避免嵌套重试
         "http_client": httpx.Client(timeout=timeout, trust_env=False),
         "async_http_client": httpx.AsyncClient(timeout=timeout, trust_env=False),
     }
@@ -523,7 +522,7 @@ async def call_llm(
     """Call LLM with rate limiting and return response content."""
     import asyncio
 
-    max_retries = int(os.getenv("RAG_LLM_MAX_RETRIES", "5"))
+    max_retries = int(os.getenv("RAG_LLM_MAX_RETRIES", "3"))
     base_delay = 1.0
     last_exception = None
 
