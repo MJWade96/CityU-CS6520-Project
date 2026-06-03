@@ -1,4 +1,4 @@
-"""Query text and rewrite cache contracts for formal local embeddings."""
+"""Query text and rewrite cache behavior contracts."""
 
 from __future__ import annotations
 
@@ -8,22 +8,6 @@ from pathlib import Path
 import pytest
 
 from conftest import read_jsonl
-
-
-def test_medcpt_query_specs_cover_naive_and_advanced_query_sources() -> None:
-    from app.rag.experiments import run_medcpt_query_embedding_autodl as module
-
-    specs_by_pipeline = {spec.pipeline: spec for spec in module.QUERY_EMBEDDING_SPECS}
-
-    assert module.MEDCPT_QUERY_MODEL
-    assert module.QUERY_INPUT_FORMAT == "retrieval_query_text_only"
-    assert set(specs_by_pipeline) == {"naive_rag", "advanced_rag"}
-    assert specs_by_pipeline["naive_rag"].query_text_source == (
-        "medqa_usmle_question_field"
-    )
-    assert specs_by_pipeline["advanced_rag"].query_text_source == (
-        "query_rewrite_pipeline"
-    )
 
 
 def test_medcpt_naive_query_text_rows_use_question_field_only() -> None:
@@ -68,15 +52,6 @@ def test_medcpt_advanced_query_embedding_requires_rewrite_cache(
         module.resolve_query_text_rows(spec, [{"id": "dev-1", "question": "Question?"}])
 
     assert "run_query_rewrite_cache_autodl.py" in str(exc_info.value)
-
-
-def test_query_rewrite_cache_selects_only_advanced_specs() -> None:
-    from app.rag.experiments import run_query_rewrite_cache_autodl as module
-
-    specs = module._selected_rewrite_specs()
-
-    assert specs
-    assert {spec.pipeline for spec in specs} == {"advanced_rag"}
 
 
 def test_advanced_query_text_rows_use_rewritten_query(

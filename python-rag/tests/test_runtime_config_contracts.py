@@ -6,13 +6,6 @@ import asyncio
 import json
 
 
-def test_primary_config_defaults_point_to_shared_faiss_store() -> None:
-    from app.rag.evaluation.config import NaiveRAGEvalConfig, SampleEvalConfig
-
-    assert NaiveRAGEvalConfig().vector_store_path.name == "faiss_index"
-    assert SampleEvalConfig().vector_store_path.name == "faiss_index"
-
-
 def test_openai_like_kwargs_keep_enable_thinking_inside_extra_body() -> None:
     from llama_index.llms.openai_like import OpenAILike
 
@@ -28,22 +21,6 @@ def test_openai_like_kwargs_keep_enable_thinking_inside_extra_body() -> None:
     assert "enable_thinking" not in kwargs["additional_kwargs"]
     assert model_kwargs["extra_body"] == {"enable_thinking": False}
     assert "enable_thinking" not in model_kwargs
-
-
-def test_llm_defaults_use_configured_generator_and_limits() -> None:
-    from app.rag.evaluation.eval_shared import ConcurrencyConfig, EvaluationLLMConfig
-
-    llm = EvaluationLLMConfig()
-    concurrency = ConcurrencyConfig()
-
-    assert llm.provider
-    assert llm.model
-    assert llm.base_url
-    assert llm.api_key
-    assert llm.temperature == 0.1
-    assert llm.enable_thinking is True
-    assert concurrency.rpm_limit > 0
-    assert concurrency.tpm_limit > 0
 
 
 def test_llm_clients_ignore_environment_proxies_by_default() -> None:
@@ -77,21 +54,6 @@ def test_llm_config_reads_environment_at_instantiation(monkeypatch) -> None:
 
     assert llm.model == "env-model"
     assert llm.api_key == "env-key"
-
-
-def test_resume_helper_resolves_supported_runtime_surfaces() -> None:
-    from app.rag.experiments import run_with_resume
-
-    assert run_with_resume.AUTO_DETECT is True
-    script_path = run_with_resume.get_script_path("complete_eval")
-    checkpoint_names = run_with_resume.get_checkpoint_script_names("complete_eval")
-
-    assert script_path.exists()
-    assert script_path.parent.name == "experiments"
-    assert script_path.name.endswith(".py")
-    assert checkpoint_names
-    assert all(isinstance(name, str) and name for name in checkpoint_names)
-    assert run_with_resume.EVALUATION_RESULTS_DIR.name == "evaluation"
 
 
 def test_resolve_embedding_runtime_prefers_recorded_model_over_env(

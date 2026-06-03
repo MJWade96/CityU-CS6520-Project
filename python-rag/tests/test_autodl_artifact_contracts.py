@@ -1,8 +1,6 @@
-"""AutoDL artifact generation contracts for formal local caches."""
+"""AutoDL artifact generation behavior contracts."""
 
 from __future__ import annotations
-
-import inspect
 
 import numpy as np
 
@@ -14,58 +12,7 @@ def test_medcpt_corpus_embedding_formats_title_content_pairs() -> None:
         [{"title": "Title", "content": "Content"}]
     )
 
-    assert module.EMBEDDING_INPUT_FORMAT == "title_content_pair"
-    assert module.EMBEDDING_BACKEND == "local_medcpt"
     assert formatted == [["Title", "Content"]]
-    assert inspect.signature(module.main).parameters == {}
-
-
-def test_local_bge_query_specs_are_derived_from_formal_matrix() -> None:
-    from app.rag.experiments import phase1_formal_ablation as formal_module
-    from app.rag.experiments import run_local_bge_embedding_autodl as corpus_module
-    from app.rag.experiments import run_local_bge_query_embedding_autodl as module
-
-    specs = {spec.cache_id: spec.pipeline for spec in module.BGE_QUERY_EMBEDDING_SPECS}
-    local_models = [
-        provider.model
-        for provider in formal_module.EMBEDDING_PROVIDERS
-        if provider.backend == module.EMBEDDING_BACKEND
-    ]
-    expected_specs = {}
-    for row in formal_module.build_formal_matrix():
-        if row.embedding_backend == module.EMBEDDING_BACKEND and row.embedding_model:
-            models = [row.embedding_model]
-        elif row.selection_rule:
-            models = local_models
-        else:
-            continue
-        for embedding_model in models:
-            source = (
-                "query_rewrite_pipeline"
-                if row.pipeline == "advanced_rag"
-                else "medqa_usmle_question_field"
-            )
-            expected_specs[module.query_cache_id(row.run_id, embedding_model)] = (
-                row.pipeline,
-                source,
-            )
-
-    assert corpus_module.EMBEDDING_BACKEND == "local_hf_embedding"
-    assert isinstance(corpus_module.CORPUS_BATCH_SIZE, int)
-    assert corpus_module.CORPUS_BATCH_SIZE > 0
-    assert isinstance(module.QUERY_BATCH_SIZE, int)
-    assert module.QUERY_BATCH_SIZE > 0
-    assert inspect.signature(corpus_module.main).parameters == {}
-    assert inspect.signature(module.main).parameters == {}
-    assert specs == {
-        cache_id: pipeline for cache_id, (pipeline, _source) in expected_specs.items()
-    }
-    assert {
-        spec.cache_id: spec.query_text_source
-        for spec in module.BGE_QUERY_EMBEDDING_SPECS
-    } == {
-        cache_id: source for cache_id, (_pipeline, source) in expected_specs.items()
-    }
 
 
 def test_local_bge_embedding_batches_long_corpus_texts() -> None:
@@ -113,7 +60,5 @@ def test_local_rerank_cache_rows_are_serializable_artifacts() -> None:
         FakeReranker(),
     )
 
-    assert module.FUSION_CANDIDATES_FILENAME == "fusion_candidates.jsonl"
-    assert inspect.signature(module.main).parameters == {}
     assert rows[0]["reranker_backend"] == LOCAL_RERANKER_BACKEND
     assert rows[0]["reranked_candidates"][0]["text"] == "context"

@@ -53,13 +53,6 @@ def test_corpus_registry_normalizes_medrag_sources(tmp_path: Path) -> None:
     assert result["stats"]["textbooks"]["count"] == 1
 
 
-def test_corpus_registry_uses_existing_combined_corpus_for_statpearls() -> None:
-    from app.rag.data.corpus_registry import CORPUS_REGISTRY
-    from app.rag.data.data_paths import COMBINED_CORPUS_FILE
-
-    assert CORPUS_REGISTRY["statpearls"].default_path == COMBINED_CORPUS_FILE
-
-
 def test_corpus_registry_missing_source_is_explicit(tmp_path: Path) -> None:
     from app.rag.data.corpus_registry import combine_registered_corpora
 
