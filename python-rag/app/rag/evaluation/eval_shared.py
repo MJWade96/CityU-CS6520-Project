@@ -68,9 +68,6 @@ class EvaluationLLMConfig:
             "RAG_LLM_ENABLE_THINKING", default=True
         )
     )
-    max_tokens: int = field(
-        default_factory=lambda: int(os.getenv("RAG_LLM_MAX_TOKENS", "38912"))
-    )
 
 
 def parse_optional_bool_env(
@@ -414,7 +411,6 @@ def get_qwen_completion_kwargs(config: EvaluationLLMConfig) -> Dict[str, Any]:
     kwargs = {
         "model": config.model,
         "temperature": config.temperature,
-        "max_tokens": config.max_tokens,
     }
     extra_body = build_extra_body(enable_thinking=config.enable_thinking)
     if extra_body:
@@ -428,7 +424,6 @@ def get_qwen_openai_like_kwargs(config: EvaluationLLMConfig) -> Dict[str, Any]:
     kwargs: Dict[str, Any] = {
         "model": config.model,
         "temperature": config.temperature,
-        "max_tokens": config.max_tokens,
         "api_key": config.api_key,
         "api_base": config.base_url,
         "is_chat_model": True,
