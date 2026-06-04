@@ -68,6 +68,9 @@ class EvaluationLLMConfig:
             "RAG_LLM_ENABLE_THINKING", default=True
         )
     )
+    max_tokens: int = field(
+        default_factory=lambda: int(os.getenv("RAG_LLM_MAX_TOKENS", "38912"))
+    )
 
 
 def parse_optional_bool_env(
@@ -411,6 +414,7 @@ def get_qwen_completion_kwargs(config: EvaluationLLMConfig) -> Dict[str, Any]:
     kwargs = {
         "model": config.model,
         "temperature": config.temperature,
+        "max_tokens": config.max_tokens,
     }
     extra_body = build_extra_body(enable_thinking=config.enable_thinking)
     if extra_body:
@@ -424,6 +428,7 @@ def get_qwen_openai_like_kwargs(config: EvaluationLLMConfig) -> Dict[str, Any]:
     kwargs: Dict[str, Any] = {
         "model": config.model,
         "temperature": config.temperature,
+        "max_tokens": config.max_tokens,
         "api_key": config.api_key,
         "api_base": config.base_url,
         "is_chat_model": True,
@@ -519,12 +524,18 @@ async def call_llm(
     ctx: EvalContext,
     prompt: str,
 ) -> str:
-    """Call LLM with rate limiting and return response content."""
+    """Call LLM with rate limiting and return response content.
+
+    Retries on network/server errors **and** on incomplete responses:
+    - ``content`` is empty (model emitted only ``reasoning_content``)
+    - ``finish_reason == "length"`` (output truncated by token limit)
+    """
     import asyncio
 
     max_retries = int(os.getenv("RAG_LLM_MAX_RETRIES", "5"))
     base_delay = 2.0
     last_exception = None
+    last_content = ""
 
     for attempt in range(max_retries):
         try:
@@ -539,11 +550,43 @@ async def call_llm(
                     messages=[{"role": "user", "content": prompt}],
                     **get_qwen_completion_kwargs(ctx.llm_config),
                 )
-            return (
-                completion.choices[0].message.content
-                or completion.choices[0].message.reasoning_content
-                or ""
-            )
+
+            choice = completion.choices[0]
+            content = choice.message.content or ""
+            finish_reason = choice.finish_reason
+
+            # --- Validation: empty content (reasoning-only response) ---
+            if not content:
+                last_content = ""
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2**attempt)
+                    delay += random.uniform(0.0, min(1.0, delay * 0.25))
+                    print(
+                        f"API Warning: empty content (reasoning-only response). "
+                        f"Retrying in {delay:.1f}s "
+                        f"(attempt {attempt + 1}/{max_retries})",
+                        flush=True,
+                    )
+                    await asyncio.sleep(delay)
+                continue
+
+            # --- Validation: output truncated by token limit ---
+            if finish_reason == "length":
+                last_content = content
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2**attempt)
+                    delay += random.uniform(0.0, min(1.0, delay * 0.25))
+                    print(
+                        f"API Warning: finish_reason='length' (output truncated). "
+                        f"Retrying in {delay:.1f}s "
+                        f"(attempt {attempt + 1}/{max_retries})",
+                        flush=True,
+                    )
+                    await asyncio.sleep(delay)
+                continue
+
+            return content
+
         except (
             # 捕获 OpenAI SDK 抛出的主要异常
             openai.RateLimitError,  # 429 限流
@@ -569,7 +612,10 @@ async def call_llm(
                 await asyncio.sleep(delay)
             continue
 
-    raise last_exception
+    # 所有重试均失败：若有 API 异常则抛出，否则返回最后获取的内容
+    if last_exception is not None:
+        raise last_exception
+    return last_content
 
 
 def build_eval_result(
