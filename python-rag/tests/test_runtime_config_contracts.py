@@ -4,6 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import json
+from types import SimpleNamespace
+
+import httpx
+import openai
+import pytest
 
 
 def test_openai_like_kwargs_keep_enable_thinking_inside_extra_body() -> None:
@@ -74,3 +79,121 @@ def test_resolve_embedding_runtime_prefers_recorded_model_over_env(
     )
 
     assert runtime["model_name"] == "recorded-model"
+
+
+class _ImmediateRateLimiter:
+    async def acquire(self) -> None:
+        return None
+
+
+class _SequenceCompletions:
+    def __init__(self, outcomes):
+        self.outcomes = list(outcomes)
+        self.calls = 0
+
+    async def create(self, **kwargs):
+        outcome = self.outcomes[self.calls]
+        self.calls += 1
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return outcome
+
+
+def _bad_request(error_type: str) -> openai.BadRequestError:
+    request = httpx.Request("POST", "https://example.test/v1/chat/completions")
+    response = httpx.Response(400, request=request)
+    body = {"error": {"type": error_type}}
+    return openai.BadRequestError(
+        f"Error code: 400 - {body}",
+        response=response,
+        body=body,
+    )
+
+
+def _eval_context(outcomes):
+    from app.rag.evaluation.eval_shared import EvalContext, EvaluationLLMConfig
+
+    completions = _SequenceCompletions(outcomes)
+    client = SimpleNamespace(chat=SimpleNamespace(completions=completions))
+    context = EvalContext(
+        client=client,
+        semaphore=asyncio.Semaphore(1),
+        rate_limiter=_ImmediateRateLimiter(),
+        token_rate_limiter=None,
+        llm_config=EvaluationLLMConfig(api_key="test-key"),
+    )
+    return context, completions
+
+
+def test_text_audit_answer_error_retries_once_without_delay(monkeypatch) -> None:
+    from app.rag.evaluation import eval_shared
+
+    audit_error = _bad_request("TEXT_AUDIT_ANSWER_NOT_PASS")
+    completion = SimpleNamespace(
+        choices=[
+            SimpleNamespace(
+                message=SimpleNamespace(content="Answer: A"),
+                finish_reason="stop",
+            )
+        ]
+    )
+    context, completions = _eval_context([audit_error, completion])
+
+    async def fail_if_slept(delay):
+        raise AssertionError("output-audit retry must not use backoff")
+
+    monkeypatch.setattr(eval_shared.asyncio, "sleep", fail_if_slept)
+
+    result = asyncio.run(eval_shared.call_llm(context, "prompt"))
+
+    assert result == "Answer: A"
+    assert completions.calls == 2
+
+
+def test_text_audit_answer_error_returns_marker_after_one_extra_attempt(
+    monkeypatch,
+) -> None:
+    from app.rag.evaluation import eval_shared
+
+    context, completions = _eval_context(
+        [
+            _bad_request("TEXT_AUDIT_ANSWER_NOT_PASS"),
+            _bad_request("TEXT_AUDIT_ANSWER_NOT_PASS"),
+        ]
+    )
+
+    async def fail_if_slept(delay):
+        raise AssertionError("output-audit retry must not use backoff")
+
+    monkeypatch.setattr(eval_shared.asyncio, "sleep", fail_if_slept)
+
+    result = asyncio.run(eval_shared.call_llm(context, "prompt"))
+
+    assert result == eval_shared.TEXT_AUDIT_ANSWER_NOT_PASS
+    assert completions.calls == 2
+
+
+def test_other_bad_request_keeps_existing_retry_policy(monkeypatch) -> None:
+    from app.rag.evaluation import eval_shared
+
+    monkeypatch.setenv("RAG_LLM_MAX_RETRIES", "3")
+    context, completions = _eval_context(
+        [
+            _bad_request("OTHER_BAD_REQUEST"),
+            _bad_request("OTHER_BAD_REQUEST"),
+            _bad_request("OTHER_BAD_REQUEST"),
+        ]
+    )
+    delays = []
+
+    async def record_sleep(delay):
+        delays.append(delay)
+
+    monkeypatch.setattr(eval_shared.asyncio, "sleep", record_sleep)
+    monkeypatch.setattr(eval_shared.random, "uniform", lambda *_: 0.0)
+
+    with pytest.raises(openai.BadRequestError, match="OTHER_BAD_REQUEST"):
+        asyncio.run(eval_shared.call_llm(context, "prompt"))
+
+    assert completions.calls == 3
+    assert delays == [2.0, 4.0]

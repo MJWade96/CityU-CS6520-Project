@@ -44,6 +44,7 @@ DEFAULT_BASE_URL = "https://wishub-x6.ctyun.cn/v1/"
 DEFAULT_MODEL = "8606056bfe0c49448d92587452d1f2fc"
 DEFAULT_PROVIDER = "ctyun"
 DEFAULT_API_KEY = "4dbe3bec3ee548d28b649b324e741939"
+TEXT_AUDIT_ANSWER_NOT_PASS = "TEXT_AUDIT_ANSWER_NOT_PASS"
 
 
 @dataclass
@@ -515,6 +516,14 @@ def print_formal_generator_event(
     )
 
 
+def is_text_audit_answer_error(exc: BaseException) -> bool:
+    """Identify the provider's retryable output-audit rejection."""
+    return (
+        isinstance(exc, openai.BadRequestError)
+        and TEXT_AUDIT_ANSWER_NOT_PASS in str(exc)
+    )
+
+
 async def call_llm(
     ctx: EvalContext,
     prompt: str,
@@ -531,6 +540,7 @@ async def call_llm(
     base_delay = 2.0
     last_exception = None
     last_content = ""
+    text_audit_failures = 0
 
     for attempt in range(max_retries):
         try:
@@ -592,6 +602,16 @@ async def call_llm(
             httpx.RequestError,
         ) as e:
             last_exception = e
+            if is_text_audit_answer_error(e):
+                text_audit_failures += 1
+                if text_audit_failures >= 2 or attempt >= max_retries - 1:
+                    return TEXT_AUDIT_ANSWER_NOT_PASS
+                print(
+                    "API Warning: TEXT_AUDIT_ANSWER_NOT_PASS encountered. "
+                    "Retrying once without delay.",
+                    flush=True,
+                )
+                continue
             if attempt < max_retries - 1:
                 delay = base_delay * (2**attempt)
                 delay += random.uniform(0.0, min(1.0, delay * 0.25))

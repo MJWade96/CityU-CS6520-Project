@@ -339,7 +339,11 @@ async def _run_formal_naive_evaluation(
             )
 
     elapsed = time.time() - start_time
-    failed_generator_questions = len(generator_error_rows)
+    generator_error_question_ids = formal_artifacts.unresolved_generator_error_ids(
+        generator_error_rows,
+        evaluation_rows,
+    )
+    failed_generator_questions = len(generator_error_question_ids)
     run_status = "completed" if failed_generator_questions == 0 else "generator_errors"
     metrics = {
         "run_id": config.formal_run_id,
@@ -349,7 +353,7 @@ async def _run_formal_naive_evaluation(
         "total_questions": len(questions),
         "processed_questions": len(results),
         "failed_generator_questions": failed_generator_questions,
-        "generator_error_question_ids": sorted(generator_error_rows),
+        "generator_error_question_ids": sorted(generator_error_question_ids),
         "correct": correct,
         "accuracy": correct / len(results) if results else 0.0,
         "elapsed_time": elapsed,

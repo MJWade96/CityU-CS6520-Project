@@ -63,6 +63,14 @@ def rows_by_question_id(path: Path) -> Dict[str, Dict[str, Any]]:
     return rows
 
 
+def unresolved_generator_error_ids(
+    error_rows: Mapping[str, Mapping[str, Any]],
+    evaluation_rows: Mapping[str, Mapping[str, Any]],
+) -> Set[str]:
+    """Return generator failures that do not have a later successful evaluation."""
+    return set(error_rows) - set(evaluation_rows)
+
+
 def append_jsonl_if_question_missing(path: Path, row: Mapping[str, Any]) -> None:
     """Append a row unless the final JSONL already contains its question id."""
     question_id = row.get("question_id")

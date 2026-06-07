@@ -283,6 +283,69 @@ def test_naive_formal_resume_reuses_partial_question_artifacts(
         assert len(read_jsonl(path)) == 1
 
 
+def test_naive_formal_audit_marker_resolves_historical_generator_error(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    from app.rag.evaluation import naive_rag_eval as module
+    from app.rag.evaluation.config import NaiveRAGEvalConfig
+
+    patch_formal_dirs(monkeypatch, tmp_path)
+    question_file = tmp_path / "questions.json"
+    write_questions(question_file)
+    monkeypatch.setattr(module, "load_vector_store", lambda _: FakeVectorStore())
+    monkeypatch.setattr(module, "create_eval_context", lambda *args: object())
+
+    run_dir = tmp_path / "runs" / "formal_naive"
+    run_dir.mkdir(parents=True)
+    historical_error = {
+        "question_id": "dev-1",
+        "error_type": "BadRequestError",
+        "error_message": "TEXT_AUDIT_ANSWER_NOT_PASS",
+    }
+    (run_dir / "generator_errors.jsonl").write_text(
+        json.dumps(historical_error) + "\n",
+        encoding="utf-8",
+    )
+
+    async def fake_call_llm(ctx, prompt):
+        return "TEXT_AUDIT_ANSWER_NOT_PASS"
+
+    monkeypatch.setattr(module, "call_llm", fake_call_llm)
+
+    result = asyncio.run(
+        module.run_complete_evaluation(
+            NaiveRAGEvalConfig(
+                dev_size=0,
+                test_size=1,
+                manual_top_k=1,
+                question_file=question_file,
+                vector_store_path=tmp_path / "index",
+                formal_run_id="formal_naive",
+                formal_metadata={
+                    "run_id": "formal_naive",
+                    "pipeline": "naive_rag",
+                    "embedding_backend": "siliconflow_api",
+                    "query_cache_id": "formal_naive",
+                },
+            )
+        )
+    )
+
+    metrics = result["test_results"]
+    manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+
+    assert read_jsonl(run_dir / "generator_errors.jsonl") == [historical_error]
+    assert metrics["status"] == "completed"
+    assert metrics["failed_generator_questions"] == 0
+    assert metrics["generator_error_question_ids"] == []
+    assert metrics["processed_questions"] == 1
+    assert metrics["detailed_results"][0]["response"] == "TEXT_AUDIT_ANSWER_NOT_PASS"
+    assert metrics["detailed_results"][0]["predicted_answer"] is None
+    assert metrics["detailed_results"][0]["is_correct"] is False
+    assert manifest["status"] == "completed"
+
+
 def test_enhanced_formal_writes_rewrite_and_component_caches(
     monkeypatch,
     tmp_path: Path,
