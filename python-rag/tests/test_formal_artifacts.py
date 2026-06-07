@@ -43,6 +43,15 @@ def test_jsonl_helpers_append_load_and_report_completed_ids(tmp_path: Path) -> N
     ]
 
 
+def test_successful_evaluations_resolve_historical_generator_errors() -> None:
+    from app.rag.evaluation.formal_artifacts import unresolved_generator_error_ids
+
+    errors = {"dev-1": {}, "dev-2": {}}
+    evaluations = {"dev-1": {}}
+
+    assert unresolved_generator_error_ids(errors, evaluations) == {"dev-2"}
+
+
 def test_json_and_path_helpers_use_formal_locations(
     monkeypatch,
     tmp_path: Path,
