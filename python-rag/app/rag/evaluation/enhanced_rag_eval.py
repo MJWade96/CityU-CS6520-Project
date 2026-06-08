@@ -31,6 +31,7 @@ from .eval_shared import (
     RateLimiter,
     build_medical_eval_prompt,
     call_llm,
+    call_llm_with_artifacts,
     create_eval_context,
     build_eval_result,
     format_retrieved_contexts,
@@ -413,6 +414,7 @@ async def _run_formal_enhanced_evaluation(
         llm_enable_thinking=config.llm.enable_thinking,
     )
     ctx = create_eval_context(config.llm, config.concurrency)
+    dataset_split = str(metadata.get("dataset_split", "dev"))
     query_text_rows = formal_artifacts.rows_by_question_id(query_texts_path)
     dense_rows = formal_artifacts.rows_by_question_id(dense_candidates_path)
     sparse_rows = formal_artifacts.rows_by_question_id(sparse_candidates_path)
@@ -558,7 +560,7 @@ async def _run_formal_enhanced_evaluation(
                     "dense_bm25_weights": list(config.dense_bm25_weights),
                     "query_enhancement": config.use_query_rewrite,
                 },
-                dataset_split="dev",
+                dataset_split=dataset_split,
                 fingerprint={
                     "query_texts": path_fingerprint(query_texts_path),
                     "dense_candidates": path_fingerprint(dense_candidates_path),
@@ -605,6 +607,9 @@ async def _run_formal_enhanced_evaluation(
                 "prompt": prompt,
                 "selected": selected,
                 "response": llm_rows.get(current_question_id, {}).get("response"),
+                "reasoning_content": llm_rows.get(current_question_id, {}).get(
+                    "reasoning_content"
+                ),
             }
         )
 
@@ -623,8 +628,11 @@ async def _run_formal_enhanced_evaluation(
         try:
             if cached:
                 response = str(job["response"])
+                reasoning_content = job.get("reasoning_content")
             else:
-                response = await call_llm(ctx, str(job["prompt"]))
+                llm_output = await call_llm_with_artifacts(ctx, str(job["prompt"]))
+                response = llm_output.response
+                reasoning_content = llm_output.reasoning_content
         except Exception as exc:
             error_type = type(exc).__name__
             print_formal_generator_event(
@@ -663,6 +671,7 @@ async def _run_formal_enhanced_evaluation(
                 evaluation_outputs_path=evaluation_outputs_path,
                 question_id=current_question_id,
                 response=response,
+                reasoning_content=reasoning_content,
                 result=result,
                 llm_rows=llm_rows,
                 evaluation_rows=evaluation_rows,
@@ -710,7 +719,8 @@ async def _run_formal_enhanced_evaluation(
     metrics = {
         "run_id": config.formal_run_id,
         "status": run_status,
-        "dataset_name": "Formal Dev Set",
+        "dataset_name": f"Formal {dataset_split.title()} Set",
+        "dataset_split": dataset_split,
         "top_k": config.top_k,
         "retrieval_top_k": config.resolved_retrieval_top_k,
         "reranker_top_k": config.resolved_reranker_top_k,
@@ -743,6 +753,7 @@ async def _run_formal_enhanced_evaluation(
             "cache_id": retrieval_path.name,
             "status": "completed",
             "pipeline": "advanced_rag",
+            "dataset_split": dataset_split,
             "processed_questions": len(results),
             "files": {
                 "query_texts": str(query_texts_path),
@@ -758,6 +769,7 @@ async def _run_formal_enhanced_evaluation(
             "cache_id": rerank_path.name,
             "status": "completed",
             "pipeline": "advanced_rag",
+            "dataset_split": dataset_split,
             "processed_questions": len(results),
             "files": {"rerank_outputs": str(rerank_outputs_path)},
         },

@@ -77,13 +77,15 @@ def _iter_jsonl(path: Path) -> Iterable[Dict[str, Any]]:
 
 def build_naive_query_text_rows(
     questions: Sequence[Mapping[str, Any]],
+    *,
+    dataset_split: str = DATASET_SPLIT,
 ) -> List[Dict[str, Any]]:
     """Keep query text construction separate from final answer prompt formatting."""
     rows: List[Dict[str, Any]] = []
     for index, item in enumerate(questions, start=1):
         rows.append(
             {
-                "question_id": item.get("id", f"{DATASET_SPLIT}-{index}"),
+                "question_id": item.get("id", f"{dataset_split}-{index}"),
                 "question": str(item["question"]),
                 "query_text": str(item["question"]),
                 "query_text_source": "medqa_usmle_question_field",

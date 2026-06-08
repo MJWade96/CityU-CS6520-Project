@@ -52,6 +52,34 @@ def test_successful_evaluations_resolve_historical_generator_errors() -> None:
     assert unresolved_generator_error_ids(errors, evaluations) == {"dev-2"}
 
 
+def test_generator_outputs_keep_reasoning_separate(tmp_path: Path) -> None:
+    from app.rag.evaluation.formal_artifacts import (
+        append_generator_outputs_if_missing,
+        load_jsonl,
+    )
+
+    llm_rows = {}
+    evaluation_rows = {}
+    append_generator_outputs_if_missing(
+        llm_outputs_path=tmp_path / "llm_outputs.jsonl",
+        evaluation_outputs_path=tmp_path / "evaluation_outputs.jsonl",
+        question_id="test-1",
+        response="Answer: A",
+        reasoning_content="reasoning trace",
+        result={"is_correct": True},
+        llm_rows=llm_rows,
+        evaluation_rows=evaluation_rows,
+    )
+
+    assert load_jsonl(tmp_path / "llm_outputs.jsonl") == [
+        {
+            "question_id": "test-1",
+            "response": "Answer: A",
+            "reasoning_content": "reasoning trace",
+        }
+    ]
+
+
 def test_json_and_path_helpers_use_formal_locations(
     monkeypatch,
     tmp_path: Path,

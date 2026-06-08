@@ -18,6 +18,7 @@ from .eval_shared import (
     RateLimiter,
     build_medical_eval_prompt,
     call_llm,
+    call_llm_with_artifacts,
     build_eval_result,
     create_eval_context,
     format_options,
@@ -242,6 +243,9 @@ async def _run_formal_naive_evaluation(
                 "prompt": prompt,
                 "selected": selected,
                 "response": llm_rows.get(current_question_id, {}).get("response"),
+                "reasoning_content": llm_rows.get(current_question_id, {}).get(
+                    "reasoning_content"
+                ),
             }
         )
 
@@ -260,8 +264,11 @@ async def _run_formal_naive_evaluation(
         try:
             if cached:
                 response = str(job["response"])
+                reasoning_content = job.get("reasoning_content")
             else:
-                response = await call_llm(ctx, str(job["prompt"]))
+                llm_output = await call_llm_with_artifacts(ctx, str(job["prompt"]))
+                response = llm_output.response
+                reasoning_content = llm_output.reasoning_content
         except Exception as exc:
             error_type = type(exc).__name__
             print_formal_generator_event(
@@ -300,6 +307,7 @@ async def _run_formal_naive_evaluation(
                 evaluation_outputs_path=evaluation_outputs_path,
                 question_id=current_question_id,
                 response=response,
+                reasoning_content=reasoning_content,
                 result=result,
                 llm_rows=llm_rows,
                 evaluation_rows=evaluation_rows,
@@ -339,6 +347,7 @@ async def _run_formal_naive_evaluation(
             )
 
     elapsed = time.time() - start_time
+    dataset_split = str(metadata.get("dataset_split", "dev"))
     generator_error_question_ids = formal_artifacts.unresolved_generator_error_ids(
         generator_error_rows,
         evaluation_rows,
@@ -348,7 +357,8 @@ async def _run_formal_naive_evaluation(
     metrics = {
         "run_id": config.formal_run_id,
         "status": run_status,
-        "dataset_name": "Formal Dev Set",
+        "dataset_name": f"Formal {dataset_split.title()} Set",
+        "dataset_split": dataset_split,
         "top_k": top_k,
         "total_questions": len(questions),
         "processed_questions": len(results),
@@ -378,6 +388,7 @@ async def _run_formal_naive_evaluation(
             "cache_id": retrieval_path.name,
             "status": "completed",
             "pipeline": "naive_rag",
+            "dataset_split": dataset_split,
             "processed_questions": len(results),
             "files": {
                 "query_texts": str(query_texts_path),
@@ -398,7 +409,7 @@ async def _run_formal_naive_evaluation(
                     "top_k": top_k,
                     "retrieval_top_k": retrieval_top_k,
                 },
-                dataset_split="dev",
+                dataset_split=dataset_split,
                 fingerprint={
                     "query_texts": path_fingerprint(query_texts_path),
                     "retrieval_top10": path_fingerprint(retrieval_top10_path),

@@ -454,6 +454,14 @@ class EvalContext:
     rate_limit_cooldown_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
 
+@dataclass(frozen=True)
+class LLMCallResult:
+    """One LLM response with provider reasoning kept separate from final content."""
+
+    response: str
+    reasoning_content: Optional[str] = None
+
+
 def create_eval_context(
     config: EvaluationLLMConfig, concurrency: ConcurrencyConfig
 ) -> EvalContext:
@@ -524,11 +532,18 @@ def is_text_audit_answer_error(exc: BaseException) -> bool:
     )
 
 
-async def call_llm(
+def _message_reasoning_content(message: Any) -> Optional[str]:
+    value = getattr(message, "reasoning_content", None)
+    if value is None:
+        value = (getattr(message, "model_extra", None) or {}).get("reasoning_content")
+    return str(value) if value is not None else None
+
+
+async def call_llm_with_artifacts(
     ctx: EvalContext,
     prompt: str,
-) -> str:
-    """Call LLM with rate limiting and return response content.
+) -> LLMCallResult:
+    """Call LLM and keep provider reasoning separate from answer content.
 
     Retries on network/server errors **and** on incomplete responses:
     - ``content`` is empty (model emitted only ``reasoning_content``)
@@ -540,6 +555,7 @@ async def call_llm(
     base_delay = 2.0
     last_exception = None
     last_content = ""
+    last_reasoning_content = None
     text_audit_failures = 0
 
     for attempt in range(max_retries):
@@ -558,11 +574,13 @@ async def call_llm(
 
             choice = completion.choices[0]
             content = choice.message.content or ""
+            reasoning_content = _message_reasoning_content(choice.message)
             finish_reason = choice.finish_reason
 
             # --- Validation: empty content (reasoning-only response) ---
             if not content:
                 last_content = ""
+                last_reasoning_content = reasoning_content
                 if attempt < max_retries - 1:
                     delay = base_delay * (2**attempt)
                     delay += random.uniform(0.0, min(1.0, delay * 0.25))
@@ -578,6 +596,7 @@ async def call_llm(
             # --- Validation: output truncated by token limit ---
             if finish_reason == "length":
                 last_content = content
+                last_reasoning_content = reasoning_content
                 if attempt < max_retries - 1:
                     delay = base_delay * (2**attempt)
                     delay += random.uniform(0.0, min(1.0, delay * 0.25))
@@ -590,7 +609,7 @@ async def call_llm(
                     await asyncio.sleep(delay)
                 continue
 
-            return content
+            return LLMCallResult(response=content, reasoning_content=reasoning_content)
 
         except (
             # 捕获 OpenAI SDK 抛出的主要异常
@@ -605,7 +624,7 @@ async def call_llm(
             if is_text_audit_answer_error(e):
                 text_audit_failures += 1
                 if text_audit_failures >= 2 or attempt >= max_retries - 1:
-                    return TEXT_AUDIT_ANSWER_NOT_PASS
+                    return LLMCallResult(response=TEXT_AUDIT_ANSWER_NOT_PASS)
                 print(
                     "API Warning: TEXT_AUDIT_ANSWER_NOT_PASS encountered. "
                     "Retrying once without delay.",
@@ -630,7 +649,16 @@ async def call_llm(
     # 所有重试均失败：若有 API 异常则抛出，否则返回最后获取的内容
     if last_exception is not None:
         raise last_exception
-    return last_content
+    return LLMCallResult(response=last_content, reasoning_content=last_reasoning_content)
+
+
+async def call_llm(
+    ctx: EvalContext,
+    prompt: str,
+) -> str:
+    """Call LLM with rate limiting and return response content."""
+    result = await call_llm_with_artifacts(ctx, prompt)
+    return result.response
 
 
 def build_eval_result(

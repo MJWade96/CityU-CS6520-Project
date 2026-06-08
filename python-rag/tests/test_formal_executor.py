@@ -84,6 +84,7 @@ def test_resolve_ranked_rows_use_prior_embedding_winners(monkeypatch) -> None:
 
 
 def test_build_eval_configs_preserve_row_values_and_formal_metadata(tmp_path: Path) -> None:
+    from app.rag.data.data_paths import MEDQA_USMLE_TEST_FILE
     from app.rag.experiments import formal_ablation_executor as module
 
     naive_row = _formal_row(run_id="naive-run", k=4)
@@ -95,7 +96,7 @@ def test_build_eval_configs_preserve_row_values_and_formal_metadata(tmp_path: Pa
         reranker_input_count=18,
         reranker_output_count=6,
     )
-    config = module.FormalExecutionConfig(max_questions=2)
+    config = module.FormalExecutionConfig(dataset_split="test", max_questions=2)
 
     naive_config = module.build_naive_eval_config(naive_row, tmp_path / "index", config)
     enhanced_config = module.build_enhanced_eval_config(
@@ -104,18 +105,21 @@ def test_build_eval_configs_preserve_row_values_and_formal_metadata(tmp_path: Pa
 
     assert naive_config.dev_size == 0
     assert naive_config.test_size == 2
+    assert naive_config.question_file == MEDQA_USMLE_TEST_FILE
     assert naive_config.manual_top_k == naive_row.k
     assert naive_config.concurrency.max_concurrent == (
         module.FORMAL_GENERATOR_MAX_CONCURRENT
     )
     assert naive_config.formal_run_id == naive_row.run_id
     assert naive_config.formal_metadata["run_id"] == naive_row.run_id
+    assert naive_config.formal_metadata["dataset_split"] == "test"
     assert naive_config.formal_metadata["query_cache_id"] == (
         f"{naive_row.run_id}__provider-a"
     )
 
     assert enhanced_config.dev_size == 0
     assert enhanced_config.test_size == 2
+    assert enhanced_config.question_file == MEDQA_USMLE_TEST_FILE
     assert enhanced_config.top_k == enhanced_row.k
     assert enhanced_config.retrieval_top_k == enhanced_row.reranker_input_count
     assert enhanced_config.reranker_top_k == enhanced_row.reranker_output_count
@@ -125,6 +129,7 @@ def test_build_eval_configs_preserve_row_values_and_formal_metadata(tmp_path: Pa
     )
     assert enhanced_config.formal_run_id == enhanced_row.run_id
     assert enhanced_config.formal_metadata["run_id"] == enhanced_row.run_id
+    assert enhanced_config.formal_metadata["dataset_split"] == "test"
 
 
 def test_execute_formal_run_skips_completed_metrics(

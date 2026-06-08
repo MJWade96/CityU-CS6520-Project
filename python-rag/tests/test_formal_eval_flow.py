@@ -100,10 +100,10 @@ def test_naive_formal_uses_question_text_for_retrieval(
     monkeypatch.setattr(module, "load_vector_store", lambda _: fake_store)
     monkeypatch.setattr(module, "create_eval_context", lambda *args: object())
 
-    async def fake_call_llm(ctx, prompt):
-        return "Answer: A"
+    async def fake_call_llm_with_artifacts(ctx, prompt):
+        return SimpleNamespace(response="Answer: A", reasoning_content=None)
 
-    monkeypatch.setattr(module, "call_llm", fake_call_llm)
+    monkeypatch.setattr(module, "call_llm_with_artifacts", fake_call_llm_with_artifacts)
     result = asyncio.run(
         module.run_complete_evaluation(
             NaiveRAGEvalConfig(
@@ -153,12 +153,12 @@ def test_naive_formal_records_generator_errors_without_stopping_pipeline(
     monkeypatch.setattr(module, "load_vector_store", lambda _: FakeVectorStore())
     monkeypatch.setattr(module, "create_eval_context", lambda *args: object())
 
-    async def fake_call_llm(ctx, prompt):
+    async def fake_call_llm_with_artifacts(ctx, prompt):
         if "Which diagnosis is most likely?" in prompt:
             raise RuntimeError("rate limited")
-        return "Answer: A"
+        return SimpleNamespace(response="Answer: A", reasoning_content=None)
 
-    monkeypatch.setattr(module, "call_llm", fake_call_llm)
+    monkeypatch.setattr(module, "call_llm_with_artifacts", fake_call_llm_with_artifacts)
 
     result = asyncio.run(
         module.run_complete_evaluation(
@@ -321,8 +321,8 @@ def test_enhanced_formal_writes_rewrite_and_component_caches(
                 [FakeNodeWithScore("fusion context", 0.9)],
             )
 
-    async def fake_call_llm(ctx, prompt):
-        return "Answer: A"
+    async def fake_call_llm_with_artifacts(ctx, prompt):
+        return SimpleNamespace(response="Answer: A", reasoning_content=None)
 
     config = EnhancedEvaluationConfig(
         dev_size=0,
@@ -375,7 +375,7 @@ def test_enhanced_formal_writes_rewrite_and_component_caches(
     monkeypatch.setattr(module, "QueryRewritePipeline", FakeQueryRewritePipeline)
     monkeypatch.setattr(module, "HybridRetriever", FakeHybrid)
     monkeypatch.setattr(module, "RerankerPipeline", lambda **kwargs: (_ for _ in ()).throw(AssertionError("formal mode must not call API reranker")))
-    monkeypatch.setattr(module, "call_llm", fake_call_llm)
+    monkeypatch.setattr(module, "call_llm_with_artifacts", fake_call_llm_with_artifacts)
 
     result = asyncio.run(module.run_enhanced_evaluation(config))
 

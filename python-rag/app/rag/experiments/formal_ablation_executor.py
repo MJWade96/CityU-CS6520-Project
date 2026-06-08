@@ -9,7 +9,12 @@ from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from app.rag.data.data_paths import MEDQA_USMLE_DEV_FILE, RUNS_DIR, ensure_data_directories
+from app.rag.data.data_paths import (
+    MEDQA_USMLE_DEV_FILE,
+    MEDQA_USMLE_TEST_FILE,
+    RUNS_DIR,
+    ensure_data_directories,
+)
 from app.rag.data.json_utils import load_json_safe, save_json_atomic
 from app.rag.evaluation.config import NaiveRAGEvalConfig
 from app.rag.evaluation.eval_shared import ConcurrencyConfig
@@ -242,6 +247,25 @@ def _formal_metadata(row: FormalRunSpec, index_path: Path) -> Dict[str, Any]:
     }
 
 
+def question_file_for_split(dataset_split: str) -> Path:
+    """Resolve the benchmark file once so all formal entrypoints share split semantics."""
+    if dataset_split == "dev":
+        return MEDQA_USMLE_DEV_FILE
+    if dataset_split == "test":
+        return MEDQA_USMLE_TEST_FILE
+    raise ValueError(f"Unsupported formal dataset_split: {dataset_split}")
+
+
+def _formal_metadata_for_config(
+    row: FormalRunSpec,
+    index_path: Path,
+    config: FormalExecutionConfig,
+) -> Dict[str, Any]:
+    metadata = _formal_metadata(row, index_path)
+    metadata["dataset_split"] = config.dataset_split
+    return metadata
+
+
 def build_naive_eval_config(
     row: FormalRunSpec,
     index_path: Path,
@@ -252,10 +276,10 @@ def build_naive_eval_config(
         test_size=config.max_questions,
         manual_top_k=row.k,
         vector_store_path=index_path,
-        question_file=MEDQA_USMLE_DEV_FILE,
+        question_file=question_file_for_split(config.dataset_split),
         concurrency=ConcurrencyConfig(max_concurrent=FORMAL_GENERATOR_MAX_CONCURRENT),
         formal_run_id=row.run_id,
-        formal_metadata=_formal_metadata(row, index_path),
+        formal_metadata=_formal_metadata_for_config(row, index_path, config),
     )
 
 
@@ -272,11 +296,11 @@ def build_enhanced_eval_config(
         reranker_top_k=int(row.reranker_output_count),
         hybrid_alpha=float(row.alpha),
         vector_store_path=index_path,
-        question_file=MEDQA_USMLE_DEV_FILE,
+        question_file=question_file_for_split(config.dataset_split),
         use_query_rewrite=row.query_enhancement_setting == "on",
         concurrency=ConcurrencyConfig(max_concurrent=FORMAL_GENERATOR_MAX_CONCURRENT),
         formal_run_id=row.run_id,
-        formal_metadata=_formal_metadata(row, index_path),
+        formal_metadata=_formal_metadata_for_config(row, index_path, config),
     )
 
 
@@ -287,6 +311,7 @@ def _extract_run_metrics(row: FormalRunSpec, result: Dict[str, Any]) -> Dict[str
         "status": str(test_results.get("status", "completed")),
         "stage": row.stage,
         "pipeline": row.pipeline,
+        "dataset_split": row.dataset_split,
         "corpus_version": row.corpus_version,
         "embedding_model": row.embedding_model,
         "embedding_backend": row.embedding_backend,

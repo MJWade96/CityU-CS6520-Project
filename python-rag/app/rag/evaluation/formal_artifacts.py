@@ -85,13 +85,18 @@ def append_generator_outputs_if_missing(
     evaluation_outputs_path: Path,
     question_id: str,
     response: str,
+    reasoning_content: str | None = None,
     result: Mapping[str, Any],
     llm_rows: Dict[str, Dict[str, Any]],
     evaluation_rows: Dict[str, Dict[str, Any]],
 ) -> None:
     """Persist generator artifacts once so formal evaluators share output semantics."""
     if question_id not in llm_rows:
-        llm_row = {"question_id": question_id, "response": response}
+        llm_row = {
+            "question_id": question_id,
+            "response": response,
+            "reasoning_content": reasoning_content,
+        }
         append_jsonl_with_checkpoint(llm_outputs_path, llm_row)
         llm_rows[question_id] = llm_row
     if question_id not in evaluation_rows:

@@ -24,7 +24,6 @@ from app.rag.experiments.phase1_formal_ablation import (
     _slug,
 )
 from app.rag.experiments.run_medcpt_query_embedding_autodl import (
-    DATASET_SPLIT,
     QUERY_EMBEDDING_MANIFEST_FILENAME,
     QUERY_TEXTS_FILENAME,
     _iter_jsonl,
@@ -39,6 +38,7 @@ from app.rag.experiments.run_local_bge_embedding_autodl import (
 
 
 EMBEDDING_BACKEND = "local_hf_embedding"
+DATASET_SPLIT = "dev"
 QUERY_INPUT_FORMAT = "retrieval_query_text_only"
 QUERY_BATCH_SIZE = 256
 
@@ -106,7 +106,7 @@ def resolve_query_text_rows(
     """Resolve query embedding inputs while preserving the existing prompt boundary."""
     path = _query_texts_path(spec)
     if spec.pipeline == "naive_rag":
-        rows = build_naive_query_text_rows(questions)
+        rows = build_naive_query_text_rows(questions, dataset_split=DATASET_SPLIT)
         _write_jsonl(path, rows)
         return rows
 
