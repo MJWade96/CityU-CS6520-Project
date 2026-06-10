@@ -45,7 +45,7 @@ DEFAULT_RUN_STAGES = (
     "5_reranker_input_ablation",
 )
 
-FORMAL_GENERATOR_MAX_CONCURRENT = 6
+FORMAL_GENERATOR_MAX_CONCURRENT = 2
 
 
 @dataclass(frozen=True)
